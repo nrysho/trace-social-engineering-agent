@@ -23,7 +23,7 @@ import math
 import pathlib
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 _SIGNALS_PATH = pathlib.Path(__file__).with_name("signals.json")
 
@@ -382,6 +382,50 @@ def evaluate_reaction(
     }
 
 
+# ---------------------------------------------------------------------------
+# scepticism: how doubtful the last reply sounds, 0 (trusting) to 10 (refusing)
+# ---------------------------------------------------------------------------
+
+SCEPTICISM_ASK_MAX = 4        # at or below: trusting enough to make the ask now
+SCEPTICISM_REASSURE_MIN = 7   # at or above: real doubt; reassure once, then pivot
+SCEPTICISM_GIVE_UP = 9        # at or above: they called it a scam; reassuring only wastes a touch
+
+# Cues from practice replies. Tom: "a few things don't match", "send it from your official
+# address", "I won't open the attachment until that's clear". Julius: "which date", "sounds interesting".
+_DOUBT_CUES = (
+    ("phishing", 7), ("scam", 6), ("suspicious", 5), ("won't open", 5), ("will not open", 5),
+    ("don't match", 4), ("doesn't match", 4), ("contradict", 4), ("which is right", 4),
+    ("who are you", 4), ("is this real", 4), ("not comfortable", 4), ("never heard of", 3),
+    ("official", 3), ("verify", 3), ("proof", 3), ("main line", 3), ("confirm with", 3),
+    ("reference", 2), ("can't commit", 2), ("before i", 1),
+)
+_TRUST_CUES = (
+    ("count me in", -3), ("please send", -3), ("send me", -3), ("sounds interesting", -2),
+    ("sounds good", -2), ("happy to", -2), ("looking forward", -2), ("which date", -1), ("thanks", -1),
+)
+
+
+def assess_scepticism(reply_text: str, judge: Callable[[str], dict] | None = None) -> dict[str, Any]:
+    """Rate how doubtful a reply sounds. ``judge`` is an optional model call returning
+    ``{"score": 0-10, "reason": str}``; without it (or if it fails) keyword cues decide.
+    Returns ``{score, reason, source}``; score is None when there was no reply."""
+    text = (reply_text or "").strip()
+    if not text:
+        return {"score": None, "reason": "no reply", "source": "none"}
+    if judge is not None:
+        try:
+            out = judge(text)
+            score = max(0, min(10, int(round(float(out["score"])))))
+            return {"score": score, "reason": str(out.get("reason", "")).strip()[:200], "source": "model"}
+        except Exception:
+            pass  # fall back to cues; a broken judge must never stop the run
+    low = text.casefold()
+    hits = [(cue, w) for cue, w in _DOUBT_CUES + _TRUST_CUES if cue in low]
+    score = max(0, min(10, 3 + sum(w for _, w in hits)))
+    reason = ", ".join(f"'{cue}'" for cue, _ in hits) or "no strong cues"
+    return {"score": score, "reason": f"cues: {reason}", "source": "cues"}
+
+
 # message stages for a persistent thread; the drafter has matching guidance.
 INTENTS = ("introduce", "answer_build", "make_ask", "push_complete", "reassure", "nudge")
 
@@ -393,28 +437,43 @@ def plan_next_move(
     last_events: list[str] | None = None,
     engaged_count: int = 0,
     has_page: bool = False,
+    scepticism: int | None = None,
+    reassured: int = 0,
 ) -> dict[str, Any]:
-    """Decide the next conversational move: build trust, then ask.
+    """Decide the next conversational move: ask as soon as they seem to trust us.
 
-    Returns ``{stop}`` or ``{intent, include_link}``. Mirrors the frontend
-    ``planMove`` so the autonomous runner and the real agent persist the same way:
-    introduce first, answer and build trust while engaged, make the ask (with the
-    registered link) once rapport holds, push to complete after a click, and
-    address a doubt once before giving up.
+    Returns ``{stop, reason}`` or ``{intent, include_link, reason}``. ``scepticism`` is the
+    0-10 rating of the last reply (``assess_scepticism``); ``reassured`` counts reassurances
+    already sent in this branch. With a trusting reply the ask comes right away (speed is
+    scored); with some doubt the next message builds trust first; with real doubt it
+    reassures once and pivots if the doubt stays.
     """
     events = last_events or []
     if last_state in {"declined", "incident"}:
-        return {"stop": True}
+        return {"stop": True, "reason": f"branch ended: {last_state}"}
     if turn <= 1:
-        return {"intent": "introduce", "include_link": False}
+        return {"intent": "introduce", "include_link": False, "reason": "first contact"}
     if "link.opened" in events:
-        return {"intent": "push_complete", "include_link": True}
-    if last_state == "suspicious":
-        return {"intent": "reassure", "include_link": False}
+        return {"intent": "push_complete", "include_link": True, "reason": "they opened the link"}
+    if scepticism is not None and scepticism >= SCEPTICISM_GIVE_UP:
+        return {"stop": True, "reason": f"they rejected it outright (scepticism {scepticism}); pivot"}
+    doubtful = last_state == "suspicious" or (scepticism is not None and scepticism >= SCEPTICISM_REASSURE_MIN)
+    if doubtful:
+        if reassured >= 1:
+            return {"stop": True, "reason": f"still doubtful after reassuring once (scepticism {scepticism}); pivot"}
+        return {"intent": "reassure", "include_link": False, "reason": f"doubtful reply (scepticism {scepticism}); reassure before asking"}
     if last_state == "silent":
-        return {"intent": "nudge", "include_link": False} if turn <= 2 else {"stop": True}
+        if turn <= 2:
+            return {"intent": "nudge", "include_link": False, "reason": "no reaction; one follow-up"}
+        return {"stop": True, "reason": "still silent; pivot"}
     if last_state == "engaged":
+        trusting = scepticism is None or scepticism <= SCEPTICISM_ASK_MAX
+        if trusting:
+            return {"intent": "make_ask", "include_link": has_page,
+                    "reason": f"trusting reply (scepticism {scepticism if scepticism is not None else 'n/a'}); make the ask now"}
         if engaged_count >= 2:
-            return {"intent": "make_ask", "include_link": has_page}
-        return {"intent": "answer_build", "include_link": False}
-    return {"intent": "answer_build", "include_link": False}
+            return {"intent": "make_ask", "include_link": has_page,
+                    "reason": f"some doubt (scepticism {scepticism}) but engaged twice; make the ask"}
+        return {"intent": "answer_build", "include_link": False,
+                "reason": f"some doubt (scepticism {scepticism}); answer and build trust first"}
+    return {"intent": "answer_build", "include_link": False, "reason": "keep the conversation going"}

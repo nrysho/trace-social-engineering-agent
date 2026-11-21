@@ -1,7 +1,8 @@
 # Person 5 release readiness
 
-Prepared on 21 November 2026 on **theja-person5**, incorporating main **dc10404**.
-Main has not been changed. Review and merge this branch separately.
+Integration checked on 22 November 2026 on **theja-person5**, incorporating main
+**cb9b2e8**, including the latest writer/strategy update. The final combined
+regression suite has 185 passing tests with browser checks enabled and no skips.
 
 ## Implemented and locally checked
 
@@ -109,3 +110,18 @@ The final writer/recon configuration still needs broader team acceptance.
    through Hack League. These actions cannot be certified by automated tests.
 
 Read PERSON5_HANDOFF.md and PITCH_3_MIN.md for role-specific actions and script.
+
+## Latest writer integration
+
+The merge preserves main's writer.py, strategy.py and bench/server.py changes,
+including persona generation, attachment context, link-following guidance and
+scepticism handling. Automatic QA correction forwards its feedback alongside
+those writer arguments. Scenario/company fallback remains within the selected
+scenario. Model-generated domains cannot grant themselves approval: the runner
+keeps the deterministic playbook sender for unapproved candidates. To permit a
+reviewed domain, configure QUALITY_APPROVED_SENDER_DOMAINS and, for pages,
+QUALITY_APPROVED_LINK_HOSTS in local .env. Organisation-domain blocks still apply.
+
+No additional official contacts were spent to validate this merge. The recorded
+live call above exercised the preceding writer version; the latest writer merge
+is verified offline, not a new claim of live model performance.

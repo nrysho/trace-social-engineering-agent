@@ -2,7 +2,8 @@
 
 Use **theja-person5**. It contains both the integrated sending guard and the
 advanced evidence/identity/SQLite package from the former theja-person5-main.
-Main has not been changed. See [the consolidation record](docs/CONSOLIDATION.md).
+See [the consolidation record](docs/CONSOLIDATION.md) and the
+[current integration checks](docs/PERSON5_RELEASE.md).
 
 ## What runs by default on this branch
 
