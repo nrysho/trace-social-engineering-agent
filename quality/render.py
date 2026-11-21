@@ -36,10 +36,10 @@ def document(artifact):
         heading = f"From: {sender.get('name', 'Not recorded')} <{sender.get('address', 'Not recorded')}>"
         title = str(artifact.get('subject', ''))
     content = str(artifact.get('html') or artifact.get('body') or artifact.get('text') or artifact.get('say') or '')
-    is_html = 'html' in artifact or bool(re.search(r'<[a-zA-Z][^>]*>', content))
+    is_html = bool(artifact.get('html')) if kind == 'page' else bool(re.search(r'<[a-zA-Z][^>]*>', content))
     if not is_html:
         content = '<div style="white-space:pre-wrap">' + escape(content) + '</div>'
-    if kind == 'page':
+    if kind == 'page' and not is_html:
         for name in artifact.get('fields', []):
             content += '<p><label>' + escape(str(name)) + '<br><input disabled aria-label="' + escape(str(name), quote=True) + '"></label></p>'
     return ('<!doctype html><html><head><meta charset="utf-8">'

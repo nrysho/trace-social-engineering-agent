@@ -113,4 +113,8 @@ Run `python -m quality.demo --output output/quality/walkthrough`, then open its 
 
 ## Teammate acceptance command
 
-Run `python -m quality.acceptance --output output/quality/acceptance` (requests must be installed for client tests). Add `--browser` with Playwright and Chrome to include the optional visual tests. The current full suite has 53 passing tests. Read [TEAMMATE_ACCEPTANCE.md](docs/TEAMMATE_ACCEPTANCE.md) for commands, expected outcomes, role-specific checks and troubleshooting.
+Run `python -m quality.acceptance --output output/quality/acceptance` (requests must be installed for client tests). Add `--browser` with Playwright and Chrome to include the optional visual tests. The current full suite has 68 passing tests. Read [TEAMMATE_ACCEPTANCE.md](docs/TEAMMATE_ACCEPTANCE.md) for commands, expected outcomes, role-specific checks and troubleshooting.
+
+## Current branch compatibility
+
+See [BRANCH_COMPATIBILITY.md](docs/BRANCH_COMPATIBILITY.md) for current main's agent loop, Neryss's viewer bundle exporter and Sherwin's profile handoff checks. Full acceptance now has 68 tests (66 pass by default, two optional browser checks). The team must still select the guarded client in its actual loop.

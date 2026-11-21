@@ -22,3 +22,7 @@ Recorded on 21 November 2026 during this implementation, not a reconstructed fir
 - We chose a one-command acceptance runner with saved machine-readable results over requiring teammates to interpret scattered commands. Requested browser checks cannot silently skip and still pass acceptance.
 - We narrowed the as-an-AI rule to model-directed contexts and accepted case-insensitive HTTPS because legitimate AI-related work descriptions and valid URL schemes should not be blocked unnecessarily. Regression tests retain actual prohibited directives.
 - We chose structured rejection for malformed shared payloads and readable repair guidance over exposing a traceback or requiring users to inspect raw JSON first. Raw reports remain available for integration.
+
+## Current branch adaptation
+
+Inspected main 16ae78b, neryss/viewer a7da34e and recon-osint b718bcc. Added a practice-session lifecycle adapter, explicit replay export and structural profile review without modifying team modules. Full 68-test browser-enabled acceptance passed. Verified a synthetic exported bundle in an isolated copy of Neryss's actual viewer over localhost with no page errors. Main's loop was exercised with fake HTTP/writers, including blocked sends and a local evaluator incident label unsupported as a credential outcome. Export refuses conflicting joins, preserves raw statuses and exposes unmatched evidence rather than guessing. See BRANCH_COMPATIBILITY.md for the integration gaps.

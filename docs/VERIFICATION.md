@@ -28,3 +28,11 @@ Executed python -m quality.acceptance --browser: accepted=true, 53 tests, zero s
 Added regression coverage for valid multilingual content, long valid emails, legitimate AI-related role descriptions, uppercase HTTPS, malformed field types, oversized content, subject newlines, unfinished angle placeholders, unclosed empty anchors and attachment limits. Correction pages now show the original rejected draft, suggested fixes and accepted revision; result pages display readable unknowns and alternatives.
 
 Human rehearsals remain unperformed. Acceptance does not install the wrapper in team scripts or establish real outcomes.
+
+## Current branch adaptation
+
+Inspected main 16ae78b, neryss/viewer a7da34e and recon-osint b718bcc. Added a practice-session lifecycle adapter, explicit replay export and structural profile review without modifying team modules. Full 68-test browser-enabled acceptance passed. Verified a synthetic exported bundle in an isolated copy of Neryss's actual viewer over localhost with no page errors. Main's loop was exercised with fake HTTP/writers, including blocked sends and a local evaluator incident label unsupported as a credential outcome. Export refuses conflicting joins, preserves raw statuses and exposes unmatched evidence rather than guessing. See BRANCH_COMPATIBILITY.md for the integration gaps.
+
+Final refresh also inspected Izen's 91f10d5 strategy/writer branch. Added sender-email mapping, explicit-page-URL checks, call-line checks and provenance preservation adapters. Full 68-test acceptance passed with zero skips; generated model requests and the Node lab's send routes are not exercised or modified by these adapters.
+
+Actual Izen writer.generate_message and make_landing_page were also exercised from branch 91f10d5 with a fake completion and network prohibition; the adapter accepted the resulting shared message/page. HTML page previews now preserve existing form controls without synthesizing duplicate fields. No writer/model network request occurred.

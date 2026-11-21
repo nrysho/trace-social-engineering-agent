@@ -108,4 +108,10 @@ Without that variable, two optional Chrome tests skip. With Chrome/Playwright in
 
 ## Teammate acceptance update
 
-Use `python -m quality.acceptance --output output/quality/acceptance` for a single local acceptance run; add --browser for Chrome checks. See TEAMMATE_ACCEPTANCE.md. The current full suite has 53 passing tests; the default run skips two browser tests. New edge cases cover multilingual text, long valid mail, header newlines, malformed types, uppercase links and credential-free human-readable correction reports. Reports now show Not recorded for missing metrics.
+Use `python -m quality.acceptance --output output/quality/acceptance` for a single local acceptance run; add --browser for Chrome checks. See TEAMMATE_ACCEPTANCE.md. The current full suite has 68 passing tests; the default run skips two browser tests. New edge cases cover multilingual text, long valid mail, header newlines, malformed types, uppercase links and credential-free human-readable correction reports. Reports now show Not recorded for missing metrics.
+
+## Current-main / branch adaptation
+
+Read BRANCH_COMPATIBILITY.md. GuardedClient supports the new loop's practice-session lifecycle. quality.viewer_export joins selected tree/API logs into Neryss's bundle format. quality.cli profile checks source structure without performing research. Full acceptance now has 68 passing tests with --browser; default skips two.
+
+Izen's new writer result adapter is documented in BRANCH_COMPATIBILITY.md. Use as_shared_message on a prepared result before GuardedClient.send_message. The Node strategy-lab routes remain a separate integration boundary, not automatically protected by Python helpers.

@@ -12,7 +12,7 @@ LIVE_CHANNELS = {'phone_call', 'video_call', 'teams_call', 'live_chat'}
 
 
 class GuardedClient:
-    def __init__(self, client, context, *, session_ids, conversation_sessions=None, audit=None):
+    def __init__(self, client, context, *, session_ids=(), conversation_sessions=None, audit=None):
         validate_context(context)
         self.client = client
         self.context = deepcopy(context)
@@ -25,6 +25,44 @@ class GuardedClient:
             raise ValueError('Resumed conversations must map to an authorised session')
         self.audit = audit
 
+    def scenarios(self):
+        return self.client.scenarios()
+
+    def channels(self):
+        return self.client.channels()
+
+    def create_session(self, scenario_id='practice'):
+        if scenario_id != 'practice':
+            raise QualityBlocked(QualityReport(errors=['Only practice session creation is supported by this wrapper']))
+        response = self.client.create_session(scenario_id)
+        sid = response.get('session_id')
+        if not isinstance(sid, str) or not sid or response.get('scenario_id', 'practice') != 'practice':
+            raise ValueError('Unexpected practice session response; session not authorised')
+        self.sessions = self.sessions | {sid}
+        return response
+
+    def get_session(self, sid):
+        self._scope(sid)
+        return self.client.get_session(sid)
+
+    def get_events(self, sid):
+        self._scope(sid)
+        return self.client.get_events(sid)
+
+    def end_session(self, sid):
+        self._scope(sid)
+        response = self.client.end_session(sid)
+        self.sessions = self.sessions - {sid}
+        self.conversations = {cid: owner for cid, owner in self.conversations.items() if owner != sid}
+        return response
+
+    def end_conversation(self, cid):
+        if cid not in self.conversations:
+            raise QualityBlocked(QualityReport(errors=['Conversation not authorised']))
+        response = self.client.end_conversation(cid)
+        del self.conversations[cid]
+        return response
+
     def _scope(self, sid):
         if sid not in self.sessions:
             raise QualityBlocked(QualityReport(errors=['Session not explicitly authorised']))
@@ -34,7 +72,6 @@ class GuardedClient:
             self.audit({'operation': operation, 'report': deepcopy(report)})
 
     def send_message(self, message):
-        from schemas import message_from_dict
         # Snapshot before validation; never send a caller-mutated or audit-mutated draft.
         from .integration import plain
         snapshot = plain(message)
@@ -46,14 +83,8 @@ class GuardedClient:
             raise
         self._audit('message', prepared['report'])
         # Convert API-ready representation back to current shared Message for Mavis.
-        body = prepared['payload']
-        shared = message_from_dict({
-            'session_id': prepared['session_id'], 'channel': body['channel'],
-            'to': body['to'], 'sender': body['from'], 'subject': body.get('subject', ''),
-            'body': body['body'], 'attachments': body.get('attachments', []),
-            'landing_page': prepared['page'], 'idempotency_key': prepared['idempotency_key'],
-            'node_id': prepared.get('node_id') or '',
-        })
+        from .integration import as_shared_message
+        shared = as_shared_message(prepared)
         # Mavis registers the already-validated page before sending the message.
         return self.client.send_message(shared)
 

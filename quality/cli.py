@@ -42,6 +42,9 @@ def main(argv=None):
     p = sub.add_parser('report')
     p.add_argument('file', type=Path)
     p.add_argument('--output', type=Path, required=True)
+    p = sub.add_parser('profile')
+    p.add_argument('file', type=Path)
+    p.add_argument('--output', type=Path)
     args = parser.parse_args(argv)
     try:
         data = load(args.file)
@@ -53,6 +56,14 @@ def main(argv=None):
             (args.output / 'report.html').write_text(report_html(summary, decisions), encoding='utf-8')
             print(json.dumps(summary, indent=2))
             return 0
+        if args.command == 'profile':
+            from .profile_review import review_profile
+            report = review_profile(data).to_dict()
+            if args.output:
+                args.output.mkdir(parents=True, exist_ok=True)
+                (args.output/'profile-quality.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+            print(json.dumps(report, indent=2))
+            return 0 if report['passed'] else 2
         context = load(args.context)
         if args.command in {'validate', 'render'}:
             prepared = prepare_message(data, context)

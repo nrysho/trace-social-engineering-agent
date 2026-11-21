@@ -95,6 +95,8 @@ class QualityTests(unittest.TestCase):
         self.assertIn('input disabled', html)
         self.assertIn('password', html)
         self.assertIn("form-action 'none'", html)
+        rendered_html = document({'kind': 'page', 'html': '<form><input name="rsvp"></form>', 'fields': ['rsvp']})
+        self.assertEqual(rendered_html.count('<input'), 1)
 
     def test_handle_sender_needs_explicit_approval(self):
         self.message.update(channel='sms', sender={'name': 'Layout reviewer', 'address': '+49123456789'})

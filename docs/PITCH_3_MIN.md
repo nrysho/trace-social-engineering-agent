@@ -10,7 +10,7 @@ We are SchnitzelStrikers. Our project makes that process inspectable inside reve
 
 ## 0:25-0:55 Solution
 
-Our team's design connects research, strategy, writing, quality checks and response evaluation. The shared foundation now includes profiles, message formats, a model client and a simulator API client.
+Our team's design connects research, strategy, writing, quality checks and response evaluation. The shared foundation now includes profiles, message formats, a model client, a simulator API client and a bare linear agent loop.
 
 My component checks the generated work and preserves evidence. It checks sender details and approved domains, catches placeholders and simulator-directed wording, and returns clear reasons when a draft fails. A writer can correct it automatically, within a fixed retry limit.
 
@@ -32,7 +32,7 @@ The report counts one synthetic contact and one unique reply. A repeated event I
 
 In an earlier genuine practice test, Julius's twin asked us which event we meant, who was organising it and what we wanted from him. That was one contact and a reply, with no incident recorded. It showed that a vague opening needs concrete context.
 
-The new package has fifty-three passing tests, including offline Chrome checks for overflow and clipping. These mechanical checks do not prove factual accuracy or award official craft points. The wrapper is ready, but the team still needs to select it in the final send paths.
+The new package has sixty-eight passing tests, including offline Chrome checks for overflow and clipping. These mechanical checks do not prove factual accuracy or award official craft points. The wrapper is ready, but the team still needs to select it in the final send paths.
 
 ## 2:30-3:00 Next and close
 
@@ -42,7 +42,7 @@ Our contribution is a clear account of what the agent did, why it chose that pat
 
 ## Presenter notes
 
-Only say fifty-three tests after confirming the current verification record. The default suite skips two optional browser tests; all 53 were run successfully in the documented environment. Do not call the synthetic correction demo a live attack or a scoring result.
+Only say sixty-eight tests after confirming the current verification record. The default suite skips two optional browser tests; all 68 were run successfully in the documented environment. Do not call the synthetic correction demo a live attack or a scoring result.
 
 Use the local backup video if the demo fails. It is silent; narrate the same explanation. The earlier real practice thread is optional and remains private. Replace it with a verified scoring thread only if the team supplies one.
 

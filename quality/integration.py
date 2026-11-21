@@ -134,6 +134,17 @@ def checked_message(message, context):
     return prepared
 
 
+def as_shared_message(prepared):
+    """Rebuild the shared Message for Mavis's public client; final guard rechecks it."""
+    from schemas import message_from_dict
+    body = deepcopy(prepared['payload'])
+    return message_from_dict({'session_id': prepared['session_id'], 'channel': body['channel'],
+        'to': body['to'], 'sender': body['from'], 'subject': body.get('subject', ''),
+        'body': body['body'], 'attachments': body.get('attachments', []),
+        'landing_page': deepcopy(prepared.get('page')), 'idempotency_key': prepared['idempotency_key'],
+        'node_id': prepared.get('node_id') or ''})
+
+
 def checked_turn(turn, context):
     data = plain(turn)
     report = inspect_artifact({'kind': 'turn', 'say': data.get('say'),

@@ -11,7 +11,7 @@ python -m pip install requests
 python -m quality.acceptance --output output/quality/acceptance
 ```
 
-Expected: accepted=true, suite_exit_code=0, fixture_expectations_matched=true, blocked_fake_sends=0, correction_attempts=2. The current default run discovers 53 tests: 51 pass, two optional Chrome tests skip. The test count can grow; do not hardcode it as an integration requirement.
+Expected: accepted=true, suite_exit_code=0, fixture_expectations_matched=true, blocked_fake_sends=0, correction_attempts=2. The current default run discovers 63 tests: 66 pass, two optional Chrome tests skip. The test count can grow; do not hardcode it as an integration requirement.
 
 Outputs:
 
@@ -30,7 +30,7 @@ python -m pip install -r requirements-quality.txt
 python -m quality.acceptance --browser --output output/quality/acceptance-browser
 ```
 
-Expected: accepted=true and tests_skipped=0. All 53 current tests, including overflow/clipping and stale-screenshot checks, passed on the development laptop. If Chrome/Playwright is unavailable, install the optional tooling or use the default checks; do not describe skipped browser tests as passed. A requested browser run rejects acceptance if any test skips.
+Expected: accepted=true and tests_skipped=0. All 63 current tests, including overflow/clipping and stale-screenshot checks, passed on the development laptop. If Chrome/Playwright is unavailable, install the optional tooling or use the default checks; do not describe skipped browser tests as passed. A requested browser run rejects acceptance if any test skips.
 
 ## 3. Mavis: integration boundary
 
@@ -72,3 +72,9 @@ Send Theja the acceptance.json plus the relevant non-sensitive test failure. Nev
 ## Remaining boundaries
 
 No official scoring claim, proof of domain registration, guaranteed factual truth or automatic aesthetic review is provided. Images remain unsupported. A successful local acceptance run is evidence of the tested component only; team integration and an authorised practice run must still be verified separately.
+
+## Current-main / branch adaptation
+
+Read BRANCH_COMPATIBILITY.md. GuardedClient supports the new loop's practice-session lifecycle. quality.viewer_export joins selected tree/API logs into Neryss's bundle format. quality.cli profile checks source structure without performing research. Full acceptance now has 68 passing tests with --browser; default skips two.
+
+Izen's new writer result adapter is documented in BRANCH_COMPATIBILITY.md. Use as_shared_message on a prepared result before GuardedClient.send_message. The Node strategy-lab routes remain a separate integration boundary, not automatically protected by Python helpers.

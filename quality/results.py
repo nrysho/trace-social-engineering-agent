@@ -65,12 +65,12 @@ def _summarize_trace(run):
         contacts = None
         warnings.append('Reported contact count missing or invalid; not replaced with zero.')
     mode = run.get('mode', 'unknown')
-    if mode == 'mock':
+    if mode in {'mock', 'sample', 'demo'}:
         warnings.append('SYNTHETIC: exclude this run from real performance results.')
     if run.get('official_outcome'):
         warnings.append('Claimed official_outcome in imported JSON is not authenticated.')
-    return {'run_id': run.get('id', 'unknown'), 'target_id': run.get('target_id', 'unknown'),
-            'reported_mode': mode, 'synthetic': True if mode == 'mock' else (False if mode in {'practice', 'scoring', 'eval'} else None), 'status': run.get('status', 'unknown'),
+    return {'run_id': run.get('id', run.get('run_id', 'unknown')), 'target_id': run.get('target_id', 'unknown'),
+            'reported_mode': mode, 'synthetic': True if mode in {'mock', 'sample', 'demo'} else (False if mode in {'practice', 'scoring', 'eval'} else None), 'status': run.get('status', 'unknown'),
             'reported_contacts': contacts, 'event_counts': dict(counts),
             'duplicate_events_ignored': duplicates, 'events_without_ids': missing_ids,
             'observed_signals': sorted(observed), 'first_observed_signal': first_signal,
@@ -150,6 +150,23 @@ def normalize_record(record):
             entry['outcome'] = {}
         normalized.append(entry)
     run['nodes'] = normalized
+    top_events = run.get('events')
+    if top_events is not None:
+        if not isinstance(top_events, dict) or any(not isinstance(events, list) for events in top_events.values()):
+            raise ValueError('Viewer events must map contact node IDs to event arrays')
+        evidence = run.get('quality_evidence') or {}
+        if not isinstance(evidence, dict):
+            raise ValueError('quality_evidence must be an object')
+        touches_by_node = evidence.get('touches_by_node') or {}
+        if not isinstance(touches_by_node, dict):
+            raise ValueError('touches_by_node must be an object')
+        for node_id, events in top_events.items():
+            normalized.append({'level': 'reaction', 'outcome': {'events': events,
+                                'touches_used': touches_by_node.get(node_id)}})
+        if 'contacts' not in run and type(evidence.get('recorded_contacts')) is int:
+            run['contacts'] = evidence['recorded_contacts']
+        warnings.append('Viewer contact-node counts and incident statuses are not used as authoritative metrics.')
+        warnings.extend(str(w) for w in evidence.get('warnings', []) if isinstance(w, str))
     return run, warnings
 
 
@@ -157,6 +174,16 @@ def summarize_run(record):
     run, warnings = normalize_record(record)
     summary = _summarize_trace(run)
     summary['recorded_cumulative_touch_max'] = run.get('recorded_cumulative_touch_max')
+    evidence = run.get('quality_evidence') or {}
+    removed = evidence.get('duplicate_events_ignored', 0) if isinstance(evidence, dict) else 0
+    summary['export_duplicate_events_ignored'] = removed if type(removed) is int and removed >= 0 else None
+    unjoined = evidence.get('unjoined_events', []) if isinstance(evidence, dict) else []
+    summary['unjoined_export_event_count'] = len(unjoined) if isinstance(unjoined, list) else None
+    original_nodes = record if isinstance(record, list) else record.get('nodes', [])
+    summary['evaluator_incident_node_ids'] = [n.get('id') for n in original_nodes
+        if isinstance(n, dict) and n.get('level') in {'contact', 'reaction'} and n.get('status') == 'incident']
+    if summary['evaluator_incident_node_ids']:
+        warnings.append('Incident node statuses are local evaluator labels; only event evidence is counted and official outcome remains unknown.')
     summary['warnings'] = list(dict.fromkeys(summary['warnings'] + warnings))
     return summary
 
@@ -216,6 +243,7 @@ def report_html(summary, decisions):
             escape(str(summary['run_id'])) + ' | Reported mode: ' + escape(str(summary['reported_mode'])) +
             '</p><p>Reported contacts: ' + escape(contact_label) +
             '</p><p>Duplicate event records ignored: ' + str(summary['duplicate_events_ignored']) +
+            '</p><p>Duplicates already removed by exporter: ' + str(summary.get('export_duplicate_events_ignored', 0)) +
             '</p><p>Official outcome and topic hits: not established</p><h2>Observed events</h2><ul>' + rows +
             '</ul>' + signal_html + '<h2>Provenance and limits</h2><ul>' + notes + '</ul>' +
             ('<h2>Recorded decisions</h2>' + records if decisions else '') + '</html>')
