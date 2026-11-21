@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 from backend import config
-from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, match,
+from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, github, match,
                            extract, verify, hooks, exposure, render, recency)
 from schemas import Profile
 
@@ -103,6 +103,13 @@ def build(name, company, role=""):
                     print("  linkedin profile did not match the target, skipped")
         except Exception as e:
             print(f"  linkedin failed: {e}")
+
+    gh_url = next((r.url for r in results if "github.com/" in r.url and "/in/" not in r.url), "")
+    if gh_url:
+        try:
+            facts += github.enrich(gh_url, match.Anchor(name, company, domain=domain, role=role))
+        except Exception as e:
+            print(f"  github failed: {e}")
 
     # 5. verify across domains, propose hooks, score exposure
     facts = verify.verify(facts)
