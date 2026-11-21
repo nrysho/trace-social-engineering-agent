@@ -1,25 +1,25 @@
 # Person 5: integration-first handoff
 
-Based on main 1c68d1f and the supplied teammate brief. Use this small PR stack
-instead of merging the older full theja-person5-main package into main.
+## Use one branch: theja-person5
 
-## Review order
+The five former PR branches have been consolidated into **theja-person5**.
+All their commits are retained in its history. PRs #10, #13, #14, #15 and #16
+were closed without merging. No work was merged or pushed into main.
 
-1. theja-gate-integration -> main: actual message/page/call enforcement, selected
-   eval scenario, practice-only bypass, bounded correction and saved QA verdicts.
-2. theja-story-checks -> theja-gate-integration: date/time contradictions block;
-   count/name/organisation changes warn; known unverified factual assertions block.
-3. theja-craft-checks -> theja-story-checks: offline 700/1200 px renders and
-   provisional four-question craft comparison. This never blocks sending.
-4. theja-qa-metrics -> theja-craft-checks: QA/craft fields in the existing viewer
-   API, with no duplicate incident-rate, hook or touch calculations.
-5. theja-qa-handoff -> theja-qa-metrics: architecture, decisions, pitch and
-   reproducible local-bench backup recording.
+The consolidated branch contains:
 
-Each PR targets its predecessor so its diff stays small. Retarget subsequent
-PRs to main after their dependencies land. These branches are published, not
-automatically merged; main is not protected by them until the integration lands.
-The tip of theja-qa-handoff contains the combined implementation for testing.
+1. Actual message/page/call enforcement, explicit eval scenario, practice-only
+   bypass, bounded correction and saved QA verdicts.
+2. Story/date/time checks, profile-fact warnings/blocks and greeting/signature checks.
+3. Offline 700/1200 px craft renders and provisional comparison scores.
+4. QA/craft additions to the existing viewer API without another results engine.
+5. Architecture, decisions, pitch and synthetic bench backup recording.
+
+The old recent branch names are redundant and have been removed after verifying
+that each tip is an ancestor of the consolidated branch. The earlier theja-branch
+and theja-person5-main branches remain intact because they contain distinct work.
+This is branch consolidation, not deployment: main does not acquire these guards
+until someone separately reviews and merges the desired changes.
 
 ## Run acceptance locally
 
@@ -74,7 +74,7 @@ All generated runs, screenshots and video remain ignored/local.
 
 ## What remains for the team
 
-- Mavis reviews/merges the first PR, tests her real writer and supplies actual
+- Mavis reviews the consolidated branch, tests her real writer and supplies actual
   v1/v2/v3 bench outputs with provenance/version labels. None were invented here.
 - Neryss publishes her QA UI and verifies it against the saved verdict contract.
 - Izen's separate Node send routes still need their own server-side guard.
@@ -88,4 +88,4 @@ inside scoring runs. Active calls, uncertainty reconciliation and process-local
 story state still need the runner's resume policy; no crash-safe story guarantee
 or automatic model-performance improvement is claimed.
 
-Current PRs in order: #10, #13, #14, #15, #16. Refreshed after main merged recon and profile replay (1c68d1f). Event arrays are now keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact.
+Historical PRs #10, #13, #14, #15 and #16 are closed. The implementation was checked against main 1c68d1f. Event arrays are now keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact.
