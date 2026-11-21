@@ -10,6 +10,7 @@ registered before the message that links to it. the orchestrator loop and the
 experiment runner call this, not requests. keys come from .env via config.
 """
 import json
+import os
 import time
 import uuid
 from datetime import datetime, timezone
@@ -22,7 +23,9 @@ from . import config
 # this client duck-types the schemas dataclasses (Message, LandingPage, Sender): it reads
 # their attributes and also accepts plain dicts, so it does not import schemas directly.
 
-BASE = "https://target-api.apps.01.cf.eu01.stackit.cloud/v1"
+# REVEL8_API_URL=http://127.0.0.1:8770/v1 runs the agent against the local bench personas (unseen
+# people with planted hooks) to test generalisation; unset, it talks to revel8.
+BASE = os.environ.get("REVEL8_API_URL", "https://target-api.apps.01.cf.eu01.stackit.cloud/v1")
 ROOT = Path(__file__).resolve().parents[1]
 RUN_DIR = ROOT / "runs" / "api"
 TIMEOUT = 120  # the persona model can take up to 90s, so give it headroom

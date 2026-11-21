@@ -175,6 +175,12 @@ def _is_lure_goal(goal):
     return "page" in g or "sign-in" in g or "sign in" in g or "open" in g
 
 
+def _company_from_role(role):
+    """'Co-Founder & CTO, revel8' -> 'revel8'; empty when the role names no company."""
+    head, sep, tail = str(role).rpartition(",")
+    return tail.split("(")[0].strip() if sep else ""
+
+
 def load_profile(target_id, name, company, use_mock=False):
     """a cached recon profile if one exists, else live recon. mock only with use_mock,
     since a mock is target-specific and would be wrong for a hidden eval target.
@@ -183,6 +189,10 @@ def load_profile(target_id, name, company, use_mock=False):
     for cached in (prof_dir / f"{target_id}.json", prof_dir / f"{_slug(name)}.json"):
         if cached.exists():
             prof = json.loads(cached.read_text(encoding="utf-8"))
+            if not prof.get("facts"):
+                # a failed recon left an empty profile; reusing it makes every message generic
+                print(f"  cached profile {cached.name} has no facts; running recon again")
+                break
             prof.setdefault("target_id", target_id)
             return prof
     if use_mock:
@@ -208,6 +218,7 @@ class Orchestrator:
         self.run_id = f"run_{target_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.budget = TouchBudget(EVAL_BUDGET if eval_mode else PRACTICE_BUDGET, PER_BRANCH)
         self.eval_mode = eval_mode
+        self._personas = {}                  # generated sender identity per approach
         self.use_model = use_model           # model writer (persuasive, adaptive); compose is the fallback
         self.use_mock = use_mock             # use mock/profile.json instead of live recon (fast tests)
         self.max_approaches = MAX_APPROACHES_EVAL if eval_mode else MAX_APPROACHES_PRACTICE
@@ -283,8 +294,12 @@ class Orchestrator:
         for s in ordered:
             for t in s.get("targets", []):
                 if t["id"] == self.target_id:
-                    return {"name": t["name"], "role": t.get("role", ""),
-                            "company": self.company or t.get("company", DEFAULT_COMPANY)}
+                    role = t.get("role", "")
+                    # an explicit company wins; else the target's, the scenario's or the role's
+                    # (eval targets work elsewhere, not at revel8); revel8 only as a last resort
+                    company = (self.company or t.get("company") or s.get("company")
+                               or _company_from_role(role) or DEFAULT_COMPANY)
+                    return {"name": t["name"], "role": role, "company": company}
         return {"name": self.target_id, "role": "", "company": self.company or DEFAULT_COMPANY}
 
     def _search(self, profile, sid, approaches, parent_id):
@@ -320,9 +335,9 @@ class Orchestrator:
         history = []
         parent = approach_node.id
         has_page = bool(writer.compose(self.profile, approach).get("landing_page"))
-        turn = engaged = 0
-        last_state, last_events = "", []
-        while not self.budget.exhausted():               # the session's total budget is the hard limit
+        turn = engaged = reassured = 0
+        last_state, last_events, scepticism = "", [], None
+        while not self.budget.exhausted():            # the session's total budget is the hard limit
             # pivot a cold branch after the per-branch cap, but stay on one that is engaging:
             # keep answering and pushing the ask while the target keeps replying
             if engaged == 0 and self.budget.branch_exhausted():
@@ -330,15 +345,19 @@ class Orchestrator:
             turn += 1
             plan = strategy.plan_next_move(turn=turn, last_state=last_state,
                                            last_events=last_events, engaged_count=engaged,
-                                           has_page=has_page)
+                                           has_page=has_page, scepticism=scepticism,
+                                           reassured=reassured)
             if plan.get("stop"):
+                print(f"     stop branch: {plan.get('reason', '')}")
                 return False
+            if plan.get("intent") == "reassure":
+                reassured += 1
             # a page-based pretext (sign-in, document) carries its link from the start, since the
             # link is the lure; a relationship pretext stages it until the target engages
             include_link = bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
             contact = self.add_node("contact", "writer",
                                     f"contact on {approach.get('pretext')} ({plan.get('intent', '')})",
-                                    "", parent, status="active")
+                                    plan.get("reason", ""), parent, status="active")
             try:
                 msg = self._draft(approach, sid, contact.id, history, include_link)
             except Exception as e:
@@ -363,12 +382,20 @@ class Orchestrator:
 
             incident_type, incident_reason = classify_incident(events)
             if not incident_type and reply:            # a reply may disclose internal info
-                incident_type, incident_reason = self._judge_disclosure(reply)
+                incident_type, incident_reason = self._judge_disclosure(
+                    reply, sent="\n\n".join(h["message"] for h in history) + "\n\n" + msg.body)
             verdict = strategy.evaluate_reaction(
                 events, reply_text=reply,
                 touches_used=self.budget.used, touch_budget=self.budget.total)
             state = "incident" if incident_type else verdict.get("state", "silent")
             reason = incident_reason or verdict.get("reason", "")
+            # how doubtful the reply sounds decides whether the next message asks or reassures
+            sc = strategy.assess_scepticism(reply, judge=self._judge_scepticism if self.use_model else None)
+            scepticism = sc["score"]
+            if scepticism is not None:
+                reason = (reason.rstrip(". ") + ". " if reason else "") + f"Scepticism {scepticism}/10: {sc['reason']}"
+                if scepticism >= strategy.SCEPTICISM_REASSURE_MIN and state == "engaged":
+                    state = "suspicious"   # a polite but doubtful reply is not a green light
             contact.status = state
             contact.outcome = reason
             self.add_node("reaction", "evaluator", f"{state}: {verdict.get('recommended_action')}",
@@ -472,11 +499,13 @@ class Orchestrator:
         writer.compose (deterministic, no model) as the fallback. the landing link is added
         and the page registered only when plan_next_move stages the ask (include_link)."""
         comp = writer.compose(self.profile, approach)
+        self._apply_persona(approach, comp)
         landing = comp.get("landing_page")
         model_ok = False
         if self.use_model:
             try:
-                content = _retry_model(lambda: self._model_body(approach, comp, history))
+                content = _retry_model(lambda: self._model_body(approach, comp, history,
+                                                                link_follows=bool(include_link and landing)))
                 comp["subject"] = content.get("subject") or comp.get("subject", "")
                 comp["body"] = content.get("body") or comp["body"]
                 model_ok = True
@@ -490,6 +519,35 @@ class Orchestrator:
                 comp["landing_page"] = None    # withhold the page until the ask is staged
         return _message_from_compose(comp, sid, self.target_id, node_id)
 
+    def _apply_persona(self, approach, comp):
+        """swap the fixed sender for one generated to fit this approach's story (outsider
+        pretexts only), cached per approach so follow-ups keep the same identity. any landing
+        page moves onto the persona's domain, so sender and link belong together."""
+        if not self.use_model or approach.get("pretext") not in writer.GENERATED_SENDER_PRETEXTS:
+            return
+        key = (approach.get("pretext"), approach.get("channel"), approach.get("hook"))
+        if key not in self._personas:
+            try:
+                self._personas[key] = writer.generate_sender_persona(
+                    self._cfg(), target={**self._target_dict(), "company_domain": self.profile.get("domain", "")},
+                    approach=approach, facts=self.profile.get("facts", []),
+                    default={"name": comp["sender"]["name"], "domain": comp["sender"]["address"].rpartition("@")[2]})
+                p = self._personas[key]
+                print(f"     sender: {p['name']}, {p['role']} at {p['organization']} <{p['address']}>")
+            except Exception as e:
+                print(f"     sender persona unavailable ({e}); using the default sender")
+                self._personas[key] = None
+        persona = self._personas[key]
+        if not persona:
+            return
+        comp["sender"] = {"name": persona["name"], "address": persona["address"],
+                          "role": persona["role"], "organization": persona["organization"]}
+        landing = comp.get("landing_page")
+        if landing and landing.get("url"):
+            path = "/" + landing["url"].split("://", 1)[-1].partition("/")[2]
+            landing["url"] = f"https://{persona['domain']}{path if path != '/' else '/'}"
+            landing["domain"] = persona["domain"]
+
     def _cfg(self):
         key = config.load_env().get("RADEON_API_KEY")
         if not key:
@@ -499,8 +557,9 @@ class Orchestrator:
     def _target_dict(self):
         return {k: self.profile.get(k) for k in ("name", "role", "company") if self.profile.get(k)}
 
-    def _model_body(self, approach, comp, history):
-        sender = {"name": comp["sender"]["name"], "email": comp["sender"]["address"]}
+    def _model_body(self, approach, comp, history, link_follows=False):
+        sender = {"name": comp["sender"]["name"], "email": comp["sender"]["address"],
+                  "role": comp["sender"].get("role", ""), "organization": comp["sender"].get("organization", "")}
         conv = []
         for h in history:
             conv.append({"from": comp["sender"]["name"], "text": h.get("message", "")})
@@ -508,27 +567,59 @@ class Orchestrator:
                 conv.append({"from": self.profile.get("name", "them"), "text": h["reply"]})
         gen = writer.generate_message(
             self._cfg(), target=self._target_dict(), approach=approach, sender=sender,
-            verified_facts=self.profile.get("facts", []), conversation_history=conv)
+            verified_facts=self.profile.get("facts", []), conversation_history=conv,
+            attachment=comp.get("attachment"), link_follows=link_follows)
         return gen.get("content", {})
 
-    def _judge_disclosure(self, text):
-        """an llm judge: does this reply or spoken line reveal internal, non-public info
-        (a disclosure win)? deliberately strict, since a false claim is worse than a miss
-        and the jury confirms every win. returns ("disclosure", what) or (None, "")."""
+    def _judge_scepticism(self, text):
+        """rate how doubtful a reply sounds, 0-10, with one line of reason. uses the writer's
+        fast settings (no thinking, Gemma as backup), so it adds seconds, not a minute."""
+        system = (
+            "You read one reply a person sent inside an authorised revel8 security-awareness "
+            "simulation and rate how sceptical they are of the sender, from 0 (trusting, keen) to "
+            "10 (refusing, calls it a scam). Doubt shows as asking for proof or an official "
+            "address, pointing out contradictions, insisting on verifying elsewhere, or refusing "
+            "to open things. People often stay polite while doubting: hedging, staying vague, "
+            "moving the conversation to another channel or a meeting, or not answering what was "
+            "asked all mean real doubt, even in a friendly tone. Trust shows as concrete answers, "
+            "sharing details, agreeing to the request, practical next-step questions. "
+            'Reply JSON only: {"score": <0-10>, "reason": "<one short line>"}.'
+        )
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": text[:1500]}]
+        cfg = self._cfg()
+        for model in (cfg.primary_model, cfg.fallback_model):
+            try:
+                out = _json_from(writer._completion(cfg, model, messages))
+                if "score" in out:
+                    return out
+            except Exception:
+                continue
+        raise RuntimeError("scepticism judge unavailable")
+
+    def _judge_disclosure(self, text, sent=""):
+        """an llm judge: does this reply reveal INTERNAL, non-public information (a disclosure
+        win)? strict, since the jury confirms every win and a false claim scores nothing. it
+        must name each internal detail; public facts, what we told them, and vague talk do
+        not count. returns ("disclosure", plain-language summary) or (None, "")."""
         text = (text or "").strip()
         if len(text) < 40:                 # too short to carry internal detail
             return None, ""
-        public = [f.get("value", "") for f in self.profile.get("facts", []) if f.get("verified")][:8]
+        public = [f.get("value", "") for f in self.profile.get("facts", []) if f.get("value")][:12]
+        who = (self.profile.get("name") or "The target").split()[0]
         system = (
-            "You review one message a target sent inside an authorised revel8 red-team "
-            "simulation. Decide only whether it reveals INTERNAL, NON-PUBLIC information about "
-            "their company: a system, tool, process, plan, internal name, number or credential "
-            "that an outsider could not find on the public web. Pleasantries, public facts, a "
-            "question, or a refusal are not disclosure. Be strict. "
-            'Reply JSON only: {"disclosure": true|false, "info": "<one line>"}.'
+            "You review one reply a person sent inside an authorised revel8 security-awareness "
+            "simulation. Decide whether it reveals INTERNAL information about their company that an "
+            "outsider could not know: a named system or tool they use internally, an internal process "
+            "or approval rule, a number (budget, cost, headcount), an internal plan or a colleague's "
+            "responsibility. These do NOT count: anything in the public facts, anything the sender's "
+            "own message already said, opinions, vague statements (\"costs are high\"), questions, "
+            "pleasantries or refusals. Be strict: when unsure, it is not a disclosure. "
+            'Reply JSON only: {"disclosure": true|false, "details": ["<each internal detail, one short '
+            'phrase>"], "why": "<one sentence: why these are not public>"}.'
         )
-        user = ("Already-public facts (repeating these is not disclosure):\n- "
-                + "\n- ".join(public) + "\n\nTheir message:\n" + text[:1500])
+        user = ("Public facts (repeating these is not disclosure):\n- " + "\n- ".join(public)
+                + "\n\nWhat the sender already told them:\n" + (sent or "(nothing)")[:1500]
+                + "\n\nTheir reply:\n" + text[:1500])
         try:                               # the same amd model the writer uses; no OpenAI dependency
             cfg = self._cfg()
             raw = _retry_model(lambda: writer._completion(
@@ -537,8 +628,12 @@ class Orchestrator:
             out = _json_from(raw)
         except Exception:
             return None, ""                # if the judge is unavailable, do not claim a win
-        if out.get("disclosure") is True:
-            return "disclosure", (out.get("info") or "internal info disclosed")[:200]
+        details = [str(d).strip() for d in out.get("details") or [] if str(d).strip()]
+        if out.get("disclosure") is True and details:
+            summary = f"{who} revealed internal details: " + "; ".join(details)
+            if out.get("why"):
+                summary += f". {str(out['why']).strip()}"
+            return "disclosure", summary[:400]
         return None, ""
 
     def _save_tree(self):

@@ -98,8 +98,10 @@ def first_name(target_id):
 # ---------- sessions ----------
 
 def scenarios():
-    targets = [{"id": p["id"], "name": p["name"], "role": p["role"]} for p in PERSONAS.values()]
-    base = {"company": "bench (fictional personas)", "targets": targets, "objectives": OBJECTIVES,
+    # each fictional person works at a different company, so the target carries it (revel8's
+    # scenarios have one company for all targets, at scenario level)
+    targets = [{"id": p["id"], "name": p["name"], "role": p["role"], "company": p["company"]} for p in PERSONAS.values()]
+    base = {"company": "", "targets": targets, "objectives": OBJECTIVES,
             "max_sessions": None, "open": True}
     return [{"id": "practice", "kind": "practice", **base, "touch_budget": 30},
             {"id": "eval", "kind": "eval", **base, "touch_budget": 10}]
