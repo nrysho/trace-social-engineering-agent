@@ -47,3 +47,5 @@ fixture, bench cases explicitly skip; do not report those as full acceptance.
 This small PR only integrates the transport gate. Additional story/fact checks,
 craft comparison and QA statistics belong in follow-up PRs. Node Strategy Lab
 routes are separate and are not protected by the Python wrapper.
+
+Bare runs/trees files remain unchanged dataclass records and round-trip through schemas.treenode_from_dict; only replay-bundle node dictionaries carry the QA overlay.
