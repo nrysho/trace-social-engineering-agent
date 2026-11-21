@@ -1,0 +1,3 @@
+{"kind": "session.create", "scenario_id": "mock"}
+{"kind": "sent", "node_id": "qa-contact", "message_id": "qa-message", "touches_used": 1, "message": {"to": "julius", "channel": "email", "from": {"name": "Layout reviewer", "address": "reviewer@review.example"}, "subject": "Synthetic agenda layout check", "body": "Hello,\n\nThis is a synthetic layout fixture, not a live send.\n\nAgenda: introductions, product feedback, questions.\n\nBest regards,\nLayout reviewer"}}
+{"kind": "event", "message_id": "qa-message", "event": {"id": "qa-event", "type": "reply", "channel": "email", "body": "Synthetic viewer fixture reply"}}

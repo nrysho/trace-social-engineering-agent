@@ -2,7 +2,7 @@
 
 ## Use one branch: theja-person5
 
-The five former PR branches have been consolidated into **theja-person5**.
+The recent PR branches and older **theja-person5-main** package are now consolidated into **theja-person5**.
 All their commits are retained in its history. PRs #10, #13, #14, #15 and #16
 were closed without merging. No work was merged or pushed into main.
 
@@ -14,10 +14,13 @@ The consolidated branch contains:
 3. Offline 700/1200 px craft renders and provisional comparison scores.
 4. QA/craft additions to the existing viewer API without another results engine.
 5. Architecture, decisions, pitch and synthetic bench backup recording.
+6. Optional evidence/identity catalogues, critic coverage, explicit persona/session
+   review and durable SQLite state from the older Person 5 package.
 
 The old recent branch names are redundant and have been removed after verifying
-that each tip is an ancestor of the consolidated branch. The earlier theja-branch
-and theja-person5-main branches remain intact because they contain distinct work.
+that each tip is an ancestor of the consolidated branch. The original theja-branch
+remains as a separate legacy TRACE project. The older theja-person5-main history is merged here and its branch name is retired.
+The optional advanced modules are described in [CONSOLIDATION.md](CONSOLIDATION.md).
 This is branch consolidation, not deployment: main does not acquire these guards
 until someone separately reviews and merges the desired changes.
 
@@ -31,7 +34,7 @@ $env:PERSON5_BROWSER_TESTS='1'
 py -m unittest discover -s tests -v
 ```
 
-Verified: 38 tests pass with browser checks enabled, zero skips. These include
+Verified: 174 tests pass with browser checks enabled, zero skips. These include
 actual loopback HTTP against Neryss's bench, with a deterministic fake persona
 engine and external HTTP prohibited. No real revel8 session, scoring contact
 or external model request was made. Tests use fictional people and .example domains.

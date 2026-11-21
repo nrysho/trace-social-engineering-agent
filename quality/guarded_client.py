@@ -18,15 +18,24 @@ def linked_urls(text):
 
 
 class GuardedClient:
-    def __init__(self, client, context, *, session_ids=(), audit=None, enabled=True):
+    @classmethod
+    def from_current_practice(cls, client, context, **kwargs):
+        from .identity import context_from_practice
+        return cls(client, context_from_practice(client.scenarios(),context), **kwargs)
+
+    def __init__(self, client, context, *, session_ids=(), audit=None, enabled=True, conversation_sessions=None):
         validate_context(context)
         self.scenario_id = context.get('scenario_id', 'practice')
         if self.scenario_id not in {'practice', 'eval'} or (self.scenario_id == 'eval' and not enabled):
             raise ValueError('Eval requires the quality gate enabled')
         self.client, self.context = client, deepcopy(context)
         self.sessions, self.conversations, self.registered = set(session_ids), {}, {}
+        self.conversations = dict(conversation_sessions or {})
+        if any(not isinstance(cid,str) or not cid or sid not in self.sessions for cid,sid in self.conversations.items()):
+            raise ValueError('Resumed conversations require explicitly authorised sessions')
         self.audit, self.enabled, self.last_report = audit, enabled, None
         self.story = StoryLedger()
+        self._use_heuristic_story = True
         self.story_scope = "session"
 
     def scenarios(self): return self.client.scenarios()
@@ -44,14 +53,16 @@ class GuardedClient:
         return response
 
     def _scope(self, sid):
+        if self.scenario_id == 'eval' and not self.enabled:
+            raise QualityBlocked(QualityReport(errors=['Eval requires quality checks enabled']))
         if sid not in self.sessions:
             raise QualityBlocked(QualityReport(errors=['Session not authorised']))
 
     def _emit(self, sid, operation, report, node_id=None):
         self.last_report = deepcopy(report)
-        entry = dict(kind='quality', operation=operation, node_id=node_id, qa=deepcopy(report))
+        entry = dict(kind='quality', operation=operation, node_id=node_id, qa=deepcopy(report), report=deepcopy(report))
         if self.audit: self.audit(dict(entry, session_id=sid))
-        self.client._log(sid, entry)
+        if hasattr(self.client,'_log'): self.client._log(sid, entry)
 
     def _bypass(self):
         return dict(passed=True, errors=[], warnings=['QUALITY_GATE=off: practice-only checks bypassed'], bypassed=True)
@@ -64,7 +75,7 @@ class GuardedClient:
     def check_message(self, message):
         prepared = checked_message(message, self.context)
         self._links(message['session_id'], message.get('body', ''), (prepared.get('page') or {}).get('url'))
-        report = self.story.review(message['session_id'], self.story_scope, message.get('body',''))
+        report = self.story.review(message['session_id'], self.story_scope, message.get('body','')) if self._use_heuristic_story else QualityReport()
         prepared['report']['warnings'].extend(report.warnings)
         if not report.passed: raise QualityBlocked(report)
         return prepared
@@ -83,7 +94,7 @@ class GuardedClient:
             from schemas import message_from_dict
             shared = message_from_dict(snapshot)
         result = self.client.send_message(shared, sent_at=sent_at, qa=deepcopy(report))
-        if self.enabled and isinstance(result.get('message_id'), str) and isinstance(result.get('events'), list):
+        if self.enabled and self._use_heuristic_story and isinstance(result.get('message_id'), str) and isinstance(result.get('events'), list):
             self.story.commit(sid,self.story_scope,shared.body)
         if shared.landing_page is not None:
             self.registered.setdefault(sid,set()).add(shared.landing_page.url)
@@ -118,7 +129,7 @@ class GuardedClient:
         self._scope(sid)
         if self.conversations.get(cid) != sid: raise QualityBlocked(QualityReport(errors=['Conversation outside session scope']))
         checked_turn({'say':line},self.context); self._links(sid,line)
-        report = self.story.review(sid,self.story_scope,line)
+        report = self.story.review(sid,self.story_scope,line) if self._use_heuristic_story else QualityReport()
         claims = profile_claim_checks(line,self.context.get('profile_facts',[]))
         report.errors.extend(claims.errors);report.warnings.extend(claims.warnings)
         if not report.passed: raise QualityBlocked(report)
@@ -136,7 +147,7 @@ class GuardedClient:
             self._emit(sid,'conversation.turn',exc.report.to_dict()); raise
         self._emit(sid,'conversation.turn',report)
         response = self.client.say(cid,line,sid=sid,idem_key=idem_key or str(uuid4()),sent_at=sent_at,qa=report)
-        if self.enabled and isinstance(response.get('events'),list): self.story.commit(sid,self.story_scope,line)
+        if self.enabled and self._use_heuristic_story and isinstance(response.get('events'),list): self.story.commit(sid,self.story_scope,line)
         return response
 
     def get_session(self,sid): self._scope(sid); return self.client.get_session(sid)

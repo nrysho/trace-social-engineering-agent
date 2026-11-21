@@ -1,0 +1,18 @@
+[
+  {
+    "id": "qa-contact",
+    "run_id": "qa-viewer-contract",
+    "level": "contact",
+    "agent": "quality-test",
+    "decision": "Synthetic QA fixture, not a live send",
+    "reasoning": "Offline viewer compatibility check",
+    "parent_id": null,
+    "rejected": [],
+    "incident_chance": 0,
+    "expected_contacts": 0,
+    "evidence": [],
+    "status": "engaged",
+    "outcome": "Synthetic reply received",
+    "timestamp": "2026-11-21T17:00:00Z"
+  }
+]

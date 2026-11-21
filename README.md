@@ -1,6 +1,8 @@
 # START Hack Munich 2026 
 ## revel8: Agentic Social Engineer
 
+> **Person 5 / team integration: [Start with PERSON5_README.md](PERSON5_README.md).** It explains what is implemented, what is not connected yet, how to test it, and exactly what Mavis, Izen, Sherwin, Neryss and Theja need to do.
+
 An autonomous agent for the revel8 challenge at START Hack League Munich 2026. It
 researches a target, works out what they are open to right now, and tries to reach
 an "incident" (credentials, an action, or a disclosure) with the target's revel8
@@ -100,3 +102,16 @@ From the challenge brief, breaking any of the first three voids a scoring run:
   reaction and adapting.
 - A five-minute pitch with one real thread from our runs.
 - The scoring runs themselves (revel8 records and renders every turn).
+
+## Person 5 quality and evidence package
+
+Use the consolidated **theja-person5** branch. Start with
+[PERSON5_README.md](PERSON5_README.md) and [the team handoff](docs/PERSON5_HANDOFF.md).
+The actual Python orchestrator uses the baseline guard on this branch. Advanced
+identity/evidence review and SQLite state are available as explicit opt-in layers;
+other send paths do not acquire protection automatically.
+
+Run `py -m quality.acceptance --browser --output runs/quality/consolidated-acceptance`
+for the combined component, local-bench and rendering checks. No official
+simulator/model call is made by acceptance. See the generated acceptance.json
+for the actual test result; skipped browser tests are not full acceptance.

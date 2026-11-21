@@ -1,0 +1,6 @@
+{
+  "name": "QA Fixture",
+  "role": "Synthetic offline test",
+  "facts": [],
+  "hooks": []
+}

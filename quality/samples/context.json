@@ -1,0 +1,16 @@
+{
+  "simulation_only": true,
+  "authorized_targets": [
+    "julius"
+  ],
+  "approved_sender_domains": [
+    "review.example"
+  ],
+  "approved_link_hosts": [
+    "review.example"
+  ],
+  "known_organisation_domains": [
+    "official.example"
+  ],
+  "approved_sender_addresses": []
+}

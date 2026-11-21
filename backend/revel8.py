@@ -149,7 +149,7 @@ class Revel8Client:
         r = self._call("POST", f"/sessions/{sid}/messages", body, idempotent=True, idem_key=key)
         self._log(sid, {"kind": "sent", "node_id": msg.node_id,
                         "message_id": r.get("message_id"), "touches_used": r.get("touches_used"),
-                        "message": body, "qa": qa})
+                        "idempotency_key": key, "message": body, "qa": qa})
         for e in r.get("events", []):
             self._log(sid, {"kind": "event", "message_id": r.get("message_id"), "event": e})
         return r

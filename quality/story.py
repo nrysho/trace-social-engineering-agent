@@ -46,6 +46,9 @@ class StoryLedger:
 
 def profile_claim_checks(text, facts):
     report = QualityReport()
+    if not isinstance(text,str):
+        report.errors.append('Body must be text')
+        return report
     text = normalized(re.sub(r'<[^>]*>', ' ', text)).casefold()
     for fact in facts:
         if not isinstance(fact, dict) or not isinstance(fact.get('value'), str):

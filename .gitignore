@@ -5,3 +5,6 @@ __pycache__/
 runs/
 .claude/
 *.sqlite3
+
+# Private Person 5 evidence, screenshots and backup demo
+output/quality/
