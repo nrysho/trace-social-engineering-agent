@@ -217,7 +217,7 @@ class Orchestrator:
         self.nodes = []
         self.profile = {}
         self.messages = []                   # sent messages, for the replay viewer bundle
-        self.events = []                     # reactions, for the replay viewer bundle
+        self.events = {}                     # reactions, for the replay viewer bundle
         self.contact_count = 0               # drives sent_at pacing
         self.story_base = datetime.now(timezone.utc)
 
@@ -389,7 +389,7 @@ class Orchestrator:
             self.budget.branch_used += 1
             events = result.get("events", [])
             self.messages.append(dict(msg.to_dict(), qa=self.client.last_report))            # for the replay bundle
-            self.events.extend(events)
+            self.events.setdefault(contact.id, []).extend(events)
             reply = next((e.get("body", "") for e in events if e.get("type") == "reply"), "")
             print(f"     <- {[e.get('type') for e in events] or ['ignored']}  "
                   f"({self.budget.used}/{self.budget.total} touches)")
@@ -487,7 +487,7 @@ class Orchestrator:
                 raise
             heard = turn_r.get("persona_says", "")
             events = turn_r.get("events", [])
-            self.events.extend(events)
+            self.events.setdefault(contact.id, []).extend(events)
             transcript.append({"role": "us", "text": line})
             transcript.append({"role": "them", "text": heard})
             print(f"     you: {line[:48]} | persona: {heard[:48]}")
