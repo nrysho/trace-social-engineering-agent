@@ -1,8 +1,9 @@
 import { createServer } from 'node:http';
-import { createReadStream, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createReadStream, readFileSync, statSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { checkQuality } from './quality-gate.mjs';
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const repoRoot = resolve(root, '..');
@@ -21,10 +22,72 @@ function readEnv() {
   return output;
 }
 
-const env = readEnv();
+const env = { ...readEnv(), ...process.env };
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 let practiceTargets = null;
 let practiceTargetsAt = 0;
+const qualitySessions = new Map();
+const qualityConversations = new Map();
+const qualityAuditDir = process.env.PERSON5_NODE_LOG_DIR || join(repoRoot, 'runs', 'quality', 'node-api');
+function auditPath(sid) {
+  if (!/^[A-Za-z0-9_-]+$/.test(sid)) throw Object.assign(new Error('Invalid session ID.'), { status: 400 });
+  return join(qualityAuditDir, `${sid}.jsonl`);
+}
+function auditSubmission(sid, entry) {
+  mkdirSync(qualityAuditDir, { recursive: true });
+  appendFileSync(auditPath(sid), JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n', 'utf8');
+}
+
+async function guardedSubmit(req, sid, operation, input, path) {
+  const session = await revel8(`/sessions/${encodeURIComponent(sid)}`);
+  if (session.scenario_id !== 'practice' || session.status !== 'active') {
+    throw Object.assign(new Error('Only active practice sessions may be changed.'), { status: 403 });
+  }
+  let state = qualitySessions.get(sid);
+  if (!state) {
+    // Never restore a used story from browser-supplied history.
+    if (session.touches_used !== 0 || existsSync(auditPath(sid))) throw Object.assign(new Error('Prior session history or request audit exists; reconcile it before continuing.'), { status: 409 });
+    state = { registered: [], history: [], busy: false, uncertain: false, receipts: new Map() };
+    qualitySessions.set(sid, state);
+  }
+  if (state.busy || state.uncertain) throw Object.assign(new Error('Session is busy or a previous submission needs reconciliation.'), { status: 409 });
+  state.busy = true;
+  try {
+    const key = req.headers['idempotency-key'] || randomUUID();
+    if (typeof key !== 'string' || !/^[\w.-]{1,128}$/.test(key)) throw Object.assign(new Error('Invalid Idempotency-Key.'), { status: 400 });
+    const fingerprint = JSON.stringify({ operation, path, input });
+    const prior = state.receipts.get(key);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Retry key reused for different content.'), { status: 409 });
+      return prior.data;
+    }
+    const qa = await checkQuality({ sid, operation, payload: input, key,
+      targets: await targets(), registered: state.registered, history: state.history }, repoRoot);
+    let response;
+    auditSubmission(sid, { kind: 'quality.intent', operation, idempotency_key: key, qa, payload: input });
+    try {
+      response = await revel8(path, { method: 'POST', body: input,
+        idempotencyKey: operation === 'page' ? undefined : key, retry: operation !== 'page' });
+      if ((operation === 'message' && (typeof response.message_id !== 'string' || !Array.isArray(response.events))) ||
+          (operation === 'start' && typeof response.conversation_id !== 'string') ||
+          (operation === 'turn' && !Array.isArray(response.events)) ||
+          (operation === 'page' && typeof response.page_id !== 'string')) throw new Error('Missing submission receipt');
+      auditSubmission(sid, { kind: 'quality.receipt', operation, idempotency_key: key, qa, response });
+    } catch (error) {
+      // Timeout/5xx/malformed receipt may mean accepted. Never count it as silence
+      // or let a new key accidentally repeat it.
+      if (!error.status || error.status >= 500) state.uncertain = true;
+      throw error;
+    }
+    if (operation === 'page') state.registered.push(input.url);
+    if (operation === 'message') state.history.push(input.body);
+    if (operation === 'turn') state.history.push(input.say);
+    if (operation === 'start') qualityConversations.set(response.conversation_id, sid);
+    const data = { ...response, qa, idempotency_key: key };
+    state.receipts.set(key, { fingerprint, data });
+    return data;
+  } finally { state.busy = false; }
+}
 
 function json(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -239,18 +302,20 @@ async function handleApi(req, res, url) {
         return json(res, 200, await revel8(`/sessions/${encodeURIComponent(sid)}`));
       }
       if (req.method === 'POST' && action === 'end') {
+        const session = await revel8(`/sessions/${encodeURIComponent(sid)}`);
+        if (session.scenario_id !== 'practice') return json(res, 403, { error: 'Only practice sessions may be ended here.' });
         return json(res, 200, await revel8(`/sessions/${encodeURIComponent(sid)}/end`, { method: 'POST', body: {} }));
       }
       if (req.method === 'POST' && action === 'pages') {
         const input = await readBody(req);
-        return json(res, 201, await revel8(`/sessions/${encodeURIComponent(sid)}/pages`, { method: 'POST', body: input }));
+        return json(res, 201, await guardedSubmit(req, sid, 'page', input, `/sessions/${encodeURIComponent(sid)}/pages`));
       }
       if (req.method === 'POST' && action === 'messages') {
         const input = await readBody(req);
         const known = await targets();
         if (!known.some(person => person.id === input.to)) return json(res, 400, { error: 'Only IDs in the practice scenario can be contacted.' });
         if (!input.channel || !input.body) return json(res, 400, { error: 'channel and body are required.' });
-        const data = await revel8(`/sessions/${encodeURIComponent(sid)}/messages`, { method: 'POST', body: input, idempotencyKey: randomUUID(), retry: true });
+        const data = await guardedSubmit(req, sid, 'message', input, `/sessions/${encodeURIComponent(sid)}/messages`);
         return json(res, 200, data);
       }
     }
@@ -260,12 +325,18 @@ async function handleApi(req, res, url) {
       const input = await readBody(req);
       const known = await targets();
       if (!known.some(person => person.id === input.to)) return json(res, 400, { error: 'Only IDs in the practice scenario can be contacted.' });
-      return json(res, 201, await revel8(`/sessions/${encodeURIComponent(match[1])}/conversations`, { method: 'POST', body: input, idempotencyKey: randomUUID(), retry: true }));
+      const sid = decodeURIComponent(match[1]);
+      return json(res, 201, await guardedSubmit(req, sid, 'start', input, `/sessions/${encodeURIComponent(sid)}/conversations`));
     }
     match = route.match(/^\/api\/conversations\/([^/]+)\/(turns|end)$/);
     if (match && req.method === 'POST') {
       const input = match[2] === 'turns' ? await readBody(req) : {};
-      const data = await revel8(`/conversations/${encodeURIComponent(match[1])}/${match[2]}`, { method: 'POST', body: input, idempotencyKey: match[2] === 'turns' ? randomUUID() : undefined, retry: match[2] === 'turns' });
+      const cid = decodeURIComponent(match[1]), sid = qualityConversations.get(cid);
+      if (!sid) return json(res, 403, { error: 'Conversation has no server-owned practice session scope.' });
+      const path = `/conversations/${encodeURIComponent(cid)}/${match[2]}`;
+      const data = match[2] === 'turns' ? await guardedSubmit(req, sid, 'turn', input, path)
+        : await revel8(path, { method: 'POST', body: {} });
+      if (match[2] === 'end') qualityConversations.delete(cid);
       return json(res, 200, data);
     }
     return json(res, 404, { error: 'Not found.' });
@@ -290,4 +361,7 @@ const server = createServer(async (req, res) => {
   } catch { json(res, 404, { error: 'Not found.' }); }
 });
 
-server.listen(port, '127.0.0.1', () => console.log(`Strategy Lab listening at http://127.0.0.1:${port}`));
+export { server };
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  server.listen(port, '127.0.0.1', () => console.log(`Strategy Lab listening at http://127.0.0.1:${port}`));
+}

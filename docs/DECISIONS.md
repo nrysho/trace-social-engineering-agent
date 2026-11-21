@@ -21,6 +21,13 @@
   or attack effectiveness. No version-comparison scores were fabricated.
 - We chose known-organisation domain blocks and explicit playbook-domain approvals
   over assuming that a plausible spelling proves an attacker can register it.
+- We reused the Python validator for Node practice routes instead of duplicating
+  the content rules in JavaScript. Server-owned policy and validator failure
+  blocking are covered by fake-upstream HTTP tests.
+- We block automatic continuation of used sessions until writer context, story,
+  page registrations and pending requests can be restored together. A zero-touch
+  response does not clear a previous submission intent. This is a deliberate
+  safety limit, not a claim of complete crash recovery.
 
 ## Reported team experiments versus checked code
 

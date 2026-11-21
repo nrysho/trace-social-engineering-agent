@@ -4,6 +4,8 @@ import re
 from html import unescape
 from urllib.parse import urlsplit
 from uuid import uuid4
+from pathlib import Path
+import json
 from .checks import QualityReport, Markup
 from .story import StoryLedger, profile_claim_checks
 from .integration import (checked_message, checked_turn, prepare_page,
@@ -40,6 +42,47 @@ class GuardedClient:
 
     def scenarios(self): return self.client.scenarios()
     def channels(self): return self.client.channels()
+
+    def list_sessions(self):
+        return self.client.list_sessions()
+
+    def restore_session(self, sid):
+        """Resume only a provably unused session; never reset a remembered story.
+
+        Used sessions require restoring writer, story and pending-request state
+        together. The basic guard cannot establish that from legacy JSONL logs.
+        Leave those sessions intact for explicit reconciliation instead.
+        """
+        if not isinstance(sid, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', sid):
+            raise QualityBlocked(QualityReport(errors=['Malformed session ID']))
+        # A pre-send audit may outlive a timed-out request whose touch count has
+        # not become visible yet. Zero touches alone must not clear that intent.
+        log_dir = getattr(self.client, 'log_dir', None)
+        if isinstance(log_dir, (str, Path)):
+            path = Path(log_dir) / f'{sid}.jsonl'
+            try:
+                entries = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines() if line.strip()] if path.exists() else []
+            except (OSError, ValueError):
+                raise QualityBlocked(QualityReport(errors=['Unreadable resume audit; reconciliation required']))
+            if any(entry.get('kind') in {'quality', 'sent', 'call.start', 'turn', 'page'} for entry in entries):
+                raise QualityBlocked(QualityReport(errors=['Prior submission audit requires explicit reconciliation before resume']))
+        response = self.client.get_session(sid)
+        if (response.get('session_id') != sid or
+                response.get('scenario_id') != self.scenario_id or
+                response.get('status') != 'active' or
+                type(response.get('touches_used')) is not int or
+                response['touches_used'] != 0 or
+                type(response.get('touch_budget')) is not int or
+                response['touch_budget'] <= 0):
+            raise QualityBlocked(QualityReport(errors=[
+                'Cannot safely resume: require an active unused session in the selected scenario; '
+                'used or uncertain sessions need explicit history/request reconciliation. No new session created.']))
+        events = self.client.get_events(sid)
+        observed = events if isinstance(events, list) else events.get('events') if isinstance(events, dict) else None
+        if observed != []:
+            raise QualityBlocked(QualityReport(errors=['Cannot resume a session with missing or nonempty event history']))
+        self.sessions.add(sid)
+        return response
 
     def create_session(self, scenario_id=None):
         scenario_id = scenario_id or self.scenario_id
@@ -94,6 +137,8 @@ class GuardedClient:
             from schemas import message_from_dict
             shared = message_from_dict(snapshot)
         result = self.client.send_message(shared, sent_at=sent_at, qa=deepcopy(report))
+        if not isinstance(result.get('message_id'), str) or not result['message_id'] or not isinstance(result.get('events'), list):
+            raise ValueError('Message delivery uncertain: missing API receipt; reconcile before another send')
         if self.enabled and self._use_heuristic_story and isinstance(result.get('message_id'), str) and isinstance(result.get('events'), list):
             self.story.commit(sid,self.story_scope,shared.body)
         if shared.landing_page is not None:

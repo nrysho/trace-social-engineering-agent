@@ -3,7 +3,7 @@ from collections import Counter
 
 
 def quality_summary(bundle):
-    candidates, missing = {}, set()
+    candidates, missing, malformed = {}, set(), set()
     for kind, records in [('node',bundle.get('nodes',[])),('message',bundle.get('messages',[]))]:
         for index, record in enumerate(records):
             if kind == 'node' and record.get('level') not in {'contact','attempt'}:
@@ -13,15 +13,16 @@ def quality_summary(bundle):
             qa = record.get('qa')
             if not isinstance(qa,dict) or type(qa.get('passed')) is not bool or any(
                     not isinstance(qa.get(key,[]),list) or any(not isinstance(v,str) for v in qa.get(key,[]))
-                    for key in ('errors','warnings')):
+                    for key in ('errors','warnings')) or qa['passed'] != (not qa.get('errors',[])):
                 missing.add(identity)
+                if qa is not None: malformed.add(identity)
                 continue
             candidates.setdefault(identity,[]).append(qa)
     checked = blocked = warnings = bypassed = conflicts = 0
     reasons = Counter()
     for identity, reports in candidates.items():
         missing.discard(identity)
-        if any(r != reports[0] for r in reports[1:]):
+        if identity in malformed or any(r != reports[0] for r in reports[1:]):
             conflicts += 1
             continue
         report = reports[0]

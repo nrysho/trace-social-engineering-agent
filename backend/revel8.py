@@ -164,10 +164,13 @@ class Revel8Client:
             body["from"] = _sender_body(sender)
         if sent_at:
             body["sent_at"] = sent_at
+        key = idem_key or str(uuid.uuid4())
         r = self._call("POST", f"/sessions/{sid}/conversations", body,
-                       idempotent=True, idem_key=idem_key)
+                       idempotent=True, idem_key=key)
         self._log(sid, {"kind": "call.start", "conversation_id": r.get("conversation_id"),
-                        "to": to, "channel": channel, "persona_says": r.get("persona_says"), "qa": qa})
+                        "to": to, "channel": channel, "from": body.get("from"),
+                        "touches_used": r.get("touches_used"), "idempotency_key": key,
+                        "sent_at": sent_at, "persona_says": r.get("persona_says"), "qa": qa})
         return r
 
     def say(self, cid, line, sid=None, idem_key=None, sent_at=None, *, qa=None):
@@ -175,9 +178,11 @@ class Revel8Client:
         body = {"say": line}
         if sent_at:
             body["sent_at"] = sent_at
+        key = idem_key or str(uuid.uuid4())
         r = self._call("POST", f"/conversations/{cid}/turns", body,
-                       idempotent=True, idem_key=idem_key)
+                       idempotent=True, idem_key=key)
         self._log(sid, {"kind": "turn", "conversation_id": cid, "say": line,
+                        "idempotency_key": key, "sent_at": sent_at,
                         "persona_says": r.get("persona_says"), "ended": r.get("ended"), "qa": qa})
         for e in r.get("events", []):
             self._log(sid, {"kind": "event", "conversation_id": cid, "event": e})

@@ -34,7 +34,7 @@ $env:PERSON5_BROWSER_TESTS='1'
 py -m unittest discover -s tests -v
 ```
 
-Verified: 174 tests pass with browser checks enabled, zero skips. These include
+Verified: 181 tests pass with browser checks enabled, zero skips. These include
 actual loopback HTTP against Neryss's bench, with a deterministic fake persona
 engine and external HTTP prohibited. No real revel8 session, scoring contact
 or external model request was made. Tests use fictional people and .example domains.
@@ -56,9 +56,9 @@ Verdict: `{passed: bool, errors: [text], warnings: [text]}`. Practice bypass add
 - Calls: opening QA describes the actual contact; failed lines are separate
   quality log entries and warnings, not evidence that the call cost zero touches.
 
-Neryss's described QA UI changes are still local/unpublished in the inspected
-viewer branch. This work supplies the contract and server fields without
-overwriting that UI. `/api/quality/versions` reports QA only; set an explicit
+The existing viewer now displays QA in its inspector and Results table, including
+missing/conflicting verdicts and explicitly provisional craft scores. Browser
+tests use intercepted synthetic API data. `/api/quality/versions` reports QA only; set an explicit
 agent_version and select the annotated craft bundle instead of duplicate copies.
 
 ## Craft and backup
@@ -79,16 +79,18 @@ All generated runs, screenshots and video remain ignored/local.
 
 - Mavis reviews the consolidated branch, tests her real writer and supplies actual
   v1/v2/v3 bench outputs with provenance/version labels. None were invented here.
-- Neryss publishes her QA UI and verifies it against the saved verdict contract.
-- Izen's separate Node send routes still need their own server-side guard.
+- Neryss reviews the QA display alongside her final viewer changes.
+- Izen uses the now guarded Node routes and supplies genuine recon inputs. Python
+  must be available to the Node server; permission policy is server-owned.
 - Sherwin supplies target profiles and evidence; heuristics do not prove identity,
   source independence, factual completeness or domain registration availability.
 - Theja inserts real Progress/replay screenshots, selects one evidenced official
   practice/scoring thread, performs two timed spoken rehearsals and submits.
 
 See ARCHITECTURE.md, DECISIONS.md and PITCH_3_MIN.md. No human approval is added
-inside scoring runs. Active calls, uncertainty reconciliation and process-local
-story state still need the runner's resume policy; no crash-safe story guarantee
-or automatic model-performance improvement is claimed.
+inside scoring runs. The basic guarded runner stops automatic resume of used or
+uncertain sessions. Restoring active calls, writer context and process-local
+story state together is not implemented; no crash-safe story guarantee or
+automatic model-performance improvement is claimed.
 
-Historical PRs #10, #13, #14, #15 and #16 are closed. The implementation was checked against main 1c68d1f. Event arrays are now keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact.
+Historical PRs #10, #13, #14, #15 and #16 are closed. The implementation incorporates main 29fa0fc. Event arrays are keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact.

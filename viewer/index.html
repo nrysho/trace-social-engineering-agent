@@ -668,6 +668,40 @@ function nodeHeader(n) {
     el("h2", { text: n.decision }),
   ];
 }
+function validQA(q) {
+  return q && typeof q.passed === 'boolean' && ['errors', 'warnings'].every(k =>
+    q[k] == null || (Array.isArray(q[k]) && q[k].every(v => typeof v === 'string'))) &&
+    q.passed === !(q.errors || []).length;
+}
+function canonicalQA(q) {
+  if (Array.isArray(q)) return q.map(canonicalQA);
+  if (q && typeof q === 'object') return Object.fromEntries(Object.keys(q).sort().map(k => [k, canonicalQA(q[k])]));
+  return q;
+}
+function qualityPanel(n, m) {
+  const raw = [n?.qa, m?.qa].filter(q => q != null);
+  const reports = raw.filter(validQA);
+  const conflict = reports.length > 0 && (reports.length !== raw.length ||
+    (reports.length > 1 && JSON.stringify(canonicalQA(reports[0])) !== JSON.stringify(canonicalQA(reports[1]))));
+  const q = reports[0];
+  const label = conflict ? 'Conflicting verdicts' : !q ? 'Unknown - no saved verdict' :
+    q.bypassed ? 'Bypassed - practice checks disabled' : !q.passed ? 'Blocked' :
+    q.warnings?.length ? 'Passed with warnings' : 'Passed';
+  const panel = el('div', { class: 'quality-panel', 'data-qa-status': label },
+    el('div', { class: 'psec', text: 'Quality gate' }),
+    el('strong', { text: label }),
+    el('p', { class: 'muted', text: 'A quality verdict is not a delivery receipt, identity proof or official incident result.' }));
+  if (q && !conflict) {
+    for (const text of q.errors || []) panel.append(el('div', { class: 'bad', text: `Error: ${text}` }));
+    for (const text of q.warnings || []) panel.append(el('div', { class: 'muted', text: `Warning: ${text}` }));
+  }
+  if (n.level === 'attempt') panel.append(el('p', { text: 'This attempt is not a confirmed sent contact. Earlier contacts in the session may have used touches.' }));
+  return panel;
+}
+function qualityTotals(q) {
+  if (!q) return 'Unknown';
+  return `${q.checked || 0} checked; ${q.blocked || 0} blocked; ${q.warnings || 0} with warnings; ${q.bypassed || 0} bypassed; ${q.missing_verdicts || 0} unknown; ${q.conflicting_verdicts || 0} conflicts`;
+}
 function alternatives(n, title = "Other options considered") {
   if (!n.rejected?.length) return [];
   return [el("div", { class: "psec", text: title }),
@@ -695,6 +729,7 @@ function inspect(item, keepFocus = false) {
     parts.push(...nodeHeader(n), ...alternatives(n, "Other hooks considered"), el("div", { class: "psec", text: "Target profile" }), ...profilePanel());
   } else {
     parts.push(...nodeHeader(n));
+    if (n.level === 'contact' || n.level === 'attempt' || m) parts.push(qualityPanel(n, m));
     if (n.reasoning) parts.push(el("div", { class: "why" }, el("div", { class: "k", text: n.level === "reaction" ? "Reading of the reaction" : "Why" }), el("div", { text: n.reasoning })));
     if (n.level !== "contact" && (n.incident_chance || n.expected_contacts)) parts.push(el("div", { class: "row" },
       el("div", { class: "metric" }, el("div", { class: "muted", text: "Chance of incident" }), el("div", { class: "num", text: pct(n.incident_chance) }),
@@ -799,7 +834,9 @@ async function renderResults() {
       td(r.first_incident_touch ? `★ touch ${r.first_incident_touch}` : "–", r.first_incident_touch ? "num win" : "num"),
       td(r.incidents.length ? r.incidents.join(", ") : "–"),
       td(r.topic_hits == null ? "–" : `${r.topic_hits}/${r.touches}`, "num"),
-      td(r.voided ? "voided" : "ok", r.voided ? "bad" : ""));
+      td(r.voided ? "voided" : "ok", r.voided ? "bad" : ""),
+      td(qualityTotals(r.qa)),
+      td(r.qa?.local_craft_mean_0_8 == null ? 'Unscored' : `${r.qa.local_craft_mean_0_8.toFixed(1)}/8 local proxy`, 'num'));
     tr.addEventListener("click", () => openFromResults(r.id));
     return tr;
   });
@@ -810,7 +847,7 @@ async function renderResults() {
     totals.length ? table([["Where"], ["Version"], ["Runs", 1], ["Incident rate", 1], ["Median touches", 1], ["Hooks found", 1]], totals)
                   : el("div", { class: "muted", text: "No runs yet." }),
     el("h3", { text: `All runs (${data.runs.length}) · click one to replay it` }),
-    table([["When"], ["Where"], ["Version"], ["Target"], ["Touches", 1], ["First incident", 1], ["Incidents"], ["Hooks found", 1], ["Rules"]], runs));
+    table([["When"], ["Where"], ["Version"], ["Target"], ["Touches", 1], ["First incident", 1], ["Incidents"], ["Hooks found", 1], ["Rules"], ["Quality gate"], ["Craft (provisional)", 1]], runs));
 }
 async function openFromResults(id) { showView("replay"); await loadRuns(id); }
 // ---------- progress (agent versions on the bench) ----------

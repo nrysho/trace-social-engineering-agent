@@ -44,7 +44,10 @@ provisional 0-8 comparisons, never the official 10-point craft result.
   be substituted for real targeting/performance results.
 
 No real scoring run, provider benchmark, spoken rehearsal or submission is
-established by the local integration tests. Node sending remains a separate path.
+established by the local integration tests. Node practice sending now invokes
+the same Python checks through a bounded stdin subprocess, with server-owned
+target/domain/session policy. It has its own intent/receipt journal and stops
+on delivery uncertainty; its cache is not a cross-process resume system.
 
 ## Optional advanced layer on the same branch
 

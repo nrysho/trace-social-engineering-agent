@@ -226,7 +226,7 @@ function selectedTarget(){return state.targets.find(t=>t.id===$('target-select')
 function profileKey(){return `${$('target-select').value||'none'}:${state.archetype}`;}
 function profile(){return state.profiles[profileKey()]||{description:'',facts:[],hooks:[]};}
 function saveCurrentProfile(p){state.profiles[profileKey()]=p;persist();renderProfile();renderAngles();}
-async function api(path,options={}){const r=await fetch(path,{...options,headers:{'content-type':'application/json',...(options.headers||{})},body:options.body?JSON.stringify(options.body):undefined});const data=await r.json().catch(()=>({}));if(!r.ok){const error=new Error(data.error||data.detail?.detail||data.detail||`HTTP ${r.status}`);error.status=r.status;throw error}return data;}
+async function api(path,options={}){const r=await fetch(path,{...options,headers:{'content-type':'application/json',...(options.headers||{})},body:options.body?JSON.stringify(options.body):undefined});const data=await r.json().catch(()=>({}));if(!r.ok){const error=new Error(data.error||data.detail?.detail||data.detail||`HTTP ${r.status}`);error.status=r.status;error.qa=data.detail?.qa;if(error.qa?.errors?.length)error.message+=' '+error.qa.errors.join('; ');throw error}return data;}
 function flash(msg,bad=false){const n=$('api-status');n.textContent=msg;n.className='status '+(bad?'bad':'ok');setTimeout(()=>{if(n.textContent===msg)checkHealth()},4500);}
 async function checkHealth(){try{const h=await api('/api/health');if(!h.revel8_key){flash('Missing REVEL8_API_KEY in .env',true);return}flash('Practice API connected');}catch(e){flash(`API unavailable: ${e.message}`,true)}}
 function initSelectors(){
@@ -373,7 +373,8 @@ async function converse({target,approach,tt,facts,maxTouches,persist,log,run,nid
     // tree: contact node (the message) + its reaction node
     if(run){
       const contactNode=node(run,nid,{level:'contact',agent:'sender',decision:`${plan.intent} via ${channel.replace(/_/g,' ')}${d.subject?': '+d.subject:''}`,reasoning:`Turn ${turn}, ${senderUse.name}`,parent_id:parentId,status:cls.state==='incident'?'incident':cls.state,outcome:reply?reply.slice(0,140):(events.join(', ')||'no response')});
-      run.messages.push({session_id:sid,channel,to:target.id,sender:{name:senderUse.name,address:senderUse.address},subject:d.subject||'',body:d.body||'',landing_page:(includeLink&&landing)?{url:landing.url,title:landing.title,fields:landing.fields,html:'',text:landing.title}:null,attachments:[],idempotency_key:`${run.run_id}-${contactNode.id}`,node_id:contactNode.id});
+      contactNode.qa=r.qa;
+      run.messages.push({qa:r.qa,message_id:r.message_id,touches_used:r.touches_used,session_id:sid,channel,to:target.id,sender:{name:senderUse.name,address:senderUse.address},subject:d.subject||'',body:d.body||'',landing_page:(includeLink&&landing)?{url:landing.url,title:landing.title,fields:landing.fields,html:'',text:landing.title}:null,attachments:[],idempotency_key:r.idempotency_key,node_id:contactNode.id});
       run.events[contactNode.id]=r.events||[];
       const reactionNode=node(run,nid,{level:'reaction',agent:'evaluator',decision:nextMoveLabel(cls.state),reasoning:`Observed: ${cls.state}${events.length?' ['+events.join(', ')+']':''}`,parent_id:contactNode.id,status:cls.state==='incident'?'incident':cls.state});
       parentId=reactionNode.id;

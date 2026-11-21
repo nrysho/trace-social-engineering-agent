@@ -227,7 +227,9 @@ def from_agent_tree(path, runs_dir):
             messages.append({"session_id": path.stem, "channel": m.get("channel", ""), "to": m.get("to", ""),
                              "sender": m.get("from") or {}, "subject": m.get("subject", ""), "body": m.get("body", ""),
                              "attachments": [a if isinstance(a, dict) else {"filename": str(a)} for a in m.get("attachments", [])],
-                             "landing_page": page_in(m.get("body", ""), pages), "node_id": e.get("node_id")})
+                             "landing_page": page_in(m.get("body", ""), pages), "node_id": e.get("node_id"),
+                             "qa": e.get("qa"), "message_id": e.get("message_id"),
+                             "idempotency_key": e.get("idempotency_key")})
         elif e.get("kind") == "event" and e.get("message_id") in by_message:
             events[by_message[e["message_id"]]].append(e["event"])
     target = next((n for n in nodes if n.get("level") == "target"), nodes[0])
