@@ -12,6 +12,16 @@ LIVE_CHANNELS = {'phone_call', 'video_call', 'teams_call', 'live_chat'}
 
 
 class GuardedClient:
+    @classmethod
+    def from_current_practice(cls, client, context, **kwargs):
+        """Read official metadata once; replace manually supplied target IDs.
+
+        Caller must use the official client. This is a startup snapshot, not
+        live identity verification before every contact or a web search.
+        """
+        from .identity import context_from_practice
+        return cls(client, context_from_practice(client.scenarios(), context), **kwargs)
+
     def __init__(self, client, context, *, session_ids=(), conversation_sessions=None, audit=None):
         validate_context(context)
         self.client = client

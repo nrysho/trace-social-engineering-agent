@@ -11,7 +11,7 @@ python -m pip install requests
 python -m quality.acceptance --output output/quality/acceptance
 ```
 
-Expected: accepted=true, suite_exit_code=0, fixture_expectations_matched=true, blocked_fake_sends=0, correction_attempts=2. The current default run discovers 63 tests: 66 pass, two optional Chrome tests skip. The test count can grow; do not hardcode it as an integration requirement.
+Expected: accepted=true, suite_exit_code=0, fixture_expectations_matched=true, blocked_fake_sends=0, correction_attempts=2. The current default run discovers 63 tests: 74 pass, two optional Chrome tests skip. The test count can grow; do not hardcode it as an integration requirement.
 
 Outputs:
 

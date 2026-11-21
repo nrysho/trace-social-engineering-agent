@@ -36,3 +36,7 @@ Inspected main 16ae78b, neryss/viewer a7da34e and recon-osint b718bcc. Added a p
 Final refresh also inspected Izen's 91f10d5 strategy/writer branch. Added sender-email mapping, explicit-page-URL checks, call-line checks and provenance preservation adapters. Full 68-test acceptance passed with zero skips; generated model requests and the Node lab's send routes are not exercised or modified by these adapters.
 
 Actual Izen writer.generate_message and make_landing_page were also exercised from branch 91f10d5 with a fake completion and network prohibition; the adapter accepted the resulting shared message/page. HTML page previews now preserve existing form controls without synthesizing duplicate fields. No writer/model network request occurred.
+
+## Identity feasibility iteration
+
+Performed one read-only official scenario lookup and public homepage/about/imprint reads. The API listed Julius Muth, Robert Seilbeck and Tom M?ller; the imprint mentioned Julius Muth. The homepage also mentioned a different Julius, illustrating same-first-name risk. No session, message or touch was created. New identity helpers separate simulator eligibility from public text mentions. Full acceptance passes 76 tests, no skips. Source snapshots stay private and ignored. See QUALITY_ROADMAP.md for implemented scope versus proposed enhancements.

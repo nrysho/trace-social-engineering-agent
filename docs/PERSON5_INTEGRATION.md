@@ -115,3 +115,7 @@ Use `python -m quality.acceptance --output output/quality/acceptance` for a sing
 Read BRANCH_COMPATIBILITY.md. GuardedClient supports the new loop's practice-session lifecycle. quality.viewer_export joins selected tree/API logs into Neryss's bundle format. quality.cli profile checks source structure without performing research. Full acceptance now has 68 passing tests with --browser; default skips two.
 
 Izen's new writer result adapter is documented in BRANCH_COMPATIBILITY.md. Use as_shared_message on a prepared result before GuardedClient.send_message. The Node strategy-lab routes remain a separate integration boundary, not automatically protected by Python helpers.
+
+## Scenario-derived target authority
+
+See QUALITY_ROADMAP.md. GuardedClient.from_current_practice(client, context) reads official metadata once and derives the practice target IDs, retaining independent domain approvals. check_target can compare selected name/company fields, and public_name_mentions only reports source-text mentions. This does not search the internet automatically on every send or authenticate imported source files. Current full acceptance: 76 tests.

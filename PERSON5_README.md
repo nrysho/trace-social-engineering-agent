@@ -82,8 +82,8 @@ The package includes a decision log, architecture diagram, pitch draft, rehearsa
 
 ## What has been verified
 
-- **68 tests passed with browser checks enabled; zero skips.**
-- Default non-browser run: 66 pass and two optional Chrome tests skip.
+- **76 tests passed with browser checks enabled; zero skips.**
+- Default non-browser run: 74 pass and two optional Chrome tests skip.
 - Rejected messages/pages caused zero requests in fake-HTTP tests.
 - Valid sends preserved page-before-message order and stable retry keys.
 - The current bare loop was exercised with the guard, fake writer and fake HTTP.
@@ -169,3 +169,7 @@ Expected: all current tests pass and `tests_skipped: 0`. Use `py` instead of `py
 `theja-branch` is the older localhost TRACE prototype. `theja-person5-main` is the team-compatible Person 5 package. Do not merge the older dashboard just to obtain the quality tools.
 
 Keys, private run logs, screenshots and videos stay local under ignored paths. Nothing in this handoff authorises real-world contact. All permitted interaction remains inside the official revel8 simulation.
+
+## Target identity and future guardrails
+
+See [docs/QUALITY_ROADMAP.md](docs/QUALITY_ROADMAP.md). Official scenario eligibility and public-name evidence are separate checks. GuardedClient.from_current_practice can now replace a manually typed target list with a fresh read-only official practice lookup; public name mentions never grant permission or prove full identity. Full browser-enabled acceptance now passes 76 tests.

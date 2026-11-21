@@ -120,3 +120,7 @@ Run `python -m quality.acceptance --output output/quality/acceptance` (requests 
 ## Current branch compatibility
 
 See [BRANCH_COMPATIBILITY.md](docs/BRANCH_COMPATIBILITY.md) for current main's agent loop, Neryss's viewer bundle exporter and Sherwin's profile handoff checks. Full acceptance now has 68 tests (66 pass by default, two optional browser checks). The team must still select the guarded client in its actual loop.
+
+## Target identity and future guardrails
+
+See [docs/QUALITY_ROADMAP.md](docs/QUALITY_ROADMAP.md). Official scenario eligibility and public-name evidence are separate checks. GuardedClient.from_current_practice can now replace a manually typed target list with a fresh read-only official practice lookup; public name mentions never grant permission or prove full identity. Full browser-enabled acceptance now passes 76 tests.
