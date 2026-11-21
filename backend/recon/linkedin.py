@@ -5,6 +5,8 @@
 - the profile's name + current company become the anchor the match gate trusts
 """
 import json
+import re
+from datetime import datetime, timezone
 
 import requests
 
@@ -59,8 +61,8 @@ def facts(rec, url=""):
     if company:
         position = rec.get("position") or ""
         role = f"{position} at {company}" if position else f"Works at {company}"
-        out.append(Fact("role", role, src, title, confidence=0.85))
-        out.append(Fact("company", company, src, title, confidence=0.9))
+        out.append(Fact("role", role, src, title, date="present", confidence=0.85))
+        out.append(Fact("company", company, src, title, date="present", confidence=0.9))
 
     about = (rec.get("about") or "").strip()
     if about:
@@ -72,3 +74,15 @@ def facts(rec, url=""):
             out.append(Fact("recent_activity", f"Posted: {headline}", src, title, confidence=0.6))
 
     return out
+
+
+def post_date(url):
+    # linkedin encodes a ms timestamp in the top bits of a post's activity id
+    m = re.search(r"activity[-:](\d{17,20})", url)
+    if not m:
+        return ""
+    try:
+        ms = int(m.group(1)) >> 22
+        return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m")
+    except (ValueError, OSError, OverflowError):
+        return ""
