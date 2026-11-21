@@ -11,7 +11,7 @@ from pathlib import Path
 
 from backend import config
 from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, github, match,
-                           extract, verify, hooks, exposure, render, recency)
+                           extract, verify, hooks, exposure, render, recency, bench_osint)
 from schemas import Profile
 
 OUT = Path(__file__).resolve().parents[2] / "runs" / "profiles"
@@ -131,26 +131,34 @@ def _github(name, company, role, domain, results):
         return []
 
 
-def build(name, company, role=""):
+def build(name, company, role="", bench_target=None):
     env = config.load_env()
+    domain = ""
 
-    # 1. search all queries in parallel, then fetch snippet-only pages in parallel
-    results = _search_all(name, company)
-    print(f"  {len(results)} unique results")
-    _deepen(results)
-    domain = domains.resolve(company, results)
+    if bench_target:
+        # bench personas are fictional: read their fake public pages instead of the live web,
+        # and skip the live-only collectors (dns, tech, linkedin, github find nothing for them)
+        results = bench_osint.pages(bench_target)
+        print(f"  {len(results)} bench osint pages")
+        facts = _extract(name, company, results, role)
+    else:
+        # 1. search all queries in parallel, then fetch snippet-only pages in parallel
+        results = _search_all(name, company)
+        print(f"  {len(results)} unique results")
+        _deepen(results)
+        domain = domains.resolve(company, results)
 
-    # 2. extract and each structured collector are independent, so run them together
-    facts = []
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        jobs = [
-            ex.submit(_extract, name, company, results, role),
-            ex.submit(_dns_tech, domain),
-            ex.submit(_linkedin_anchor, name, company, role, domain, results, env),
-            ex.submit(_github, name, company, role, domain, results),
-        ]
-        for j in jobs:
-            facts += j.result()
+        # 2. extract and each structured collector are independent, so run them together
+        facts = []
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            jobs = [
+                ex.submit(_extract, name, company, results, role),
+                ex.submit(_dns_tech, domain),
+                ex.submit(_linkedin_anchor, name, company, role, domain, results, env),
+                ex.submit(_github, name, company, role, domain, results),
+            ]
+            for j in jobs:
+                facts += j.result()
 
     # 3. verify across domains, propose hooks, score exposure
     facts = verify.verify(facts)

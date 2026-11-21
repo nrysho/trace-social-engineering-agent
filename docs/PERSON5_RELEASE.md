@@ -1,6 +1,6 @@
 # Person 5 release readiness
 
-Prepared on 21 November 2026 on **theja-person5**, incorporating main **29fa0fc**.
+Prepared on 21 November 2026 on **theja-person5**, incorporating main **dc10404**.
 Main has not been changed. Review and merge this branch separately.
 
 ## Implemented and locally checked
@@ -74,9 +74,33 @@ pre-send screenshot critic or official craft score is claimed.
 
 ## Work requiring the team or presenter
 
-1. Review the diff and exercise the actual final writer/recon in an authorised
-   practice run. Offline fake responses do not certify model availability or
-   the official service's behaviour. Do not spend an eval run as a smoke test.
+### Official practice smoke test completed
+
+The actual merged recon/strategy/writer/orchestrator was exercised against the
+official Julius practice twin, capped at one contact. An invalid placeholder
+draft was blocked with zero network submission requests. The real run selected
+a phone call: one acknowledged conversation, four submitted turns and real twin
+replies. The API subsequently confirmed exactly one practice touch. The test
+conversation and session were closed; no eval session was used.
+
+The model gateway returned HTTP 200 responses for Qwen3.8-27B (recon hooks) and
+DeepSeek-V4-Flash (call writing/judging). The saved replay was checked in Chrome
+for the actual conversation receipt, cumulative touches, QA and transcript;
+Results reports one touch and one checked contact. No browser errors occurred.
+Private evidence/screenshots are under `runs/quality/live-acceptance/`, ignored.
+The updated code also passes 181 browser-enabled regression tests with no skips.
+
+This is a successful **call integration smoke test**, not an incident/performance
+claim. It did not exercise the live email endpoint or eval scenario. Fresh recon
+returned **zero search results and zero sourced facts**, so the generic approach
+does not demonstrate successful researched targeting. No incident was detected.
+The invalid-input check proves guard rejection, not model correction quality.
+The final writer/recon configuration still needs broader team acceptance.
+
+1. Review the diff and the live call evidence. Resolve the empty recon profile
+   and decide whether the final runner requires complete used-session recovery
+   before merging. The remaining email/eval paths have offline coverage, not
+   a newly verified live send. Do not spend an eval run as a smoke test.
 2. Supply genuine versioned bench outputs and one official thread with receipts,
    cumulative touches and raw events. Pick the evidenced thread for the pitch.
 3. Insert final results/screenshots into the pitch and architecture handoff;

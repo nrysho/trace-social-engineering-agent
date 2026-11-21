@@ -37,7 +37,10 @@ py -m unittest discover -s tests -v
 Verified: 181 tests pass with browser checks enabled, zero skips. These include
 actual loopback HTTP against Neryss's bench, with a deterministic fake persona
 engine and external HTTP prohibited. No real revel8 session, scoring contact
-or external model request was made. Tests use fictional people and .example domains.
+or external model request was made by that regression suite. Tests use fictional
+people and .example domains. A separate, explicitly requested official one-touch
+practice call has now passed; see PERSON5_RELEASE.md for its exact scope and the
+empty-recon limitation. Private live evidence is local and ignored.
 
 Core acceptance proves that eval uses its 10-touch bench budget; blocked drafts
 cost zero; correction receives feedback and sends once; QA stays outside API
@@ -93,4 +96,4 @@ uncertain sessions. Restoring active calls, writer context and process-local
 story state together is not implemented; no crash-safe story guarantee or
 automatic model-performance improvement is claimed.
 
-Historical PRs #10, #13, #14, #15 and #16 are closed. The implementation incorporates main 29fa0fc. Event arrays are keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact.
+Historical PRs #10, #13, #14, #15 and #16 are closed. The implementation incorporates main dc10404. Event arrays are keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact. Message/call replay records retain actual API receipt IDs and cumulative touches when returned.

@@ -695,6 +695,8 @@ function qualityPanel(n, m) {
     for (const text of q.errors || []) panel.append(el('div', { class: 'bad', text: `Error: ${text}` }));
     for (const text of q.warnings || []) panel.append(el('div', { class: 'muted', text: `Warning: ${text}` }));
   }
+  if (m?.message_id || m?.conversation_id) panel.append(el('p', { class: 'muted',
+    text: `API receipt: ${m.message_id || m.conversation_id}${Number.isInteger(m.touches_used) ? ` | cumulative touches: ${m.touches_used}` : ''}` }));
   if (n.level === 'attempt') panel.append(el('p', { text: 'This attempt is not a confirmed sent contact. Earlier contacts in the session may have used touches.' }));
   return panel;
 }

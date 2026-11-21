@@ -408,7 +408,8 @@ class Orchestrator:
             self.budget.sync(result.get("touches_used", self.budget.used))
             self.budget.branch_used += 1
             events = result.get("events", [])
-            self.messages.append(dict(msg.to_dict(), qa=self.client.last_report))            # for the replay bundle
+            self.messages.append(dict(msg.to_dict(), qa=self.client.last_report,
+                                      message_id=result['message_id'], touches_used=result.get('touches_used')))
             self.events.setdefault(contact.id, []).extend(events)
             reply = next((e.get("body", "") for e in events if e.get("type") == "reply"), "")
             print(f"     <- {[e.get('type') for e in events] or ['ignored']}  "
@@ -528,6 +529,7 @@ class Orchestrator:
                       incident_chance=1.0 if incident_type else 0.0)
         self.messages.append({
             "session_id": sid, "channel": approach["channel"], "to": self.target_id,
+            "conversation_id": cid, "touches_used": conv.get('touches_used'),
             "sender": sender, "subject": "", "node_id": contact.id, "qa": self.qa_by_node.get(contact.id),
             "body": "\n".join(f"{t['role']}: {t['text']}" for t in transcript),
         })

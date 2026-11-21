@@ -81,6 +81,8 @@ class BenchTests(unittest.TestCase):
         self.assertIsInstance(bundle['events'],dict)
         self.assertTrue(all(m['node_id'] in bundle['events'] for m in bundle['messages']))
         self.assertEqual(session['touches_used'],1);self.assertTrue(bundle['messages'][0]['qa']['passed'])
+        self.assertTrue(bundle['messages'][0]['message_id'])
+        self.assertEqual(bundle['messages'][0]['touches_used'],1)
         rows=[json.loads(x) for x in next((Path(self.temp.name)/'api').glob('*.jsonl')).read_text().splitlines()]
         sent=next(row for row in rows if row['kind']=='sent')
         self.assertTrue(sent['qa']['passed']);self.assertNotIn('qa',sent['message'])
