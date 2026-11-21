@@ -46,7 +46,7 @@ def quality_summary(bundle):
 def by_version(bundles):
     groups = {}
     for bundle in bundles:
-        version = str(bundle.get('agent_version') or 'unknown')
+        version = str(bundle.get('agent_version') or (bundle.get('metrics') or {}).get('label') or 'unknown')
         groups.setdefault(version,[]).append(quality_summary(bundle))
     output = {}
     for version, runs in groups.items():

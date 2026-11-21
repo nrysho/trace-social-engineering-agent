@@ -44,3 +44,34 @@ class MetricsTests(unittest.TestCase):
         result=by_version([a,b])
         self.assertEqual(set(result),{'v1','unknown'})
         self.assertEqual(result['unknown']['blocked'],1)
+
+    def test_recorded_bench_label_is_a_version(self):
+        bundle=self.bundle();bundle['metrics']={'label':'bench-v2'}
+        self.assertEqual(set(by_version([bundle])),{'bench-v2'})
+
+    def test_viewer_summary_adds_qa_without_changing_touch_math(self):
+        from viewer.serve import summary
+        bundle=self.bundle();bundle['events']={'n1':[]}
+        report=summary('synthetic',bundle)
+        self.assertEqual(report['contacts'],1);self.assertEqual(report['qa']['checked'],1)
+
+    def test_full_bundle_preserves_qa_over_bare_tree(self):
+        import json,tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from viewer import serve
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/'trees').mkdir()
+            bundle=self.bundle();bundle['run_id']='synthetic';bundle['events']={'n1':[]}
+            (root/'synthetic.json').write_text(json.dumps(bundle))
+            (root/'trees/synthetic.json').write_text(json.dumps([{'id':'n1','level':'contact'}]))
+            with patch.object(serve,'RUNS',root):
+                selected=serve.bundles()['synthetic']()
+            self.assertTrue(selected['nodes'][0]['qa']['passed'])
+
+    def test_clean_message_has_no_universal_advisory_warning(self):
+        from test_quality_gate import message,context
+        from quality.integration import prepare_message
+        candidate=message();candidate['body']+='\nRegistered company: Events Example'
+        report=prepare_message(candidate,context())['report']
+        self.assertTrue(report['passed']);self.assertEqual(report['warnings'],[])
