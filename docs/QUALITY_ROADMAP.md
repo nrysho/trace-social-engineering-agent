@@ -80,3 +80,13 @@ No universal person-exists score, guaranteed vulnerability score or fabricated o
 ## Current verification
 
 The identity additions have eight regression tests. Full browser-enabled acceptance passes 76 tests with zero skips. The official/public checks were read-only and no touches were spent. The improvements listed as next/P1/P2 above are proposals, not completed features. Human rehearsals, actual team-route adoption and verified integrated results remain pending.
+
+
+## Evidence and consistency implementation update
+
+The opt-in ReviewedClient, EvidenceCatalog and SessionLedger are now implemented. Read [the integration contract and limits](EVIDENCE_AND_CONSISTENCY.md). They check declared evidence and contradictions; they do not extract every factual claim or authenticate truth. Shared schemas and teammate routes are unchanged. Node enforcement, source snapshot collection, durable ledger resume and actual team adoption remain pending. Earlier test totals above describe the previous identity iteration.
+
+
+## Current hardening handoff
+
+See [PERSON5_COMPLETION.md](PERSON5_COMPLETION.md) for current implementation, commands and remaining acceptance. IdentityReviewer, independent critic-output coverage, optional durable SQLite state, correlated audits and bounded reviewed generation are implemented. They are opt-in and do not establish production-route adoption. Safe public fetching, automatic factual truth verification and final real-run presentation evidence remain outside the completed component work.

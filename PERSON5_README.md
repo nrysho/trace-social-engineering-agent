@@ -1,5 +1,8 @@
 # Person 5: what Theja built and what the team must connect
 
+> **Current handoff:** Read [docs/PERSON5_COMPLETION.md](docs/PERSON5_COMPLETION.md) for current implementation, 130-test acceptance, demo commands and teammate actions. Test totals below describe earlier iterations. Guards remain opt-in; production adoption and human rehearsals are not established by offline tests.
+
+
 **Start here if you want to understand or use Theja's work.**
 
 Theja built the **quality-control and evidence part** of SchnitzelStrikers. The package checks generated content, helps the writer correct it, and explains what happened in saved runs.

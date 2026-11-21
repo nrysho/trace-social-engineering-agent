@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 from .demo import build_demo
+from .hardening_demo import build_hardening_demo
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,6 +37,9 @@ def run_acceptance(output, *, browser=False):
         summary['correction_attempts'] = len(evidence['correction_attempts'])
         summary['accepted'] = (summary['fixture_expectations_matched'] and summary['blocked_fake_sends'] == 0
                                and summary['tests_discovered'] is not None and summary['tests_discovered'] > 0)
+        hardening = build_hardening_demo(output/'hardening')
+        summary['hardening_expectations_matched'] = hardening['all_expectations_matched']
+        summary['accepted'] = summary['accepted'] and summary['hardening_expectations_matched']
         if browser and summary['tests_skipped']:
             summary['accepted'] = False
     (output/'acceptance.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')

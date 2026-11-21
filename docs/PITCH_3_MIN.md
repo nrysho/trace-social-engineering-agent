@@ -1,49 +1,70 @@
-# Three-minute pitch: acceptance-stage draft
+# Three-minute pitch - component-demo version
 
-Rehearse aloud with a timer. This script separates tested QA behavior from pending team integration. All demo examples in the repeatable walkthrough are synthetic. Earlier practice evidence must be labeled separately.
+Use until the team supplies a verified end-to-end thread. The synthetic fallback
+does not satisfy the real-thread rubric criterion by itself. Practise aloud with
+a timer, including clicks; this script is not a completed rehearsal.
 
-## 0:00-0:25 Problem
+## 0:00-0:30 - Problem
 
-AI can automate personalised social-engineering conversations. But seeing a final email does not tell defenders what the system knew, why it chose an approach, or whether the reported result is true.
+AI can generate a convincing personalised message in seconds. But how do you
+know it researched the right person, kept its story consistent, or actually
+achieved the result shown on a dashboard?
 
-We are SchnitzelStrikers. Our project makes that process inspectable inside revel8's authorised AI-twin simulation. Nothing is sent to real people.
+We are SchnitzelStrikers. We are building an inspectable autonomous agent inside
+revel8's authorised AI-twin simulation. It contacts simulator targets, never real
+people.
 
-## 0:25-0:55 Solution
+## 0:30-1:00 - Solution
 
-Our team's design connects research, strategy, writing, quality checks and response evaluation. The shared foundation now includes profiles, message formats, a model client, a simulator API client and a bare linear agent loop.
+Our design connects research, strategy, writing, quality checks and evaluation.
+The decision tree records the chosen approach, rejected alternatives and what
+the simulator returned.
 
-My component checks the generated work and preserves evidence. It checks sender details and approved domains, catches placeholders and simulator-directed wording, and returns clear reasons when a draft fails. A writer can correct it automatically, within a fixed retry limit.
+Our quality component separates authorised target IDs from public identity
+evidence, links declared facts to source excerpts and checks promises across
+channels. It returns errors for bounded automatic correction. No person needs
+to approve individual scoring messages.
 
-## 0:55-1:55 Demo
+## 1:00-2:15 - Demo
 
-[Open the offline walkthrough; identify it as synthetic.]
+[Open hardening/index.html from the acceptance output. Say synthetic offline demo.]
 
-Here is a complete message passing. Here is an invalid draft being blocked before it reaches even our fake sender.
+Here, two public candidates have the same name. The checker reports ambiguity;
+it does not guess they are the same person.
 
-The correction helper returns the errors to the writer. On the second attempt, the revised message passes the final boundary. If all attempts fail, the process stops. No person approves each message.
+An invented claim reference is blocked before the fake sender receives anything.
+A supported synthetic message passes.
 
-We tested that boundary around Mavis's actual API client using fake HTTP responses. Invalid messages and pages produce zero requests. Accepted messages preserve page registration order and retry keys.
+Now the email promises Friday, while a follow-up says Thursday. The contradiction
+remains blocked after restarting the controller because session declarations
+were stored locally.
 
-[Show the evidence report.]
+Finally, a timeout remains unresolved after restart. The system requires the
+original request to be reconciled instead of inventing silence or spending
+another contact.
 
-The report counts one synthetic contact and one unique reply. A repeated event ID is ignored. It does not call a reply a successful incident.
+## 2:15-2:30 - Evidence and limits
 
-## 1:55-2:30 Actual evidence and limitations
+We have repeatable offline tests, including browser checks and fake HTTP around
+the actual API client. They demonstrate the component boundary. They do not prove
+factual truth, an incident, or complete integration of all team sending paths.
 
-In an earlier genuine practice test, Julius's twin asked us which event we meant, who was organising it and what we wanted from him. That was one contact and a reply, with no incident recorded. It showed that a vague opening needs concrete context.
+## 2:30-3:00 - Next and close
 
-The new package has seventy-six passing tests, including offline Chrome checks for overflow and clipping. These mechanical checks do not prove factual accuracy or award official craft points. The wrapper is ready, but the team still needs to select it in the final send paths.
+The integration step connects retained research evidence and final Python and
+Node send paths. With another week, we would strengthen research fetching,
+source freshness and automatic visual review.
 
-## 2:30-3:00 Next and close
+Our goal is a useful security-awareness system with a clear account of what
+the agent knew, what it chose and what the evidence actually supports.
 
-With another week, we would connect sourced research, stronger conversation memory and automatic visual feedback into the same loop. Today, we can demonstrate a checked draft, bounded correction and an evidence trail that keeps unknown results unknown.
+## When a real thread arrives
 
-Our contribution is a clear account of what the agent did, why it chose that path and what we can honestly conclude.
+Verify session origin, message IDs, actual events and touches. Replace the demo
+with research -> draft -> gate -> send -> response -> adaptation. State observed
+results separately from official adjudication. Never invent incidents, hook
+hits, craft scores or exposure effectiveness.
 
-## Presenter notes
-
-Only say seventy-six tests after confirming the current verification record. The default suite skips two optional browser tests; all 76 were run successfully in the documented environment. Do not call the synthetic correction demo a live attack or a scoring result.
-
-Use the local backup video if the demo fails. It is silent; narrate the same explanation. The earlier real practice thread is optional and remains private. Replace it with a verified scoring thread only if the team supplies one.
-
-Two actual timed speaker rehearsals are still pending; record real durations in docs/REHEARSAL.md. Confirm the event's three-minute talk plus Q&A and final logistics with organisers.
+Keep the labelled component demo as backup. Open everything before the talk.
+Record two real timed rehearsals in REHEARSAL.md. Confirm the supplied Sunday
+22 November room 0606 schedule with organisers; this document does not confirm it.

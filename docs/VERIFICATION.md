@@ -40,3 +40,23 @@ Actual Izen writer.generate_message and make_landing_page were also exercised fr
 ## Identity feasibility iteration
 
 Performed one read-only official scenario lookup and public homepage/about/imprint reads. The API listed Julius Muth, Robert Seilbeck and Tom M?ller; the imprint mentioned Julius Muth. The homepage also mentioned a different Julius, illustrating same-first-name risk. No session, message or touch was created. New identity helpers separate simulator eligibility from public text mentions. Full acceptance passes 76 tests, no skips. Source snapshots stay private and ignored. See QUALITY_ROADMAP.md for implemented scope versus proposed enhancements.
+
+
+## Person 5 release acceptance - 21 November 2026
+
+A clean archive of Person 5 HEAD 703cfbb (main 9565b48 plus existing QA) with
+only the evidence/consistency/hardening feature files passed 130 tests with
+Chrome/browser checks enabled and zero skips. The original correction demo
+and all eight new synthetic hardening cases matched expectations. No live
+model request or simulator contact was made. The HTML hardening walkthrough
+was rendered in Chrome with scripts/network disabled and visually inspected.
+
+The working tree also contains unrelated, uncommitted incident edits. Its
+142-test browser suite passed, but that larger number is not the independent
+release total and those edits must not be bundled into this feature commit.
+
+Fresh remote refs checked: main 9565b48, recon-osint 333b973, Izen aa84835,
+profile-replay 2f1f853. Evidence is local under ignored
+output/quality/person5-release-5ab75021/output/quality/release-acceptance/.
+These are offline component/compatibility results, not deployment acceptance,
+identity proof, a rehearsal, a live practice result, or official scoring.
