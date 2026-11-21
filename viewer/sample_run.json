@@ -1,0 +1,86 @@
+{
+  "run_id": "run_sample_mara",
+  "mode": "sample",
+  "profile": {
+    "name": "Mara Lindqvist",
+    "role": "Head of Finance",
+    "company": "Nordlicht Robotics",
+    "domain": "nordlicht-robotics.example",
+    "facts": [
+      {"category": "role", "value": "Head of Finance at Nordlicht Robotics since 2024", "source_url": "https://nordlicht-robotics.example/team", "source_title": "Nordlicht Robotics - Team", "confidence": 0.95, "verified": true, "supporting_urls": ["https://linkedin.example/in/mara-lindqvist"]},
+      {"category": "recent_activity", "value": "Company is switching auditors for the 2026 year-end audit", "source_url": "https://news.example/nordlicht-audit", "source_title": "Nordlicht picks new auditor", "confidence": 0.7, "verified": false, "supporting_urls": []},
+      {"category": "hiring", "value": "Open role: Financial Controller (Munich), posted 3 weeks ago", "source_url": "https://nordlicht-robotics.example/careers/controller", "source_title": "Careers - Financial Controller", "confidence": 0.9, "verified": true, "supporting_urls": ["https://jobs.example/nordlicht-controller"]},
+      {"category": "interests", "value": "Posts about finance automation and lean month-end close", "source_url": "https://linkedin.example/in/mara-lindqvist", "source_title": "Mara Lindqvist - LinkedIn", "confidence": 0.6, "verified": false, "supporting_urls": []},
+      {"category": "communication_style", "value": "Short, direct posts; signs off with 'Best, Mara'", "source_url": "https://linkedin.example/in/mara-lindqvist", "source_title": "Mara Lindqvist - LinkedIn", "confidence": 0.5, "verified": false, "supporting_urls": []}
+    ],
+    "hooks": [
+      {"topic": "Year-end audit preparation with the new auditor", "probability": 0.6, "evidence": ["Company is switching auditors for the 2026 year-end audit"], "rationale": "A new auditor means unfamiliar senders and document requests are expected right now.", "angle": "their_topic"},
+      {"topic": "Hiring the Financial Controller", "probability": 0.45, "evidence": ["Open role: Financial Controller (Munich), posted 3 weeks ago"], "rationale": "An open role she owns; strong candidates get her attention.", "angle": "their_topic"},
+      {"topic": "Speaking about finance automation", "probability": 0.2, "evidence": ["Posts about finance automation and lean month-end close"], "rationale": "Interest is visible but there is no sign she is looking for stages.", "angle": "own_angle"}
+    ],
+    "exposure_score": 58.0,
+    "exposure_breakdown": {"work_context": 22.0, "hiring": 18.0, "social_activity": 12.0, "network": 6.0},
+    "sources": ["https://nordlicht-robotics.example/team", "https://news.example/nordlicht-audit", "https://nordlicht-robotics.example/careers/controller", "https://linkedin.example/in/mara-lindqvist", "https://jobs.example/nordlicht-controller"],
+    "generated_at": "2026-11-21T16:00:00Z"
+  },
+  "nodes": [
+    {"id": "n1", "run_id": "run_sample_mara", "level": "target", "agent": "orchestrator", "decision": "Target Mara Lindqvist", "reasoning": "Finance lead at a company in the middle of an auditor switch and an open hire: two live topics.", "parent_id": null, "rejected": [], "incident_chance": 0.0, "expected_contacts": 0.0, "evidence": ["Head of Finance at Nordlicht Robotics since 2024"], "status": "incident", "outcome": "Action incident on touch 4 (attachment opened).", "timestamp": "2026-11-21T16:01:00Z"},
+    {"id": "n2", "run_id": "run_sample_mara", "level": "hook", "agent": "profiler", "decision": "Pursue the year-end audit hook first", "reasoning": "Highest probability: a new auditor makes document requests from unknown senders normal.", "parent_id": "n1", "rejected": [{"option": "Speaking about finance automation", "reason": "Only 0.2: interest is visible but nothing says she wants a stage."}], "incident_chance": 0.5, "expected_contacts": 2.0, "evidence": ["Company is switching auditors for the 2026 year-end audit"], "status": "failed", "outcome": "She verified through the auditor's main line; branch dropped after 2 touches.", "timestamp": "2026-11-21T16:02:00Z"},
+    {"id": "n3", "run_id": "run_sample_mara", "level": "hook", "agent": "profiler", "decision": "Keep the controller-hiring hook as backup", "reasoning": "Second highest probability and independent of the audit story, so a pivot does not contradict earlier contacts.", "parent_id": "n1", "rejected": [], "incident_chance": 0.4, "expected_contacts": 2.5, "evidence": ["Open role: Financial Controller (Munich), posted 3 weeks ago"], "status": "incident", "outcome": "Took over after the audit branch failed; led to the incident.", "timestamp": "2026-11-21T16:02:30Z"},
+    {"id": "n4", "run_id": "run_sample_mara", "level": "approach", "agent": "strategist", "decision": "Email from the new auditor's onboarding team asking her to upload the trial balance to a portal (goal: credentials)", "reasoning": "Matches what a new auditor sends in week one; the portal sign-in is the incident.", "parent_id": "n2", "rejected": [{"option": "Phone call from the audit partner", "reason": "A partner calling cold is unusual before an engagement letter exists."}, {"option": "Calendar invite for a kickoff call", "reason": "Does not lead to an incident by itself; costs a touch for trust only."}], "incident_chance": 0.45, "expected_contacts": 2.0, "evidence": ["Company is switching auditors for the 2026 year-end audit"], "status": "failed", "outcome": "Suspicious after touch 1, still suspicious after the call.", "timestamp": "2026-11-21T16:03:00Z"},
+    {"id": "n5", "run_id": "run_sample_mara", "level": "contact", "agent": "sender", "decision": "Sent onboarding email with the document portal link", "reasoning": "First contact on the top approach; one clear ask.", "parent_id": "n4", "rejected": [], "incident_chance": 0.0, "expected_contacts": 0.0, "evidence": [], "status": "suspicious", "outcome": "Opened the link but did not sign in; replied asking for the engagement letter reference.", "timestamp": "2026-11-21T16:04:00Z"},
+    {"id": "n6", "run_id": "run_sample_mara", "level": "reaction", "agent": "evaluator", "decision": "Address the doubt once with a short call from the onboarding coordinator", "reasoning": "She engaged (opened the link) but wants proof. One call costs one touch for up to 10 lines.", "parent_id": "n5", "rejected": [{"option": "Resend the link with more urgency", "reason": "Urgency after a doubt reads as pressure and confirms suspicion."}, {"option": "Drop the branch now", "reason": "She engaged; one attempt to resolve the doubt is worth a touch."}], "incident_chance": 0.3, "expected_contacts": 1.0, "evidence": [], "status": "suspicious", "outcome": "", "timestamp": "2026-11-21T16:05:00Z"},
+    {"id": "n7", "run_id": "run_sample_mara", "level": "contact", "agent": "sender", "decision": "Phone call: coordinator offers the engagement reference and walks her to the portal", "reasoning": "Answer her question live and keep the story consistent with the email.", "parent_id": "n6", "rejected": [], "incident_chance": 0.0, "expected_contacts": 0.0, "evidence": [], "status": "failed", "outcome": "She said she would confirm through the auditor's main line and ended the call.", "timestamp": "2026-11-21T16:07:00Z"},
+    {"id": "n8", "run_id": "run_sample_mara", "level": "reaction", "agent": "evaluator", "decision": "Mark the audit branch failed and pivot to the hiring hook in the same session", "reasoning": "Two doubts in a row: rule says stop. The hiring story uses a different sender and topic, so it does not contradict the audit contacts.", "parent_id": "n7", "rejected": [{"option": "Open a new session", "reason": "Not needed: the pivot is consistent with what she has seen, and a new session wastes the run's remaining trust."}], "incident_chance": 0.4, "expected_contacts": 2.0, "evidence": [], "status": "failed", "outcome": "", "timestamp": "2026-11-21T16:08:00Z"},
+    {"id": "n9", "run_id": "run_sample_mara", "level": "approach", "agent": "strategist", "decision": "Recruiter on LinkedIn with a strong controller candidate, then the CV by email (goal: action, open the CV)", "reasoning": "Opening a candidate's CV is routine for a hiring manager; LinkedIn first makes the email expected.", "parent_id": "n3", "rejected": [{"option": "Email the CV straight away", "reason": "Unknown recruiter plus attachment in one step is a classic red flag."}], "incident_chance": 0.55, "expected_contacts": 2.0, "evidence": ["Open role: Financial Controller (Munich), posted 3 weeks ago"], "status": "incident", "outcome": "CV opened on touch 4.", "timestamp": "2026-11-21T16:09:00Z"},
+    {"id": "n10", "run_id": "run_sample_mara", "level": "contact", "agent": "sender", "decision": "LinkedIn message: recruiter mentions a controller candidate with SAP S/4 migration experience", "reasoning": "Short, specific, no attachment yet; asks permission to send the CV.", "parent_id": "n9", "rejected": [], "incident_chance": 0.0, "expected_contacts": 0.0, "evidence": ["Open role: Financial Controller (Munich), posted 3 weeks ago"], "status": "engaged", "outcome": "Replied: interested, asked for the CV by email.", "timestamp": "2026-11-21T16:10:00Z"},
+    {"id": "n11", "run_id": "run_sample_mara", "level": "reaction", "agent": "evaluator", "decision": "Make the ask: send the CV by email as she requested", "reasoning": "She asked for it herself, so the attachment is expected.", "parent_id": "n10", "rejected": [{"option": "Propose a call first", "reason": "Adds a touch with no gain; she already asked for the CV."}], "incident_chance": 0.7, "expected_contacts": 1.0, "evidence": [], "status": "engaged", "outcome": "", "timestamp": "2026-11-21T16:11:00Z"},
+    {"id": "n12", "run_id": "run_sample_mara", "level": "contact", "agent": "sender", "decision": "Email with the candidate's CV attached", "reasoning": "Fulfils her request; one attachment, plain recruiter tone.", "parent_id": "n11", "rejected": [], "incident_chance": 0.0, "expected_contacts": 0.0, "evidence": [], "status": "incident", "outcome": "attachment.opened: CV_Jonas_Brandt_Controller.pdf", "timestamp": "2026-11-21T16:12:00Z"},
+    {"id": "n13", "run_id": "run_sample_mara", "level": "reaction", "agent": "evaluator", "decision": "Stop: action incident reached on touch 4", "reasoning": "Goal reached; more touches only add risk.", "parent_id": "n12", "rejected": [], "incident_chance": 1.0, "expected_contacts": 0.0, "evidence": [], "status": "incident", "outcome": "Run finished with an action incident.", "timestamp": "2026-11-21T16:12:30Z"}
+  ],
+  "messages": [
+    {
+      "session_id": "s_sample01", "channel": "email", "to": "mara",
+      "sender": {"name": "Anna Keller", "address": "a.keller@bergmann-audit-partners.example"},
+      "subject": "Nordlicht Robotics: year-end audit 2026, document upload",
+      "body": "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:600px\"><p>Dear Ms Lindqvist,</p><p>Welcome to Bergmann Audit Partners. As part of onboarding for the 2026 year-end audit, please upload the preliminary trial balance and the fixed asset register to our client portal by Friday.</p><p><a href=\"https://portal.bergmann-audit-partners.example/nordlicht\">Open the client portal</a></p><p>If anything is unclear, just reply to this email.</p><p>Kind regards,<br>Anna Keller<br>Client Onboarding, Bergmann Audit Partners</p><p style=\"font-size:11px;color:#888\">Bergmann Audit Partners Wirtschaftsprüfungsgesellschaft mbH · Munich</p></div>",
+      "landing_page": {"url": "https://portal.bergmann-audit-partners.example/nordlicht", "title": "Bergmann Audit Partners: client portal", "fields": ["email", "password"], "html": "", "text": "Sign in with your company email to upload documents for the 2026 year-end audit."},
+      "attachments": [], "idempotency_key": "run_sample_mara-n5", "node_id": "n5"
+    },
+    {
+      "session_id": "s_sample01", "channel": "phone_call", "to": "mara",
+      "sender": {"name": "Tobias Wern", "address": "+49 89 2190 4471"},
+      "subject": "",
+      "body": "Mara: Lindqvist.\nYou: Hi Ms Lindqvist, Tobias Wern from Bergmann Audit Partners onboarding. You asked Anna for the engagement reference.\nMara: Yes. I haven't seen an engagement letter from you yet.\nYou: It's BAP-2026-0417; the letter goes out with your CFO's signature this week. The portal is just so we can start early.\nMara: I'd rather confirm that with your office directly. I'll call your main line.\nYou: Of course, thanks.\nMara: Bye.",
+      "landing_page": null, "attachments": [], "idempotency_key": "run_sample_mara-n7", "node_id": "n7"
+    },
+    {
+      "session_id": "s_sample01", "channel": "linkedin_message", "to": "mara",
+      "sender": {"name": "Jonas Feld", "address": "linkedin.example/in/jonas-feld-finance-recruiting"},
+      "subject": "",
+      "body": "Hi Mara, I saw you're hiring a Financial Controller in Munich. I'm working with a candidate who just led an SAP S/4 migration at a robotics supplier and is open to a move in Q1. Happy to send his CV if that's useful. Best, Jonas",
+      "landing_page": null, "attachments": [], "idempotency_key": "run_sample_mara-n10", "node_id": "n10"
+    },
+    {
+      "session_id": "s_sample01", "channel": "email", "to": "mara",
+      "sender": {"name": "Jonas Feld", "address": "jonas.feld@feld-finance-search.example"},
+      "subject": "CV: Jonas Brandt, Financial Controller",
+      "body": "Hi Mara,\n\nThanks for getting back to me. As promised, Jonas Brandt's CV is attached. Highlights: SAP S/4 migration lead, month-end close cut from 9 to 5 days, available from February.\n\nLet me know if you'd like to set up a first conversation.\n\nBest,\nJonas Feld\nFeld Finance Search",
+      "landing_page": null, "attachments": [{"filename": "CV_Jonas_Brandt_Controller.pdf"}], "idempotency_key": "run_sample_mara-n12", "node_id": "n12"
+    }
+  ],
+  "events": {
+    "n5": [
+      {"id": "e_1", "type": "link.opened", "message_id": "m_s1", "url": "https://portal.bergmann-audit-partners.example/nordlicht"},
+      {"id": "e_2", "type": "reply", "channel": "email", "in_reply_to": "m_s1", "subject": "Re: Nordlicht Robotics: year-end audit 2026, document upload", "body": "Hi Anna, before I upload anything: can you send me the engagement letter reference? I haven't received one from Bergmann yet. Best, Mara"}
+    ],
+    "n7": [],
+    "n10": [
+      {"id": "e_3", "type": "reply", "channel": "linkedin_message", "in_reply_to": "m_s3", "body": "Hi Jonas, yes, please send it to my email. Best, Mara"}
+    ],
+    "n12": [
+      {"id": "e_4", "type": "attachment.opened", "message_id": "m_s4", "filename": "CV_Jonas_Brandt_Controller.pdf"},
+      {"id": "e_5", "type": "reply", "channel": "email", "in_reply_to": "m_s4", "subject": "Re: CV: Jonas Brandt, Financial Controller", "body": "Thanks Jonas, looks interesting. I'll get back to you next week. Best, Mara"}
+    ]
+  }
+}

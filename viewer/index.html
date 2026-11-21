@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Replay</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #080e1b; --panel: #111a2a; --panel-2: #152134; --ink: #eef4ff; --muted: #90a3bd; --line: #26364c;
+  --accent: #48e1c0; --accent-soft: #15362f; --violet: #8e94ff; --blue: #67b3ff; --amber: #f3c274;
+  --s-proposed: #788aa4; --s-active: #67b3ff; --s-engaged: #48e1c0; --s-suspicious: #f3c274;
+  --s-failed: #f18491; --s-incident: #a69aff; --s-exhausted: #90a3bd;
+  --ghost: #61748e; --shadow: 0 14px 40px rgba(0,0,0,.24);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: radial-gradient(ellipse at 80% -10%,#17264a 0,transparent 39%), radial-gradient(ellipse at -12% 70%,#0d2a36 0,transparent 36%), var(--bg); color: var(--ink); font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: grid; grid-template-rows: auto 1fr auto; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 12px 20px;
+  background: rgba(8,16,29,.88); border-bottom: 1px solid var(--line); box-shadow: var(--shadow); }
+.brand { display: flex; flex-direction: column; margin-right: 8px; }
+.brand strong { font-size: 16px; }
+.muted { color: var(--muted); font-size: 12px; }
+select, button { font: inherit; color: var(--ink); background: var(--panel-2); border: 1px solid #31475f;
+  border-radius: 9px; padding: 7px 11px; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+button:hover, select:hover { border-color: var(--accent); background: #1b3042; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.chip { border: 1px solid #2d4056; background: #111d30; color: #b3c4d6; border-radius: 999px; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+.chip b { font-weight: 600; }
+.chip.win { border-color: var(--s-incident); color: var(--s-incident); }
+.toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 34%); min-height: 0; }
+.treePane { position: relative; min-height: 0; overflow: auto; scrollbar-color: #3b576d transparent; }
+#tree { display: block; }
+.legend { position: sticky; left: 0; bottom: 0; display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 16px;
+  font-size: 12px; color: var(--muted); background: linear-gradient(transparent, rgba(8,14,27,.96) 40%); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+  margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.inspector { background: linear-gradient(160deg,rgba(19,31,49,.98),rgba(14,23,39,.98)); border-left: 1px solid var(--line); overflow: auto; padding: 20px 22px 40px; min-height: 0; box-shadow: var(--shadow); }
+.inspector h2 { font-size: 17px; margin: 8px 0 6px; line-height: 1.3; }
+.inspector h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px;
+  border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.badge.status { color: #fff; background: var(--c); }
+.badge.ok { background: color-mix(in srgb, var(--s-engaged) 16%, transparent); color: var(--s-engaged); }
+.badge.warn { background: color-mix(in srgb, var(--s-suspicious) 16%, transparent); color: var(--s-suspicious); }
+.card { border: 1px solid #30445e; border-radius: 11px; padding: 10px 12px; margin: 8px 0; background: #142237; }
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+.metric { flex: 1; min-width: 120px; }
+.metric .num { font-size: 20px; font-weight: 650; }
+.bar { height: 7px; border-radius: 20px; background: #26354d; overflow: hidden; margin-top: 6px; }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg,var(--violet),var(--accent)); }
+.rej { border-left: 3px solid var(--ghost); padding: 4px 0 4px 10px; margin: 8px 0; }
+.rej b { display: block; }
+a { color: var(--accent); }
+.mailhead { border: 1px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; padding: 10px 12px; background: var(--panel-2); font-size: 13px; }
+.mailhead div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mailhead .subj { font-weight: 650; font-size: 14px; margin-top: 2px; }
+.frame { border: 1px solid var(--line); border-radius: 0 0 10px 10px; overflow: hidden; background: #fff; position: relative; }
+.frame iframe { border: 0; transform-origin: 0 0; display: block; background: #fff; }
+.urlbar { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0;
+  padding: 7px 10px; background: var(--panel-2); font-size: 12px; }
+.urlbar .dots { color: var(--ghost); letter-spacing: 2px; }
+.urlbar .url { flex: 1; background: #0d1727; border-radius: 6px; padding: 3px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bubble { border-radius: 12px; padding: 10px 12px; margin: 8px 0; white-space: pre-wrap; background: #142237; border: 1px solid var(--line); }
+.bubble.them { border-color: color-mix(in srgb, var(--s-engaged) 45%, var(--line)); }
+.bubble .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; white-space: normal; }
+.event { padding: 8px 12px; border-radius: 10px; margin: 8px 0; font-weight: 550; }
+.event.link { background: color-mix(in srgb, var(--s-suspicious) 14%, transparent); color: var(--s-suspicious); }
+.event.win { background: color-mix(in srgb, var(--s-incident) 14%, transparent); color: var(--s-incident); }
+.event.none { color: var(--muted); font-weight: 400; font-style: italic; }
+.transcript div { padding: 3px 0; }
+.transcript .who { font-weight: 650; margin-right: 6px; }
+.fact { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.fact .src { grid-column: 1 / -1; font-size: 12px; }
+footer { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(8,16,29,.94); border-top: 1px solid var(--line); }
+footer input[type=range] { flex: 1; accent-color: var(--accent); }
+#stepLabel { min-width: 230px; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { color: var(--muted); padding: 40px 20px; text-align: center; }
+svg text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.node { cursor: pointer; }
+.node rect.box { transition: stroke .15s, stroke-width .15s, filter .15s; }
+.node:hover rect.box { stroke-width: 2.5; filter: brightness(1.18); }
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
+  .inspector { border-left: 0; border-top: 1px solid var(--line); }
+  #stepLabel { min-width: 0; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><strong>Run Replay</strong><span class="muted">read-only · no send controls</span></div>
+  <select id="runPick" aria-label="Run"></select>
+  <div id="chips" class="chips"></div>
+  <label class="toggle"><input type="checkbox" id="ghosts" checked> show rejected options</label>
+</header>
+<main>
+  <section class="treePane" id="treePane">
+    <svg id="tree" role="img" aria-label="Decision tree"></svg>
+    <div class="legend" id="legend"></div>
+  </section>
+  <aside class="inspector" id="inspector"><div class="empty">Loading runs…</div></aside>
+</main>
+<footer>
+  <button id="first" title="First step">⏮</button>
+  <button id="prev" title="Previous step (←)">◀</button>
+  <button id="play" title="Play">Play</button>
+  <button id="next" title="Next step (→)">▶</button>
+  <button id="last" title="Show everything">⏭</button>
+  <input type="range" id="step" min="1" max="1" value="1" aria-label="Replay step">
+  <span id="stepLabel"></span>
+</footer>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SVG = "http://www.w3.org/2000/svg";
+const LEVELS = { target: "Target", hook: "Hook", approach: "Approach", contact: "Contact", reaction: "Reaction" };
+const STATUSES = { proposed: "Proposed", active: "Active", engaged: "Engaged", suspicious: "Suspicious",
+  failed: "Failed", incident: "Incident", exhausted: "Out of touches" };
+const LIVE_CHANNELS = new Set(["phone_call", "video_call", "teams_call", "live_chat"]);
+const W = 220, H = 74, GX = 26, GY = 64, PAD = 28;
+
+let run = null, order = [], step = 1, selected = null, timer = null;
+
+// ---------- small DOM helpers (text only, never innerHTML) ----------
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null) continue;
+    if (k === "class") e.className = v;
+    else if (k === "text") e.textContent = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null && c !== false) e.append(c instanceof Node ? c : String(c));
+  return e;
+}
+function sv(tag, attrs = {}) {
+  const e = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const statusColor = (s) => css(`--s-${s}`) || css("--s-proposed");
+const pct = (x) => `${Math.round((x || 0) * 100)}%`;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeHref = (u) => (/^https?:\/\//i.test(u || "") ? u : null);
+const time = (t) => { const d = new Date(t); return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+
+// ---------- data ----------
+async function getJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  return r.json();
+}
+async function loadRuns() {
+  const pick = $("runPick");
+  try {
+    const runs = await getJSON("/api/runs");
+    pick.replaceChildren(...runs.map((r) => el("option", { value: r.id,
+      text: r.error ? `${r.id} (unreadable)` : `${r.target || r.id} · ${r.id}${r.incident ? " · ★" : ""}` })));
+    const wanted = new URLSearchParams(location.search).get("run");
+    if (wanted && runs.some((r) => r.id === wanted)) pick.value = wanted;
+    if (runs.length) await openRun(pick.value);
+    else $("inspector").replaceChildren(el("div", { class: "empty", text: "No runs yet. Agent runs appear here when saved to runs/*.json." }));
+  } catch (e) {
+    $("inspector").replaceChildren(el("div", { class: "empty", text: `Could not load runs. Start the viewer with: python3 viewer/serve.py (${e.message})` }));
+  }
+}
+async function openRun(id) {
+  stopPlay();
+  run = await getJSON(`/api/runs/${encodeURIComponent(id)}`);
+  run.nodes = run.nodes || []; run.messages = run.messages || []; run.events = run.events || {};
+  order = [...run.nodes].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  step = order.length;
+  const s = $("step"); s.max = Math.max(1, order.length); s.value = step;
+  const wantedNode = new URLSearchParams(location.search).get("node");
+  history.replaceState(null, "", `?run=${encodeURIComponent(id)}`);
+  select(order.find((n) => n.id === wantedNode) || order.find((n) => n.level === "target") || order[0]);
+}
+const visibleIds = () => new Set(order.slice(0, step).map((n) => n.id));
+const messageFor = (id) => run.messages.find((m) => m.node_id === id);
+const contacts = () => order.filter((n) => n.level === "contact");
+
+// ---------- tree ----------
+function layout() {
+  const showGhosts = $("ghosts").checked;
+  const kids = {};
+  for (const n of run.nodes) (kids[n.parent_id ?? "__root"] ||= []).push(n);
+  for (const k in kids) kids[k].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  const pos = {}, ghosts = [];
+  let nextX = 0;
+  const leaf = (key, depth) => (pos[key] = { x: nextX++, depth }).x;
+  // A node's rejected options are alternatives to it, so they sit next to it as siblings.
+  function placeGroup(list, depth, parent) {
+    const xs = [];
+    for (const n of list) {
+      xs.push(place(n, depth));
+      if (showGhosts) n.rejected?.forEach((r, i) => {
+        const g = { id: `${n.id}#${i}`, of: n, parent, r };
+        ghosts.push(g); xs.push(leaf(g.id, depth));
+      });
+    }
+    return xs;
+  }
+  function place(n, depth) {
+    const children = kids[n.id] || [];
+    if (!children.length) return leaf(n.id, depth);
+    const xs = placeGroup(children, depth + 1, n);
+    const x = (Math.min(...xs) + Math.max(...xs)) / 2;
+    pos[n.id] = { x, depth };
+    return x;
+  }
+  placeGroup(kids.__root || [], 0, null);
+  return { pos, ghosts };
+}
+const px = (p) => ({ x: PAD + p.x * (W + GX), y: PAD + p.depth * (H + GY) });
+
+function wrapText(text, maxChars, maxLines) {
+  const words = String(text).split(/\s+/); const lines = []; let cur = "";
+  for (const w of words) {
+    if ((cur + " " + w).trim().length > maxChars) { lines.push(cur.trim()); cur = w; } else cur += " " + w;
+    if (lines.length === maxLines) break;
+  }
+  if (lines.length < maxLines && cur.trim()) lines.push(cur.trim());
+  const used = lines.join(" ").length;
+  if (used < String(text).trim().length) lines[lines.length - 1] = lines[lines.length - 1].replace(/.{0,2}$/, "…");
+  return lines;
+}
+
+function drawTree() {
+  const svg = $("tree");
+  svg.replaceChildren();
+  if (!run) return;
+  const { pos, ghosts } = layout();
+  const vis = visibleIds();
+  const maxX = Math.max(0, ...Object.values(pos).map((p) => p.x));
+  const maxD = Math.max(0, ...Object.values(pos).map((p) => p.depth));
+  svg.setAttribute("width", PAD * 2 + (maxX + 1) * (W + GX) - GX);
+  svg.setAttribute("height", PAD * 2 + (maxD + 1) * (H + GY) - GY + 40);
+  const defs = sv("defs");
+  const grad = sv("linearGradient", { id: "nodeGradient", x1: "0", y1: "0", x2: "1", y2: "1" });
+  grad.append(sv("stop", { offset: "0%", "stop-color": "#1c2d43" }), sv("stop", { offset: "100%", "stop-color": "#152236" }));
+  const glow = sv("filter", { id: "nodeGlow", x: "-30%", y: "-30%", width: "160%", height: "160%" });
+  glow.append(sv("feGaussianBlur", { stdDeviation: "4", result: "blur" }));
+  const merge = sv("feMerge"); merge.append(sv("feMergeNode", { in: "blur" }), sv("feMergeNode", { in: "SourceGraphic" })); glow.append(merge);
+  defs.append(grad, glow);
+  const edges = sv("g"), nodes = sv("g");
+  svg.append(defs, edges, nodes);
+  const line = css("--line"), ghostC = css("--ghost"), ink = css("--ink"), muted = css("--muted"), panel = css("--panel");
+
+  const edge = (a, b, dashed, color, faded) => {
+    const p = px(a), q = px(b), x1 = p.x + W / 2, y1 = p.y + H, x2 = q.x + W / 2, y2 = q.y, my = (y1 + y2) / 2;
+    edges.append(sv("path", { d: `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`, fill: "none",
+      stroke: color, "stroke-width": dashed ? 1.5 : 2.2, "stroke-dasharray": dashed ? "5 5" : "", opacity: faded ? 0.15 : 1 }));
+  };
+  for (const n of run.nodes) {
+    if (n.parent_id && pos[n.parent_id] && pos[n.id]) {
+      const taken = n.status !== "proposed";
+      edge(pos[n.parent_id], pos[n.id], !taken, taken ? css("--accent") : line, !vis.has(n.id));
+    }
+  }
+  for (const g of ghosts) {
+    const from = g.parent ? pos[g.parent.id] : null;
+    if (from) edge(from, pos[g.id], true, ghostC, !vis.has(g.of.id));
+  }
+
+  for (const n of run.nodes) {
+    const p = pos[n.id]; if (!p) continue;
+    const { x, y } = px(p), color = statusColor(n.status), on = vis.has(n.id), isSel = selected === n;
+    const grp = sv("g", { class: "node", opacity: on ? 1 : 0.15, tabindex: 0 });
+    grp.addEventListener("click", () => select(n));
+    grp.append(sv("rect", { class: "box", x, y, width: W, height: H, rx: 12, fill: "url(#nodeGradient)",
+      stroke: isSel ? css("--accent") : color, "stroke-width": isSel ? 2.5 : 1.4,
+      filter: isSel ? "url(#nodeGlow)" : "",
+      "stroke-dasharray": n.status === "proposed" ? "6 4" : "" }));
+    grp.append(sv("rect", { x, y, width: 5, height: H, rx: 2.5, fill: color }));
+    const head = sv("text", { x: x + 14, y: y + 18, fill: muted, "font-size": 10.5, "font-weight": 600, "letter-spacing": ".06em" });
+    head.textContent = `${(LEVELS[n.level] || n.level).toUpperCase()} · ${STATUSES[n.status] || n.status}`;
+    grp.append(head);
+    const isContact = n.level === "contact";
+    if (isContact) {
+      const idx = contacts().indexOf(n) + 1, m = messageFor(n.id);
+      const t = sv("text", { x: x + 14, y: y + H - 9, fill: color, "font-size": 10.5, "font-weight": 600 });
+      t.textContent = `TOUCH ${idx}${m ? " · " + m.channel.replace(/_/g, " ").toUpperCase() : ""}`;
+      grp.append(t);
+    }
+    wrapText(n.decision, 31, isContact ? 2 : 3).forEach((ln, i) => {
+      const t = sv("text", { x: x + 14, y: y + 37 + i * 15, fill: ink, "font-size": 12.5 });
+      t.textContent = ln; grp.append(t);
+    });
+    if (n.status === "incident" && n.level !== "target") {
+      const star = sv("text", { x: x + W - 14, y: y + H - 10, fill: color, "font-size": 16, "text-anchor": "end" });
+      star.textContent = "★"; grp.append(star);
+    }
+    nodes.append(grp);
+  }
+  for (const g of ghosts) {
+    const { x, y } = px(pos[g.id]), on = vis.has(g.of.id);
+    const grp = sv("g", { class: "node", opacity: on ? 0.9 : 0.12 });
+    grp.addEventListener("click", () => select(g));
+    grp.append(sv("rect", { class: "box", x, y: y + 8, width: W, height: H - 16, rx: 12, fill: "#111a2a",
+      stroke: selected === g ? css("--accent") : ghostC, "stroke-width": selected === g ? 2.5 : 1.4, "stroke-dasharray": "5 4" }));
+    const head = sv("text", { x: x + 12, y: y + 25, fill: muted, "font-size": 10.5, "font-weight": 600, "letter-spacing": ".06em" });
+    head.textContent = "REJECTED OPTION";
+    grp.append(head);
+    wrapText(g.r.option, 32, 2).forEach((ln, i) => {
+      const t = sv("text", { x: x + 12, y: y + 42 + i * 14, fill: muted, "font-size": 12 });
+      t.textContent = ln; grp.append(t);
+    });
+    nodes.append(grp);
+  }
+  const key = selected?.r ? selected.id : selected?.id;
+  if (key && pos[key]) {
+    const { x, y } = px(pos[key]), pane = $("treePane");
+    pane.scrollTo({ left: x + W / 2 - pane.clientWidth / 2, top: y - pane.clientHeight / 3 });
+  }
+}
+
+// ---------- inspector ----------
+function section(title, ...kids) { return [el("h3", { text: title }), ...kids]; }
+function factFor(ev) {
+  const facts = run.profile?.facts || [];
+  return facts.find((f) => f.value === ev || f.source_url === ev);
+}
+function factCard(f) {
+  const href = safeHref(f.source_url);
+  return el("div", { class: "card fact" },
+    el("div", { text: f.value }),
+    el("div", { class: "badges" }, el("span", { class: `badge ${f.verified ? "ok" : "warn"}`, text: f.verified ? "verified" : "unverified" })),
+    el("div", { class: "src muted" }, `${f.category?.replace(/_/g, " ") || "fact"} · confidence ${pct(f.confidence)} · `,
+      href ? el("a", { href, target: "_blank", rel: "noopener noreferrer", text: f.source_title || href }) : (f.source_title || "")));
+}
+function sandboxDoc(inner) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"></head>${inner}</html>`;
+}
+function scaledFrame(doc, renderWidth, height) {
+  const box = el("div", { class: "frame" });
+  const frame = el("iframe", { sandbox: "", title: "preview", referrerpolicy: "no-referrer" });
+  frame.srcdoc = doc;
+  frame.style.width = `${renderWidth}px`; frame.style.height = `${height}px`;
+  box.append(frame);
+  const fit = () => { const s = Math.min(1, box.clientWidth / renderWidth || 1); frame.style.transform = `scale(${s})`; box.style.height = `${height * s}px`; };
+  new ResizeObserver(fit).observe(box);
+  return box;
+}
+function mailPreview(m) {
+  const isHtml = /<[a-z][\s\S]*>/i.test(m.body);
+  const body = isHtml ? m.body : `<div style="white-space:pre-wrap">${esc(m.body)}</div>`;
+  const doc = sandboxDoc(`<body style="margin:18px;font:14px/1.5 Arial,Helvetica,sans-serif;color:#222;background:#fff">${body}</body>`);
+  return [
+    el("div", { class: "mailhead" },
+      el("div", {}, el("b", { text: m.sender?.name || "" }), ` <${m.sender?.address || ""}>`),
+      el("div", { class: "muted", text: `to ${m.to} · ${m.channel.replace(/_/g, " ")}` }),
+      m.subject ? el("div", { class: "subj", text: m.subject }) : null),
+    scaledFrame(doc, 700, 460),
+    ...(m.attachments || []).map((a) => el("div", { class: "card", text: `📎 ${a.filename || a}` })),
+  ];
+}
+function pagePreview(p) {
+  const inner = p.html ? p.html :
+    `<body style="margin:0;font:15px/1.5 Arial,Helvetica,sans-serif;background:#f3f4f6;color:#111">
+      <div style="max-width:420px;margin:70px auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+      <h1 style="font-size:22px;margin:0 0 12px">${esc(p.title || "")}</h1><p style="color:#444">${esc(p.text || "")}</p>
+      ${(p.fields || []).map((f) => `<label style="display:block;margin:14px 0 4px;font-size:13px;color:#555">${esc(f)}</label><input disabled type="${/pass/i.test(f) ? "password" : "text"}" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px">`).join("")}
+      <button disabled style="margin-top:20px;width:100%;padding:11px;border:0;border-radius:8px;background:#1d4ed8;color:#fff;font-size:15px">Continue</button></div></body>`;
+  return [
+    el("div", { class: "urlbar" }, el("span", { class: "dots", text: "●●●" }), el("span", { class: "url", text: p.url }),
+      el("span", { class: "muted", text: (p.fields || []).join(", ") })),
+    scaledFrame(sandboxDoc(inner), 1200, 760),
+  ];
+}
+function transcript(body, who) {
+  return el("div", { class: "card transcript" }, ...String(body).split("\n").filter(Boolean).map((line) => {
+    const m = line.match(/^([^:]{1,40}):\s*(.*)$/);
+    return m ? el("div", {}, el("span", { class: "who", style: m[1] === "You" ? `color:${css("--accent")}` : `color:${css("--s-engaged")}`, text: m[1] }), m[2])
+             : el("div", { text: line });
+  }));
+}
+function eventView(e, who) {
+  if (e.type === "reply") return el("div", { class: "bubble them" },
+    el("div", { class: "meta", text: `${who} replied · ${String(e.channel || "").replace(/_/g, " ")}${e.subject ? " · " + e.subject : ""}` }), e.body || "");
+  if (e.type === "link.opened") return el("div", { class: "event link", text: `● ${who} opened ${e.url || "the link"}` });
+  if (e.type === "page.submitted") return el("div", { class: "event win", text: `★ ${who} submitted the page: ${(e.fields || []).join(", ")}` });
+  if (e.type === "attachment.opened") return el("div", { class: "event win", text: `★ ${who} opened ${e.filename || "the attachment"}` });
+  return el("div", { class: "event", text: `${who}: ${e.type}` });
+}
+function profileView(p) {
+  if (!p) return [];
+  const hooks = [...(p.hooks || [])].sort((a, b) => (b.probability || 0) - (a.probability || 0));
+  const breakdown = Object.entries(p.exposure_breakdown || {});
+  const byCat = {};
+  for (const f of p.facts || []) (byCat[f.category || "other"] ||= []).push(f);
+  return [
+    ...section("Target",
+      el("div", { class: "card" }, el("div", { style: "font-size:16px;font-weight:650", text: p.name }),
+        el("div", { text: [p.role, p.company].filter(Boolean).join(" · ") }),
+        p.domain ? el("div", { class: "muted", text: p.domain }) : null)),
+    ...section("Exposure score",
+      el("div", { class: "row" }, el("div", { class: "metric" }, el("div", { class: "num", text: `${Math.round(p.exposure_score || 0)}/100` }),
+        el("div", { class: "bar" }, el("i", { style: `width:${Math.min(100, p.exposure_score || 0)}%` })))),
+      ...breakdown.map(([k, v]) => el("div", { class: "metric", style: "margin-top:8px" },
+        el("div", { class: "muted", text: `${k.replace(/_/g, " ")} · ${v}` }),
+        el("div", { class: "bar" }, el("i", { style: `width:${Math.min(100, v * 4)}%` }))))),
+    ...section(`Hook hypotheses (${hooks.length})`, ...hooks.map((h) => el("div", { class: "card" },
+      el("div", { class: "badges" }, el("b", { text: h.topic }), el("span", { class: "badge", text: h.angle === "own_angle" ? "own angle" : "their topic" })),
+      el("div", { class: "bar" }, el("i", { style: `width:${pct(h.probability)}` })),
+      el("div", { class: "muted", text: `${pct(h.probability)} · ${h.rationale || ""}` })))),
+    ...section(`Facts (${(p.facts || []).length})`, ...Object.values(byCat).flat().map(factCard)),
+  ];
+}
+function inspect(item) {
+  const box = $("inspector");
+  if (!item) return box.replaceChildren(el("div", { class: "empty", text: "Click a node to see why the agent did it." }));
+  const who = run.profile?.name?.split(" ")[0] || "Target";
+  if (item.r) {  // rejected option
+    return box.replaceChildren(
+      el("div", { class: "badges" }, el("span", { class: "badge", text: "rejected option" }), el("span", { class: "muted", text: `instead of: ${item.of.decision}` })),
+      el("h2", { text: item.r.option }),
+      ...section("Why it was rejected", el("p", { text: item.r.reason })),
+      ...section("Rejected by", el("div", { class: "muted", text: `${item.of.agent} at ${LEVELS[item.of.level] || item.of.level} level, ${time(item.of.timestamp)}` })));
+  }
+  const n = item, m = messageFor(n.id), events = run.events[n.id];
+  const parts = [
+    el("div", { class: "badges" },
+      el("span", { class: "badge", text: LEVELS[n.level] || n.level }),
+      el("span", { class: "badge status", style: `--c:${statusColor(n.status)}`, text: STATUSES[n.status] || n.status }),
+      el("span", { class: "muted", text: `${n.agent} · ${time(n.timestamp)}${n.level === "contact" ? ` · touch ${contacts().indexOf(n) + 1}` : ""}` })),
+    el("h2", { text: n.decision }),
+    el("p", { text: n.reasoning }),
+  ];
+  if (n.level !== "contact" && (n.incident_chance || n.expected_contacts)) parts.push(el("div", { class: "row" },
+    el("div", { class: "metric" }, el("div", { class: "muted", text: "Chance of incident" }), el("div", { class: "num", text: pct(n.incident_chance) }),
+      el("div", { class: "bar" }, el("i", { style: `width:${pct(n.incident_chance)}` }))),
+    el("div", { class: "metric" }, el("div", { class: "muted", text: "Expected touches" }), el("div", { class: "num", text: n.expected_contacts || "–" }))));
+  if (n.outcome) parts.push(...section("Outcome", el("div", { class: "card", text: n.outcome })));
+  if (m) {
+    if (LIVE_CHANNELS.has(m.channel)) parts.push(...section(`${m.channel.replace(/_/g, " ")} · ${m.sender?.name || ""} ${m.sender?.address || ""}`, transcript(m.body, who)));
+    else if (["email", "calendar_invite", "shared_document"].includes(m.channel)) parts.push(...section("Message as seen", ...mailPreview(m)));
+    else parts.push(...section(`Message · ${m.channel.replace(/_/g, " ")}`, el("div", { class: "bubble" },
+      el("div", { class: "meta", text: `${m.sender?.name || ""} · ${m.sender?.address || ""}` }), m.body)));
+    if (m.landing_page) parts.push(...section("Landing page", ...pagePreview(m.landing_page)));
+  }
+  if (events) parts.push(...section("Reaction", ...(events.length ? events.map((e) => eventView(e, who)) : [el("div", { class: "event none", text: `${who} did not react.` })])));
+  if (n.evidence?.length) parts.push(...section("Evidence", ...n.evidence.map((ev) => { const f = factFor(ev); return f ? factCard(f) : el("div", { class: "card", text: ev }); })));
+  if (n.rejected?.length) parts.push(...section(`Rejected options (${n.rejected.length})`, ...n.rejected.map((r) => el("div", { class: "rej" }, el("b", { text: r.option }), el("span", { class: "muted", text: r.reason })))));
+  if (n.level === "target") parts.push(...profileView(run.profile));
+  box.replaceChildren(...parts);
+  box.scrollTop = 0;
+}
+
+// ---------- header chips ----------
+function drawChips() {
+  const vis = visibleIds(), cs = contacts(), shown = cs.filter((c) => vis.has(c.id));
+  const firstWin = cs.findIndex((c) => c.status === "incident");
+  const win = firstWin >= 0 && vis.has(cs[firstWin].id);
+  const chips = [
+    ["Target", run.profile?.name || "?"],
+    ["Mode", run.mode || "run"],
+    ["Touches", `${shown.length}${shown.length !== cs.length ? ` of ${cs.length}` : ""}`],
+    ["Nodes", `${vis.size}/${order.length}`],
+  ];
+  $("chips").replaceChildren(...chips.map(([k, v]) => el("span", { class: "chip" }, `${k} `, el("b", { text: v }))),
+    el("span", { class: `chip${win ? " win" : ""}` }, win ? el("b", { text: `★ Incident at touch ${firstWin + 1}` }) : "No incident yet"));
+  $("legend").replaceChildren(...Object.entries(STATUSES).map(([k, v]) => el("span", { style: `--c:${statusColor(k)}`, text: v })),
+    el("span", { style: `--c:transparent;border:1px dashed ${css("--ghost")};border-radius:3px;padding:0 4px`, text: "rejected option" }));
+}
+
+// ---------- replay ----------
+function setStep(s) {
+  step = Math.max(1, Math.min(order.length, s));
+  $("step").value = step;
+  const n = order[step - 1];
+  $("stepLabel").textContent = n ? `Step ${step}/${order.length} · ${LEVELS[n.level] || n.level}: ${n.decision}` : "";
+  if (n) select(n, true);
+}
+function select(item, fromReplay = false) {
+  selected = item;
+  if (!fromReplay && item && !item.r) {
+    const i = order.indexOf(item);
+    if (i >= step) step = i + 1;
+    $("step").value = step;
+    const cur = order[step - 1];
+    $("stepLabel").textContent = cur ? `Step ${step}/${order.length} · ${LEVELS[cur.level] || cur.level}: ${cur.decision}` : "";
+  }
+  drawTree(); drawChips(); inspect(item);
+}
+function stopPlay() { clearInterval(timer); timer = null; $("play").textContent = "Play"; }
+function play() {
+  if (timer) return stopPlay();
+  if (step >= order.length) setStep(1);
+  $("play").textContent = "Pause";
+  timer = setInterval(() => (step >= order.length ? stopPlay() : setStep(step + 1)), 1600);
+}
+
+$("runPick").addEventListener("change", (e) => openRun(e.target.value));
+$("ghosts").addEventListener("change", drawTree);
+$("first").addEventListener("click", () => { stopPlay(); setStep(1); });
+$("prev").addEventListener("click", () => { stopPlay(); setStep(step - 1); });
+$("next").addEventListener("click", () => { stopPlay(); setStep(step + 1); });
+$("last").addEventListener("click", () => { stopPlay(); setStep(order.length); });
+$("play").addEventListener("click", play);
+$("step").addEventListener("input", (e) => { stopPlay(); setStep(Number(e.target.value)); });
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stopPlay(); setStep(step + 1); }
+  if (e.key === "ArrowLeft") { stopPlay(); setStep(step - 1); }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+loadRuns();
+</script>
+</body>
+</html>
