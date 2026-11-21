@@ -189,6 +189,13 @@ async function handleApi(req, res, url) {
         return void res.end(raw);
       } catch { return json(res, 200, { families: [], lambda: 1.1, min_probability: 0.12 }); }
     }
+    if (route === '/api/senders' && req.method === 'GET') {
+      try {
+        const raw = readFileSync(join(repoRoot, 'senders.json'), 'utf8');
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+        return void res.end(raw);
+      } catch { return json(res, 200, { pretexts: {} }); }
+    }
     if (route === '/api/scenarios' && req.method === 'GET') {
       await targets();
       return json(res, 200, { id: 'practice', targets: practiceTargets });

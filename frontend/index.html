@@ -106,6 +106,7 @@
       <div class="card"><h3>Best combinations <span class="muted small">(by reply rate, min 1 contact)</span></h3><div id="best-combos" class="bar-chart"></div></div>
     </div>
     <div class="card" style="margin-top:16px"><div class="row between wrap"><div><h3>Contact ledger</h3><div class="muted small">Experiment notes, drafts and API reactions are stored in this browser’s localStorage. Contacts are sent to Revel8 only when you use the practice controls.</div></div><select id="result-filter" style="max-width:220px"><option value="all">All approaches</option></select></div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Time</th><th>Target / pattern</th><th>Approach</th><th>Text type</th><th>Channel</th><th>Reaction</th><th>Touches</th><th>Session</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
+    <div class="card" style="margin-top:16px"><div class="row between wrap"><div><h3>Simulation transcripts</h3><div class="muted small">The exact message sequence per session — sender, channel, intent, our message and the twin's reaction — for manual verification. Newest first.</div></div><select id="transcript-filter" style="max-width:220px"><option value="all">All targets</option></select></div><div id="transcripts" style="margin-top:12px"></div></div>
   </section>
   <div class="footer">Local-first strategy notebook · Revel8 practice API · Browser data stays in localStorage</div>
 </div>
@@ -185,6 +186,15 @@ function inferHooks(facts){
   out.sort((a,b)=>b.probability-a.probability);
   return out;
 }
+// Per-pretext lookalike sender + landing-page generator (mirror of writer.py, data from /api/senders).
+let SENDERS={pretexts:{}};
+function brandTld(domain){const host=String(domain||'').toLowerCase().replace(/^www\./,'').split('/')[0];const l=host.split('.').filter(Boolean);return l.length>=2?[l[l.length-2],l[l.length-1]]:[l[0]||'company','com'];}
+function fillBrand(t,b,tld){return String(t).replace(/\{brand\}/g,b).replace(/\{tld\}/g,tld);}
+function localPart(name){return String(name).toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'')||'contact';}
+function targetDomain(){const p=profile();if(p.domain)return p.domain;const d=(p.facts||[]).find(f=>f.category==='domain');if(d&&/[a-z0-9.-]+\.[a-z]{2,}/i.test(d.value)){const m=d.value.match(/[a-z0-9.-]+\.[a-z]{2,}/i);if(m)return m[0];}return 'revel8.ai';}
+function colleagueHint(){const n=(profile().facts||[]).find(f=>f.category==='network');const m=n&&String(n.value).match(/[A-Z][a-z]+ [A-Z][a-z]+/);return m?m[0]:'';}
+function buildSender(pretext){const [b,tld]=brandTld(targetDomain());const e=(SENDERS.pretexts||{})[pretext]||{technique:'invented_third_party',sender_name:'Alex Wagner',role:'contact',domain:'mail-relay-eu.com',page:null};let name=e.sender_name;if(name==='{colleague}')name=colleagueHint()||'Robert Seilbeck';const domain=fillBrand(e.domain,b,tld);return{name,address:`${localPart(name)}@${domain}`,domain,technique:e.technique,role:e.role};}
+function buildLanding(pretext){const [b,tld]=brandTld(targetDomain());const pg=((SENDERS.pretexts||{})[pretext]||{}).page;if(!pg)return null;const domain=fillBrand(pg.domain,b,tld);return{url:`https://${domain}${pg.path||'/'}`,title:pg.title||'Details',fields:pg.fields||[],linkText:pg.title||'Open',domain};}
 const DEFAULT_SENDER={name:'Lena Hofer',address:'lena.hofer@eventcrew-muc.de'};
 const STORAGE='revel8-strategy-lab-v1';
 let state={targets:[],sessions:[],activeSession:null,activeTarget:null,experiments:[],profiles:{},archetype:'general_person',filter:'all',currentFilter:'all',call:null};
@@ -262,7 +272,7 @@ function renderRecent(){const entries=state.experiments.filter(e=>e.targetId===$
 function modal(id,on=true){$(id).classList.toggle('open',on)}
 function setView(id){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${id}`));if(id==='results')renderResults();}
 function setTargetSelect(){const s=$('target-select');const old=state.activeTarget;s.innerHTML=state.targets.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} — ${esc(t.role)}</option>`).join('');if(old&&state.targets.some(t=>t.id===old))s.value=old;else if(state.targets.length)s.value=state.targets[0].id;state.activeTarget=s.value;}
-async function refresh(){try{const [scenario,channels,signals]=await Promise.all([api('/api/scenarios'),api('/api/channels').catch(()=>null),api('/api/signals').catch(()=>null)]);if(signals&&Array.isArray(signals.families)&&signals.families.length)SIGNALS=signals;state.targets=scenario.targets||[];setTargetSelect();if(channels){const list=Array.isArray(channels)?channels:channels.channels;if(Array.isArray(list)&&list.length){const approved=list.map(c=>typeof c==='string'?c:c.id||c.channel).filter(c=>CHANNELS.includes(c));if(approved.length)$('compose-channel').innerHTML=approved.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');}}await loadSessions(false);renderAll();await checkHealth();}catch(e){flash(`Could not load practice data: ${e.message}`,true)}}
+async function refresh(){try{const [scenario,channels,signals,senders]=await Promise.all([api('/api/scenarios'),api('/api/channels').catch(()=>null),api('/api/signals').catch(()=>null),api('/api/senders').catch(()=>null)]);if(signals&&Array.isArray(signals.families)&&signals.families.length)SIGNALS=signals;if(senders&&senders.pretexts)SENDERS=senders;state.targets=scenario.targets||[];setTargetSelect();if(channels){const list=Array.isArray(channels)?channels:channels.channels;if(Array.isArray(list)&&list.length){const approved=list.map(c=>typeof c==='string'?c:c.id||c.channel).filter(c=>CHANNELS.includes(c));if(approved.length)$('compose-channel').innerHTML=approved.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');}}await loadSessions(false);renderAll();await checkHealth();}catch(e){flash(`Could not load practice data: ${e.message}`,true)}}
 async function loadSessions(notify=true){try{const data=await api('/api/sessions');state.sessions=Array.isArray(data)?data:(data.sessions||[]);$('session-select').innerHTML='<option value="">Select a session</option>'+state.sessions.map(s=>`<option value="${esc(s.session_id||s.id)}">${esc(s.session_id||s.id)} · ${esc(s.status||'')}</option>`).join('');if(state.activeSession&&state.sessions.some(s=>(s.session_id||s.id)===state.activeSession))$('session-select').value=state.activeSession;if(notify)flash(`Loaded ${state.sessions.length} practice sessions`);}catch(e){if(notify)flash(`Could not load sessions: ${e.message}`,true)}}
 async function createSession(){try{const result=await api('/api/sessions',{method:'POST',body:{}});state.activeSession=result.session_id;persist();await loadSessions(false);$('session-select').value=state.activeSession;await showSession();setView('session');flash(`Created practice session ${state.activeSession}`);}catch(e){flash(`Session creation failed: ${e.message}`,true)}}
 function askNewSession(){modal('confirm-modal')}
@@ -289,7 +299,7 @@ const STATE_CHIP={incident:'good',engaged:'good',suspicious:'warn',declined:'war
 function logExperiment(o){
   const arch=ARCHETYPES.find(a=>a.id===state.archetype);const reply=o.reply||'';const events=o.events||[];
   const cls=o.state?{state:o.state}:classifyReaction(events,reply);
-  const rec={id:crypto.randomUUID(),time:new Date().toISOString(),targetId:o.target.id,targetName:o.target.name,archetype:state.archetype,archetypeName:arch?.name||state.archetype,pretext:o.approach.id,pretextName:o.approach.name,textType:(o.textType||{}).id||'',textTypeName:(o.textType||{}).name||'',channel:o.channel,sessionId:o.session,messageId:o.messageId,touchesUsed:o.touchesUsed,replied:Boolean(reply),reply,events,state:cls.state,followup:!!o.followup,body:o.body||'',subject:o.subject||'',note:o.note||'',model:'Qwen3.8-27B'};
+  const rec={id:crypto.randomUUID(),time:new Date().toISOString(),targetId:o.target.id,targetName:o.target.name,archetype:state.archetype,archetypeName:arch?.name||state.archetype,pretext:o.approach.id,pretextName:o.approach.name,textType:(o.textType||{}).id||'',textTypeName:(o.textType||{}).name||'',channel:o.channel,sessionId:o.session,messageId:o.messageId,touchesUsed:o.touchesUsed,replied:Boolean(reply),reply,events,state:cls.state,followup:!!o.followup,intent:o.intent||'',senderName:(o.sender||{}).name||'',senderAddress:(o.sender||{}).address||'',senderTechnique:(o.sender||{}).technique||'',body:o.body||'',subject:o.subject||'',note:o.note||'',model:'Qwen3.8-27B'};
   state.experiments.push(rec);persist();return rec;
 }
 function firstMessageChannel(channels){return (channels||['email']).find(c=>!['phone_call','video_call','teams_call','live_chat'].includes(c))||'email';}
@@ -310,16 +320,18 @@ function planMove({turn,lastState,lastEvents,engagedCount,hasPage}){
   return{intent:'answer_build',includeLink:false};
 }
 // One approach = one session, a multi-turn thread that persists toward an incident.
-async function converse({target,approach,tt,baseSender,facts,maxTouches,persist,log}){
+async function converse({target,approach,tt,facts,maxTouches,persist,log}){
   const session=await api('/api/sessions',{method:'POST',body:{}});const sid=session.session_id;
-  const tmpl=PAGE_TEMPLATES[approach.id];let link='',linkText='',senderUse=baseSender,hasPage=false;
-  if(tmpl){try{await api(`/api/sessions/${encodeURIComponent(sid)}/pages`,{method:'POST',body:{url:tmpl.url,title:tmpl.title,text:tmpl.text,fields:tmpl.fields}});link=tmpl.url;linkText=tmpl.linkText;if(tmpl.sender)senderUse=tmpl.sender;hasPage=true;}catch(pe){log(`   (page register failed: ${pe.message})`);}}
-  const channel=firstMessageChannel(approach.channels);
-  const transcript=[];let engagedCount=0,lastState='',lastEvents=[],turns=0,incident=false;
+  const senderUse=buildSender(approach.id);            // lookalike/invented sender from the target's brand
+  const landing=buildLanding(approach.id);let link='',linkText='',hasPage=false;
+  if(landing){try{await api(`/api/sessions/${encodeURIComponent(sid)}/pages`,{method:'POST',body:{url:landing.url,title:landing.title,text:landing.title,fields:landing.fields}});link=landing.url;linkText=landing.linkText;hasPage=true;}catch(pe){log(`   (page register failed: ${pe.message})`);}}
+  const channels=(approach.channels||['email']).filter(c=>CHANNELS.includes(c));if(!channels.length)channels.push('email');
+  let chIdx=0;const transcript=[];let engagedCount=0,lastState='',lastEvents=[],turns=0,incident=false;
   const cap=persist?Math.max(1,maxTouches):1;
   for(let turn=1;turn<=cap;turn++){
     const plan=planMove({turn,lastState,lastEvents,engagedCount,hasPage});
     if(plan.stop)break;
+    const channel=channels[Math.min(chIdx,channels.length-1)];   // multi-channel: current channel
     const includeLink=hasPage&&plan.includeLink;
     const prior=transcript.map(t=>`${t.who}: ${t.text}`).join('\n');
     let d;
@@ -329,12 +341,13 @@ async function converse({target,approach,tt,baseSender,facts,maxTouches,persist,
     turns=turn;
     const events=(r.events||[]).map(e=>e.type);const reply=(r.events||[]).filter(e=>e.type==='reply').map(e=>e.body||'').join('\n');
     const cls=classifyReaction(events,reply);lastState=cls.state;lastEvents=events;if(cls.state==='engaged')engagedCount++;
-    logExperiment({target,approach,channel,textType:tt,session:sid,messageId:r.message_id,touchesUsed:r.touches_used,events,reply,body:d.body,subject:d.subject,note:`${approach.name} · t${turn} · ${plan.intent}${includeLink?' +link':''}`,state:cls.state,followup:turn>1});
+    logExperiment({target,approach,channel,textType:tt,session:sid,messageId:r.message_id,touchesUsed:r.touches_used,events,reply,body:d.body,subject:d.subject,note:`${approach.name} · t${turn} · ${plan.intent}${includeLink?' +link':''}`,state:cls.state,followup:turn>1,sender:senderUse,intent:plan.intent});
     transcript.push({who:senderUse.name,text:d.body});if(reply)transcript.push({who:target.name,text:reply});
-    log(`   t${turn} ${plan.intent}${includeLink?'+link':''} → ${cls.state}${events.length?' ['+events.join(',')+']':''}`);
+    log(`   t${turn} ${channel.replace(/_/g,' ')} · ${plan.intent}${includeLink?'+link':''} → ${cls.state}${events.length?' ['+events.join(',')+']':''}`);
     renderAutoMetrics();renderResults();
     if(cls.state==='incident'){incident=true;break;}
     if(cls.state==='declined')break;
+    if(cls.state==='silent')chIdx=Math.min(chIdx+1,channels.length-1);   // no answer → switch channel next turn
     await new Promise(res=>setTimeout(res,1000));
   }
   return {incident,lastState,turns};
@@ -414,13 +427,32 @@ function medianContactsToIncident(list){
 }
 function renderResults(){const list=state.experiments;const replies=list.filter(e=>e.replied).length;const incidents=list.filter(isIncident).length;const engaged=list.filter(e=>e.state==='engaged').length;const replyRate=list.length?Math.round(100*replies/list.length):0;$('result-metrics').innerHTML=`<div class="metric"><span>Contacts</span><b>${list.length}</b></div><div class="metric"><span>Incidents</span><b>${incidents}</b></div><div class="metric"><span>Engaged</span><b>${engaged}</b></div><div class="metric"><span>Reply rate</span><b>${list.length?replyRate+'%':'—'}</b></div><div class="metric"><span>Median contacts to incident</span><b>${medianContactsToIncident(list)}</b></div>`;
   const pretextOpts=[...new Set(list.map(e=>e.pretext))];$('result-filter').innerHTML='<option value="all">All approaches</option>'+pretextOpts.map(id=>`<option value="${esc(id)}">${esc(PRETEXTS.find(p=>p.id===id)?.name||id)}</option>`).join('');$('result-filter').value=state.currentFilter||'all';const shown=list.filter(e=>state.currentFilter==='all'||e.pretext===state.currentFilter).slice().reverse();$('log-table').innerHTML=shown.map(e=>`<tr><td>${fmtTime(e.time)}</td><td><strong>${esc(e.targetName)}</strong><div class="muted">${esc(e.archetypeName)}</div></td><td>${esc(e.pretextName)}</td><td>${esc(e.textTypeName||'—')}</td><td>${esc(e.channel)}</td><td>${e.state?`<span class="chip ${STATE_CHIP[e.state]||''}">${esc(e.state)}</span>`:(e.replied?'<span class="chip good">reply</span>':e.events.length?`<span class="chip">${esc(e.events.join(', '))}</span>`:'<span class="chip warn">ignored</span>')}${e.followup?' <span class="chip">follow-up</span>':''}<div class="muted">${esc((e.reply||'').slice(0,100))}</div></td><td>${e.touchesUsed??'—'}</td><td class="session-id">${esc(e.sessionId)}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty">No contacts yet. Run an experiment in Live practice.</div></td></tr>';
-  renderTargetRollup(list);
+  renderTargetRollup(list);renderTranscripts(list);
   renderChart('pretext-chart','pretextName',list);renderChart('texttype-chart','textTypeName',list);renderChart('channel-chart','channel',list);renderMatrix(list);renderCombos(list);
 }
 function rollupRow(label,rows){
   const n=rows.length,replied=rows.filter(e=>e.replied).length,eng=rows.filter(e=>e.state==='engaged').length,inc=rows.filter(isIncident).length;
   const rr=n?Math.round(100*replied/n)+'%':'—';
   return `<tr><td><strong>${esc(label)}</strong></td><td>${n}</td><td>${rr}</td><td>${eng}</td><td>${inc?`<span class="chip good">${inc}</span>`:'0'}</td><td>${medianContactsToIncident(rows)}</td></tr>`;
+}
+function renderTranscripts(list){
+  const host=$('transcripts');if(!host)return;
+  const filt=$('transcript-filter');if(filt){const opts=[...new Set(list.map(e=>e.targetId))];filt.innerHTML='<option value="all">All targets</option>'+opts.map(id=>`<option value="${esc(id)}">${esc(list.find(e=>e.targetId===id)?.targetName||id)}</option>`).join('');filt.value=state.transcriptFilter||'all';}
+  const shown=list.filter(e=>!state.transcriptFilter||state.transcriptFilter==='all'||e.targetId===state.transcriptFilter);
+  // group by session, keep send order
+  const sessions={};shown.forEach(e=>{(sessions[e.sessionId]=sessions[e.sessionId]||[]).push(e);});
+  const order=Object.keys(sessions).sort((a,b)=>new Date(sessions[b][0].time)-new Date(sessions[a][0].time));
+  host.innerHTML=order.map(sid=>{
+    const turns=sessions[sid].slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+    const h=turns[0];const inc=turns.some(isIncident);
+    const head=`<div class="row between wrap" style="margin-bottom:6px"><div><strong>${esc(h.targetName)}</strong> · ${esc(h.pretextName)} <span class="chip">${esc(h.senderTechnique||'sender')}</span>${inc?' <span class="chip good">incident</span>':''}</div><div class="muted small">${esc(h.senderName||'')} &lt;${esc(h.senderAddress||'')}&gt; · ${esc(sid)}</div></div>`;
+    const body=turns.map((e,i)=>{
+      const out=`<div class="bubble" style="margin:4px 0"><small>→ us · ${esc(e.channel)} · ${esc(e.intent||'')}${e.subject?' · '+esc(e.subject):''}</small>${esc(e.body||'')}</div>`;
+      const rx=e.reply?`<div class="bubble" style="margin:4px 0;opacity:.9"><small>← ${esc(e.targetName)} · reply</small>${esc(e.reply)}</div>`:`<div class="bubble event" style="margin:4px 0"><small>← ${esc(e.targetName)}</small>${e.events&&e.events.length?esc(e.events.join(', ')):'no response ('+esc(e.state)+')'}</div>`;
+      return out+rx;
+    }).join('');
+    return `<details class="card" style="margin-bottom:10px;padding:12px" ${inc?'open':''}><summary style="cursor:pointer">${head}</summary><div style="margin-top:8px">${body}</div></details>`;
+  }).join('')||'<div class="empty">No simulations yet. Run an autonomous pass.</div>';
 }
 function renderTargetRollup(list){
   const host=$('target-rollup');if(!host)return;
@@ -468,7 +500,7 @@ function bind(){
   $('edit-profile-btn').onclick=editProfile;$('save-profile-btn').onclick=saveProfile;$('add-fact-btn').onclick=()=>modal('fact-modal');$('save-fact-btn').onclick=addFact;$('suggest-hooks-btn').onclick=suggestHooks;
   $('new-session-btn').onclick=askNewSession;$('session-start-inline').onclick=askNewSession;$('confirm-create').onclick=()=>{modal('confirm-modal',false);createSession()};$('session-select').onchange=async()=>{state.activeSession=$('session-select').value||null;persist();await showSession()};$('load-sessions-btn').onclick=()=>loadSessions(true);$('send-btn').onclick=sendMessage;$('draft-btn').onclick=draft;$('end-session-btn').onclick=endSession;$('register-page-btn').onclick=registerPage;
   $('sweep-btn').onclick=sweepAll;$('ab-texttype-btn').onclick=abTextTypes;$('autorun-btn').onclick=runAutoPass;$('matrix-metric').onchange=e=>{state.matrixMetric=e.target.value;renderResults()};
-  $('export-btn').onclick=exportLog;$('import-file').onchange=e=>e.target.files[0]&&importLog(e.target.files[0]);$('clear-log-btn').onclick=()=>{if(confirm('Clear the locally stored experiment history? This does not delete Revel8 sessions.')){state.experiments=[];persist();renderAll()}};$('result-filter').onchange=e=>{state.currentFilter=e.target.value;renderResults()};
+  $('export-btn').onclick=exportLog;$('import-file').onchange=e=>e.target.files[0]&&importLog(e.target.files[0]);$('clear-log-btn').onclick=()=>{if(confirm('Clear the locally stored experiment history? This does not delete Revel8 sessions.')){state.experiments=[];persist();renderAll()}};$('result-filter').onchange=e=>{state.currentFilter=e.target.value;renderResults()};$('transcript-filter').onchange=e=>{state.transcriptFilter=e.target.value;renderResults()};
   document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>modal(b.dataset.close,false));document.querySelectorAll('.modal-backdrop').forEach(m=>m.onclick=e=>{if(e.target===m)modal(m.id,false)});
 }
 load();initSelectors();bind();refresh();

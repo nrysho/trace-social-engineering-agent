@@ -253,6 +253,74 @@ def make_file_name(label: str, extension: str = "pdf") -> str:
     return f"{stem}.{suffix}"
 
 
+def _load_senders(path: str = "") -> dict[str, Any]:
+    import json as _json
+    import pathlib as _pathlib
+    p = _pathlib.Path(path) if path else _pathlib.Path(__file__).with_name("senders.json")
+    try:
+        return _json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"pretexts": {}}
+
+
+SENDERS = _load_senders()
+
+
+def _brand_tld(target_domain: str) -> tuple[str, str]:
+    host = str(target_domain or "").strip().lower().removeprefix("www.").split("/")[0]
+    labels = [p for p in host.split(".") if p]
+    if len(labels) >= 2:
+        return labels[-2], labels[-1]
+    return (labels[0] if labels else "company"), "com"
+
+
+def _fill(template: str, brand: str, tld: str) -> str:
+    return str(template).replace("{brand}", brand).replace("{tld}", tld)
+
+
+def _local_part(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", ".", str(name).lower()).strip(".")
+    return slug or "contact"
+
+
+def build_sender(pretext: str, target_domain: str, colleague: str = "") -> dict[str, Any]:
+    """Pick a lookalike/invented sender for a pretext, derived from the target's brand.
+
+    Domains are registrable lookalikes an attacker could own, never the target's own
+    domain (the quality gate still enforces that on the final message).
+    """
+    brand, tld = _brand_tld(target_domain)
+    entry = SENDERS.get("pretexts", {}).get(pretext) or {
+        "technique": "invented_third_party", "sender_name": "Alex Wagner", "role": "contact", "domain": "mail-relay-eu.com", "page": None,
+    }
+    name = entry.get("sender_name", "Alex Wagner")
+    if name == "{colleague}":
+        name = colleague or "Robert Seilbeck"
+    domain = _fill(entry.get("domain", "mail-relay-eu.com"), brand, tld)
+    return {
+        "name": name,
+        "address": f"{_local_part(name)}@{domain}",
+        "domain": domain,
+        "technique": entry.get("technique", "invented_third_party"),
+        "role": entry.get("role", ""),
+    }
+
+
+def build_landing(pretext: str, target_domain: str) -> dict[str, Any] | None:
+    """Landing-page URL + fields for a pretext, on a technique-appropriate domain."""
+    brand, tld = _brand_tld(target_domain)
+    page = (SENDERS.get("pretexts", {}).get(pretext) or {}).get("page")
+    if not page:
+        return None
+    domain = _fill(page["domain"], brand, tld)
+    return {
+        "url": f"https://{domain}{page.get('path', '/')}",
+        "title": page.get("title", "Details"),
+        "fields": page.get("fields", []),
+        "domain": domain,
+    }
+
+
 def suggest_sender_domains(
     brand: str,
     *,
