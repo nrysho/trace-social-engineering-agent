@@ -7,6 +7,7 @@ import json
 import re
 
 from backend import llm
+from backend.recon import recency
 from schemas import Hook
 
 SYSTEM = (
@@ -14,16 +15,26 @@ SYSTEM = (
     "person, propose topics they are likely open to right now (a speaking invite, a vendor "
     "renewal, an investor intro, a press request, a recruiting lead, etc.). Return JSON only: "
     "{\"hooks\": [{\"topic\": ..., \"probability\": 0-1, \"evidence\": [..], "
-    "\"rationale\": ..., \"angle\": \"their_topic\" or \"own_angle\"}]}. Prefer recent, "
-    "specific facts. their_topic = a likely planted interest; own_angle = a topic they were "
+    "\"rationale\": ..., \"angle\": \"their_topic\" or \"own_angle\"}]}. Each fact is tagged with its date; prefer recent or current facts and never base a "
+    "hook on a fact marked stale. their_topic = a likely planted interest; own_angle = a topic they were "
     "not set up for."
 )
 JSON_MODE = {"type": "json_object"}
 
 
+def _line(f):
+    # tag each fact with its freshness so the model can deprioritise old ones
+    w = recency.weight(f.date)
+    when = "current" if f.date.lower() == "present" else (f.date or "undated")
+    if w < 0.4:
+        when += ", stale"
+    return f"- [{f.category}, {when}] {f.value}"
+
+
 def propose(name, company, facts, top=6):
     strong = [f for f in facts if f.verified or f.confidence >= 0.6]
-    lines = [f"- [{f.category}] {f.value}" for f in strong] or [f"- works at {company}"]
+    strong.sort(key=lambda f: recency.weight(f.date), reverse=True)  # freshest first
+    lines = [_line(f) for f in strong] or [f"- works at {company}"]
     user = f"Person: {name} ({company}).\nFacts:\n" + "\n".join(lines)
     try:
         text = llm.chat([{"role": "system", "content": SYSTEM},

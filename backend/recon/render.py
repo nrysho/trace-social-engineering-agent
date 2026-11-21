@@ -19,7 +19,8 @@ def to_markdown(p):
     lines.append("## Facts")
     for f in p.facts:
         mark = "x" if f.verified else " "
-        lines.append(f"- [{mark}] *{f.category}*: {f.value}")
+        when = f" ({f.date})" if f.date else ""
+        lines.append(f"- [{mark}] *{f.category}*{when}: {f.value}")
         lines.append(f"  <{f.source_url}>")
     lines.append("")
     lines.append(f"_Sources: {len(p.sources)} - generated {p.generated_at}_")

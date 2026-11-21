@@ -5,6 +5,7 @@
 """
 from urllib.parse import urlsplit
 
+from backend.recon import recency
 from schemas import FACT_CATEGORIES
 
 CHANNEL_HINTS = ("linkedin", "twitter", "x.com", "@")  # a contactable handle showed up
@@ -15,8 +16,9 @@ def _domain(url):
 
 
 def _recency_points(facts):
-    # we rarely have parsed dates yet, so credit a recent_activity fact as a fresh signal
-    return 15.0 if any(f.category == "recent_activity" for f in facts) else 5.0
+    # reward the freshest dated fact; a current/recent signal scores near full marks
+    weights = [recency.weight(f.date) for f in facts] or [0.0]
+    return round(max(weights) * 15, 1)
 
 
 def score(facts, hooks):

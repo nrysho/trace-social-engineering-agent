@@ -15,10 +15,12 @@ CONTENT_CHARS = 1500  # how much page text per result we show the model
 SYSTEM = (
     "You extract facts about a person from web search results for an authorised research "
     "exercise. Return JSON only: {\"facts\": [{\"category\": ..., \"value\": ..., "
-    "\"source_url\": ..., \"confidence\": 0-1}]}. category is one of: "
+    "\"source_url\": ..., \"date\": ..., \"confidence\": 0-1}]}. category is one of: "
     + ", ".join(FACT_CATEGORIES) + ". value is one short factual sentence. source_url MUST be "
-    "copied exactly from the result the fact came from. Do not infer or guess; state only what "
-    "the text supports. Skip anything not clearly about this person."
+    "copied exactly from the result the fact came from. date is YYYY-MM (or YYYY) when the fact "
+    "happened or ended, \"present\" if current or ongoing, or \"\" if the text gives no date; never "
+    "guess a date. Do not infer facts; state only what the text supports. Skip anything not clearly "
+    "about this person."
 )
 JSON_MODE = {"type": "json_object"}
 
@@ -56,6 +58,7 @@ def extract_facts(name, company, results):
                 facts.append(Fact(
                     category=f["category"], value=str(f["value"]).strip(),
                     source_url=url, source_title=titles.get(url, ""),
+                    date=str(f.get("date", "")).strip(),
                     confidence=float(f.get("confidence", 0.5)),
                 ))
     return facts

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from backend import config
 from backend.recon import (queries, search, fetch, dns, linkedin, match,
-                           extract, verify, hooks, exposure, render)
+                           extract, verify, hooks, exposure, render, recency)
 from schemas import Profile
 
 OUT = Path(__file__).resolve().parents[2] / "runs" / "profiles"
@@ -35,6 +35,16 @@ def _domain_from(company, results):
     return ""
 
 
+def _current_role(facts, company, domain):
+    # prefer a role at the given (current) company, then one marked present, then the most recent
+    roles = [f for f in facts if f.category == "role"]
+    if not roles:
+        return ""
+    anchor = match.Anchor("", company, domain)
+    key = lambda f: (match._company_hit(anchor, f.value), f.date.lower() == "present", recency.weight(f.date))
+    return max(roles, key=key).value
+
+
 def build(name, company):
     env = config.load_env()
 
@@ -52,6 +62,10 @@ def build(name, company):
 
     # 3. extract sourced facts from the results
     facts = extract.extract_facts(name, company, results)
+    for f in facts:  # a real post timestamp beats the model's guessed date
+        posted = linkedin.post_date(f.source_url)
+        if posted:
+            f.date = posted
     print(f"  {len(facts)} extracted facts")
 
     # 4. structured collectors: company domain -> dns; a linkedin url -> the anchor
@@ -83,7 +97,8 @@ def build(name, company):
     sc, breakdown = exposure.score(facts, ranked)
     print(f"  {len(facts)} facts after verify, {len(ranked)} hooks")
 
-    role = next((f.value for f in facts if f.category == "role"), "")
+    facts.sort(key=lambda f: recency.weight(f.date), reverse=True)  # freshest first for the profile
+    role = _current_role(facts, company, domain)
     profile = Profile(
         name=name, role=role, company=company, domain=domain,
         facts=facts, hooks=ranked, exposure_score=sc, exposure_breakdown=breakdown,
