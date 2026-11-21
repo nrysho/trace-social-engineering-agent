@@ -38,32 +38,39 @@ def _slice(text):
     return m.group(0) if m else text
 
 
+def _extract_chunk(who, batch, urls, titles):
+    block = "\n\n".join(
+        f"URL: {r.url}\nTITLE: {r.title}\nTEXT: {(r.content or r.snippet)[:CONTENT_CHARS]}"
+        for r in batch
+    )
+    user = f"Target person: {who}.\n\nResults:\n{block}"
+    try:
+        text = llm.chat([{"role": "system", "content": SYSTEM},
+                         {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
+        data = json.loads(_slice(text))
+    except Exception as e:
+        print(f"  extract chunk failed: {e}")
+        return []
+    out = []
+    for f in data.get("facts", []):
+        url = f.get("source_url", "")
+        if (url in urls and f.get("category") in FACT_CATEGORIES and f.get("value")
+                and float(f.get("confidence", 0.5)) >= MIN_CONF):
+            out.append(Fact(
+                category=f["category"], value=str(f["value"]).strip(),
+                source_url=url, source_title=titles.get(url, ""),
+                date=str(f.get("date", "")).strip(),
+                confidence=float(f.get("confidence", 0.5)),
+            ))
+    return out
+
+
 def extract_facts(name, company, results, role=""):
+    # chunks stay sequential: concurrent openai calls get rate-limited and fall back to slow qwen
     urls = {r.url for r in results}
     titles = {r.url: r.title for r in results}
+    who = f"{name}, {role} at {company}" if role else f"{name} at {company}"
     facts = []
     for batch in _chunks(results, CHUNK):
-        block = "\n\n".join(
-            f"URL: {r.url}\nTITLE: {r.title}\nTEXT: {(r.content or r.snippet)[:CONTENT_CHARS]}"
-            for r in batch
-        )
-        who = f"{name}, {role} at {company}" if role else f"{name} at {company}"
-        user = f"Target person: {who}.\n\nResults:\n{block}"
-        try:
-            text = llm.chat([{"role": "system", "content": SYSTEM},
-                             {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
-            data = json.loads(_slice(text))
-        except Exception as e:
-            print(f"  extract chunk failed: {e}")
-            continue
-        for f in data.get("facts", []):
-            url = f.get("source_url", "")
-            if (url in urls and f.get("category") in FACT_CATEGORIES and f.get("value")
-                    and float(f.get("confidence", 0.5)) >= MIN_CONF):
-                facts.append(Fact(
-                    category=f["category"], value=str(f["value"]).strip(),
-                    source_url=url, source_title=titles.get(url, ""),
-                    date=str(f.get("date", "")).strip(),
-                    confidence=float(f.get("confidence", 0.5)),
-                ))
+        facts += _extract_chunk(who, batch, urls, titles)
     return facts

@@ -6,6 +6,7 @@
 """
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from backend import config
@@ -56,62 +57,102 @@ def _current_role(facts, company, domain):
     return max(roles, key=key).value
 
 
-def build(name, company, role=""):
-    env = config.load_env()
-
-    # 1. search every query, merge and dedup, then cap
+def _search_all(name, company):
+    # run the query searches concurrently, then merge and dedup
+    qs = queries.build_queries(name, company)
     results = []
-    for q in queries.build_queries(name, company):
-        results += search.search(q, k=5)
-    results = search.dedup(results)[:MAX_RESULTS]
-    print(f"  {len(results)} unique results")
+    with ThreadPoolExecutor(max_workers=min(len(qs), 10)) as ex:
+        for hits in ex.map(lambda q: search.search(q, k=5), qs):
+            results += hits
+    return search.dedup(results)[:MAX_RESULTS]
 
-    # 2. deepen: fetch full text where we only have a snippet (skip linkedin, handled below)
-    for r in results:
-        if not r.content and "linkedin.com" not in r.url:
-            r.content = fetch.fetch(r.url)
 
-    # 3. extract sourced facts from the results
+def _deepen(results):
+    # fetch full page text for snippet-only results, concurrently (linkedin handled elsewhere)
+    todo = [r for r in results if not r.content and "linkedin.com" not in r.url]
+    if not todo:
+        return
+    with ThreadPoolExecutor(max_workers=min(len(todo), 10)) as ex:
+        for r, text in zip(todo, ex.map(lambda r: fetch.fetch(r.url), todo)):
+            r.content = text
+
+
+def _extract(name, company, results, role):
     facts = extract.extract_facts(name, company, results, role)
     for f in facts:  # a real post timestamp beats the model's guessed date
         posted = linkedin.post_date(f.source_url)
         if posted:
             f.date = posted
     print(f"  {len(facts)} extracted facts")
+    return facts
 
-    # 4. structured collectors: company domain -> dns; a linkedin url -> the anchor
-    domain = domains.resolve(company, results)
-    if domain:
-        try:
-            facts += dns.facts(domain)      # mail provider + spf vendors
-            facts += tech.facts(domain)     # txt tokens, m365 realm, website fingerprint
-        except Exception as e:
-            print(f"  dns/tech failed: {e}")
+
+def _dns_tech(domain):
+    # mail provider + spf vendors, plus txt tokens, m365 realm, website fingerprint
+    if not domain:
+        return []
+    try:
+        return dns.facts(domain) + tech.facts(domain)
+    except Exception as e:
+        print(f"  dns/tech failed: {e}")
+        return []
+
+
+def _linkedin_anchor(name, company, role, domain, results, env):
     li_url = _best_linkedin(results, name)
-    if li_url and env.get("BRIGHTDATA_API_KEY"):
-        try:
-            rec = linkedin.profile(li_url, env["BRIGHTDATA_API_KEY"])
-            if rec:
-                lname, lcompany = linkedin.name_and_company(rec)
-                slug = li_url.split("/in/")[1].split("?")[0].replace("-", " ")  # the slug carries the full name
-                ok, _, _ = match.judge(match.Anchor(name, company, domain=domain, role=role),
-                                       match.Candidate(slug, f"{lname} {lcompany}"), use_llm=False)
-                if ok:
-                    facts += linkedin.facts(rec, li_url)
-                    print("  linkedin anchor confirmed")
-                else:
-                    print("  linkedin profile did not match the target, skipped")
-        except Exception as e:
-            print(f"  linkedin failed: {e}")
+    if not (li_url and env.get("BRIGHTDATA_API_KEY")):
+        return []
+    try:
+        rec = linkedin.profile(li_url, env["BRIGHTDATA_API_KEY"])
+        if not rec:
+            return []
+        lname, lcompany = linkedin.name_and_company(rec)
+        slug = li_url.split("/in/")[1].split("?")[0].replace("-", " ")  # the slug carries the full name
+        ok, _, _ = match.judge(match.Anchor(name, company, domain=domain, role=role),
+                               match.Candidate(slug, f"{lname} {lcompany}"), use_llm=False)
+        if ok:
+            print("  linkedin anchor confirmed")
+            return linkedin.facts(rec, li_url)
+        print("  linkedin profile did not match the target, skipped")
+        return []
+    except Exception as e:
+        print(f"  linkedin failed: {e}")
+        return []
 
+
+def _github(name, company, role, domain, results):
     gh_url = next((r.url for r in results if "github.com/" in r.url and "/in/" not in r.url), "")
-    if gh_url:
-        try:
-            facts += github.enrich(gh_url, match.Anchor(name, company, domain=domain, role=role))
-        except Exception as e:
-            print(f"  github failed: {e}")
+    if not gh_url:
+        return []
+    try:
+        return github.enrich(gh_url, match.Anchor(name, company, domain=domain, role=role))
+    except Exception as e:
+        print(f"  github failed: {e}")
+        return []
 
-    # 5. verify across domains, propose hooks, score exposure
+
+def build(name, company, role=""):
+    env = config.load_env()
+
+    # 1. search all queries in parallel, then fetch snippet-only pages in parallel
+    results = _search_all(name, company)
+    print(f"  {len(results)} unique results")
+    _deepen(results)
+    domain = domains.resolve(company, results)
+
+    # 2. extract and each structured collector are independent, so run them together
+    facts = []
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        jobs = [
+            ex.submit(_extract, name, company, results, role),
+            ex.submit(_dns_tech, domain),
+            ex.submit(_linkedin_anchor, name, company, role, domain, results, env),
+            ex.submit(_github, name, company, role, domain, results),
+        ]
+        for j in jobs:
+            facts += j.result()
+
+    # 3. verify across domains, propose hooks, score exposure
     facts = verify.verify(facts)
     ranked = hooks.propose(name, company, facts)
     sc, breakdown = exposure.score(facts, ranked)
@@ -126,7 +167,6 @@ def build(name, company, role=""):
     )
     _write(profile)
     return profile
-
 
 def _write(profile):
     OUT.mkdir(parents=True, exist_ok=True)
