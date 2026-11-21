@@ -14,7 +14,8 @@ from test_quality_gate import context,message
 from quality.guarded_client import GuardedClient
 from quality.integration import QualityBlocked
 
-FIXTURE=Path(os.environ.get('PERSON5_BENCH_ROOT',Path(__file__).resolve().parents[1]/'runs/quality/bench_fixture'))
+PROJECT=Path(__file__).resolve().parents[1]
+FIXTURE=Path(os.environ.get('PERSON5_BENCH_ROOT',PROJECT if (PROJECT/'bench/server.py').exists() else PROJECT/'runs/quality/bench_fixture'))
 
 @unittest.skipUnless((FIXTURE/'bench/server.py').exists(),'Extract teammate bench fixture (see integration guide)')
 class BenchTests(unittest.TestCase):
@@ -77,6 +78,8 @@ class BenchTests(unittest.TestCase):
         self.assertIsInstance(agent.client,GuardedClient)
         session=next(iter(self.bench.sessions.values()))
         self.assertEqual(session['scenario_id'],'eval');self.assertEqual(session['touch_budget'],10)
+        self.assertIsInstance(bundle['events'],dict)
+        self.assertTrue(all(m['node_id'] in bundle['events'] for m in bundle['messages']))
         self.assertEqual(session['touches_used'],1);self.assertTrue(bundle['messages'][0]['qa']['passed'])
         rows=[json.loads(x) for x in next((Path(self.temp.name)/'api').glob('*.jsonl')).read_text().splitlines()]
         sent=next(row for row in rows if row['kind']=='sent')

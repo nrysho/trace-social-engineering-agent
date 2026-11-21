@@ -6,11 +6,12 @@
 """
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from backend import config
-from backend.recon import (queries, search, fetch, dns, linkedin, match,
-                           extract, verify, hooks, exposure, render)
+from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, github, match,
+                           extract, verify, hooks, exposure, render, recency)
 from schemas import Profile
 
 OUT = Path(__file__).resolve().parents[2] / "runs" / "profiles"
@@ -25,6 +26,17 @@ def _host(url):
     return url.split("/")[2] if "://" in url else ""
 
 
+def _best_linkedin(results, name):
+    # prefer a profile whose slug carries the target's name tokens, not just the first /in/ hit
+    toks = [t for t in re.split(r"[^a-z0-9]+", name.lower()) if len(t) > 1]
+    profiles = [r.url for r in results if "linkedin.com/in/" in r.url]
+    for url in profiles:
+        slug = url.split("/in/")[1].lower()
+        if toks and all(t in slug for t in toks):
+            return url
+    return profiles[0] if profiles else ""
+
+
 def _domain_from(company, results):
     # guess the company domain from the first result host that contains the company token
     token = re.sub(r"[^a-z0-9]", "", company.lower())
@@ -35,55 +47,119 @@ def _domain_from(company, results):
     return ""
 
 
-def build(name, company):
+def _current_role(facts, company, domain):
+    # prefer a role at the given (current) company, then one marked present, then the most recent
+    roles = [f for f in facts if f.category == "role"]
+    if not roles:
+        return ""
+    anchor = match.Anchor("", company, domain)
+    key = lambda f: (match._company_hit(anchor, f.value), f.date.lower() == "present", recency.weight(f.date))
+    return max(roles, key=key).value
+
+
+def _search_all(name, company):
+    # run the query searches concurrently, then merge and dedup
+    qs = queries.build_queries(name, company)
+    results = []
+    with ThreadPoolExecutor(max_workers=min(len(qs), 10)) as ex:
+        for hits in ex.map(lambda q: search.search(q, k=5), qs):
+            results += hits
+    return search.dedup(results)[:MAX_RESULTS]
+
+
+def _deepen(results):
+    # fetch full page text for snippet-only results, concurrently (linkedin handled elsewhere)
+    todo = [r for r in results if not r.content and "linkedin.com" not in r.url]
+    if not todo:
+        return
+    with ThreadPoolExecutor(max_workers=min(len(todo), 10)) as ex:
+        for r, text in zip(todo, ex.map(lambda r: fetch.fetch(r.url), todo)):
+            r.content = text
+
+
+def _extract(name, company, results, role):
+    facts = extract.extract_facts(name, company, results, role)
+    for f in facts:  # a real post timestamp beats the model's guessed date
+        posted = linkedin.post_date(f.source_url)
+        if posted:
+            f.date = posted
+    print(f"  {len(facts)} extracted facts")
+    return facts
+
+
+def _dns_tech(domain):
+    # mail provider + spf vendors, plus txt tokens, m365 realm, website fingerprint
+    if not domain:
+        return []
+    try:
+        return dns.facts(domain) + tech.facts(domain)
+    except Exception as e:
+        print(f"  dns/tech failed: {e}")
+        return []
+
+
+def _linkedin_anchor(name, company, role, domain, results, env):
+    li_url = _best_linkedin(results, name)
+    if not (li_url and env.get("BRIGHTDATA_API_KEY")):
+        return []
+    try:
+        rec = linkedin.profile(li_url, env["BRIGHTDATA_API_KEY"])
+        if not rec:
+            return []
+        lname, lcompany = linkedin.name_and_company(rec)
+        slug = li_url.split("/in/")[1].split("?")[0].replace("-", " ")  # the slug carries the full name
+        ok, _, _ = match.judge(match.Anchor(name, company, domain=domain, role=role),
+                               match.Candidate(slug, f"{lname} {lcompany}"), use_llm=False)
+        if ok:
+            print("  linkedin anchor confirmed")
+            return linkedin.facts(rec, li_url)
+        print("  linkedin profile did not match the target, skipped")
+        return []
+    except Exception as e:
+        print(f"  linkedin failed: {e}")
+        return []
+
+
+def _github(name, company, role, domain, results):
+    gh_url = next((r.url for r in results if "github.com/" in r.url and "/in/" not in r.url), "")
+    if not gh_url:
+        return []
+    try:
+        return github.enrich(gh_url, match.Anchor(name, company, domain=domain, role=role))
+    except Exception as e:
+        print(f"  github failed: {e}")
+        return []
+
+
+def build(name, company, role=""):
     env = config.load_env()
 
-    # 1. search every query, merge and dedup, then cap
-    results = []
-    for q in queries.build_queries(name, company):
-        results += search.search(q, k=5)
-    results = search.dedup(results)[:MAX_RESULTS]
+    # 1. search all queries in parallel, then fetch snippet-only pages in parallel
+    results = _search_all(name, company)
     print(f"  {len(results)} unique results")
+    _deepen(results)
+    domain = domains.resolve(company, results)
 
-    # 2. deepen: fetch full text where we only have a snippet (skip linkedin, handled below)
-    for r in results:
-        if not r.content and "linkedin.com" not in r.url:
-            r.content = fetch.fetch(r.url)
+    # 2. extract and each structured collector are independent, so run them together
+    facts = []
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        jobs = [
+            ex.submit(_extract, name, company, results, role),
+            ex.submit(_dns_tech, domain),
+            ex.submit(_linkedin_anchor, name, company, role, domain, results, env),
+            ex.submit(_github, name, company, role, domain, results),
+        ]
+        for j in jobs:
+            facts += j.result()
 
-    # 3. extract sourced facts from the results
-    facts = extract.extract_facts(name, company, results)
-    print(f"  {len(facts)} extracted facts")
-
-    # 4. structured collectors: company domain -> dns; a linkedin url -> the anchor
-    domain = _domain_from(company, results)
-    if domain:
-        try:
-            facts += dns.facts(domain)
-        except Exception as e:
-            print(f"  dns failed: {e}")
-    li_url = next((r.url for r in results if "linkedin.com/in/" in r.url), "")
-    if li_url and env.get("BRIGHTDATA_API_KEY"):
-        try:
-            rec = linkedin.profile(li_url, env["BRIGHTDATA_API_KEY"])
-            if rec:
-                lname, lcompany = linkedin.name_and_company(rec)
-                ok, _, _ = match.judge(match.Anchor(name, company),
-                                       match.Candidate(lname, lcompany), use_llm=False)
-                if ok:
-                    facts += linkedin.facts(rec, li_url)
-                    print("  linkedin anchor confirmed")
-                else:
-                    print("  linkedin profile did not match the target, skipped")
-        except Exception as e:
-            print(f"  linkedin failed: {e}")
-
-    # 5. verify across domains, propose hooks, score exposure
+    # 3. verify across domains, propose hooks, score exposure
     facts = verify.verify(facts)
     ranked = hooks.propose(name, company, facts)
     sc, breakdown = exposure.score(facts, ranked)
     print(f"  {len(facts)} facts after verify, {len(ranked)} hooks")
 
-    role = next((f.value for f in facts if f.category == "role"), "")
+    facts.sort(key=lambda f: recency.weight(f.date), reverse=True)  # freshest first for the profile
+    role = _current_role(facts, company, domain)
     profile = Profile(
         name=name, role=role, company=company, domain=domain,
         facts=facts, hooks=ranked, exposure_score=sc, exposure_breakdown=breakdown,
@@ -91,7 +167,6 @@ def build(name, company):
     )
     _write(profile)
     return profile
-
 
 def _write(profile):
     OUT.mkdir(parents=True, exist_ok=True)
