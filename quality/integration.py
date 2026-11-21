@@ -102,6 +102,9 @@ def prepare_message(message, context):
     artifact = {k: v for k, v in payload.items() if k != 'from'}
     report = inspect_artifact(artifact, context, sender=sender or {})
     check_names(data, context, report)
+    from .story import profile_claim_checks
+    claims = profile_claim_checks(data.get('body',''),context.get('profile_facts',[]))
+    report.errors.extend(claims.errors);report.warnings.extend(claims.warnings)
     if data.get('to') not in context.get('authorized_targets', []):
         report.errors.append('Unauthorized simulator target')
     if not isinstance(data.get('channel'), str) or data.get('channel') not in MESSAGE_CHANNELS:

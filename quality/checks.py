@@ -192,6 +192,19 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
             report.warnings.append('Sender name/address missing; craft review needed')
         if not re.search(r'\b(regards|best|thanks|sincerely|cheers)\b', visible, re.I):
             report.warnings.append('Signature not detected; craft review needed')
+    channel = artifact.get('channel', 'email')
+    if kind == 'message':
+        if channel not in {'email','calendar_invite','shared_document'} and artifact.get('subject','').strip():
+            report.warnings.append('This channel normally has no subject')
+        if channel in {'sms','whatsapp','signal','telegram','imessage','slack','teams_chat','live_chat'} and len(visible) > 320:
+            report.warnings.append('Message is long for SMS/chat')
+        if channel == 'calendar_invite' and not artifact.get('subject','').strip():
+            report.warnings.append('Calendar invite title missing')
+        asks = len(re.findall(r'\b(?:please\s+(?:open|reply|confirm|send|sign)|sign in|could you|can you)\b', visible, re.I))
+        if asks != 1:
+            report.warnings.append('Inspect whether there is one clear ask')
+        if channel == 'email' and not re.search(r'\b(?:unsubscribe|privacy|registered|address|company)\b', visible, re.I):
+            report.warnings.append('Company footer not detected; inspect whether appropriate for this sender')
     report.warnings.append('Tone, factual accuracy and visual craft require separate review; no craft score inferred')
     report.errors = list(dict.fromkeys(report.errors))
     return report

@@ -297,7 +297,7 @@ class Orchestrator:
             if fact.get('source_url'):
                 forbidden.add((urlsplit(fact['source_url']).hostname or '').lower())
         context = dict(simulation_only=True, scenario_id=self.scenario_id,
-                       authorized_targets=[self.target_id], target_names={self.target_id:target['name']},
+                       authorized_targets=[self.target_id], target_names={self.target_id:target['name']}, profile_facts=self.profile.get('facts',[]),
                        approved_sender_domains=sorted(senders), approved_link_hosts=sorted(links),
                        known_organisation_domains=sorted(forbidden - {''}), approved_sender_addresses=[])
         self.client = GuardedClient(self.client, context, enabled=self.quality_enabled)
@@ -331,6 +331,7 @@ class Orchestrator:
     def _run_branch(self, sid, approach, approach_node):
         """run one approach: a live-call channel goes through the conversation api,
         any other channel through the message path."""
+        self.client.story_scope = approach.get('story_id') or approach.get('pretext') or 'session'
         if approach.get("channel") in LIVE_CHANNELS:
             return self._run_call(sid, approach, approach_node)
         return self._run_messages(sid, approach, approach_node)
