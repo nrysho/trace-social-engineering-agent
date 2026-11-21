@@ -81,6 +81,9 @@ class BenchTests(unittest.TestCase):
         rows=[json.loads(x) for x in next((Path(self.temp.name)/'api').glob('*.jsonl')).read_text().splitlines()]
         sent=next(row for row in rows if row['kind']=='sent')
         self.assertTrue(sent['qa']['passed']);self.assertNotIn('qa',sent['message'])
+        bare=json.loads(next((Path(self.temp.name)/'trees').glob('*.json')).read_text())
+        self.assertTrue(all(schemas.treenode_from_dict(node) for node in bare))
+        self.assertFalse(any('qa' in node for node in bare))
 
     def test_blocked_draft_spends_zero_touches_and_saves_verdict(self):
         _,bundle,attempts=self.run_agent(invalid=True)

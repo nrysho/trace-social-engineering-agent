@@ -604,7 +604,7 @@ class Orchestrator:
         RUNS.mkdir(parents=True, exist_ok=True)
         (RUNS / f"{self.run_id}.json").write_text(json.dumps(bundle, indent=2))
         TREE_DIR.mkdir(parents=True, exist_ok=True)
-        (TREE_DIR / f"{self.run_id}.json").write_text(json.dumps(nodes, indent=2))
+        (TREE_DIR / f"{self.run_id}.json").write_text(json.dumps([n.to_dict() for n in self.nodes], indent=2))
 
 
 def _rejected_options(approach):
