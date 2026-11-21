@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Revel8 Strategy Lab</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0d1117;--panel:#141a22;--panel2:#19212b;--line:#293442;--text:#edf2f7;--muted:#9aa9b8;--lime:#c5f36b;--blue:#8ac7ff;--orange:#ffb46b;--red:#ff8585;--green:#8de2b0;--radius:16px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -10%,#1a2935 0,transparent 38%),var(--bg);color:var(--text);min-height:100vh}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:var(--blue)}.shell{max-width:1480px;margin:auto;padding:24px 30px 50px}.top{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:24px}.brand{display:flex;align-items:center;gap:14px}.brand-mark{width:42px;height:42px;border-radius:13px;background:var(--lime);color:#1c2713;display:grid;place-items:center;font-weight:900;letter-spacing:-2px}.eyebrow{color:var(--lime);text-transform:uppercase;letter-spacing:.15em;font-size:10px;font-weight:800}.brand h1{font-size:19px;margin:2px 0 0;letter-spacing:-.03em}.top-right{display:flex;gap:10px;align-items:center}.status{border:1px solid var(--line);background:#111820;color:var(--muted);padding:9px 12px;border-radius:99px;font-size:12px}.status.ok{color:var(--green);border-color:#31583e}.status.bad{color:var(--red);border-color:#653b3b}.nav{display:flex;gap:7px;border-bottom:1px solid var(--line);margin-bottom:24px}.nav button{color:var(--muted);padding:12px 15px;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px}.nav button.active{color:var(--text);border-color:var(--lime)}.view{display:none}.view.active{display:block}.grid{display:grid;gap:16px}.layout{grid-template-columns:minmax(0,1.65fr) minmax(300px,.85fr)}.two{grid-template-columns:1fr 1fr}.card{background:linear-gradient(145deg,#171e27,#121820);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:0 14px 35px #0002}.card h2,.card h3{margin:0 0 14px;letter-spacing:-.025em}.card h2{font-size:18px}.card h3{font-size:14px}.muted{color:var(--muted)}.small{font-size:12px;line-height:1.55}.row{display:flex;align-items:center;gap:10px}.between{justify-content:space-between}.wrap{flex-wrap:wrap}.field{display:flex;flex-direction:column;gap:6px;min-width:0}.field label,.label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em}.control,input,select,textarea{background:#0c1218;border:1px solid #34414e;border-radius:9px;color:var(--text);padding:10px 11px;width:100%;outline:none}.control:focus,input:focus,select:focus,textarea:focus{border-color:#91bf61;box-shadow:0 0 0 3px #c5f36b18}textarea{resize:vertical;min-height:110px;line-height:1.5}select option{background:#111820}.btn{border:1px solid #394754;background:#222d38;color:var(--text);padding:10px 13px;border-radius:9px;font-size:12px;font-weight:750;transition:.15s}.btn:hover{background:#2b3946;border-color:#5a6c7d}.btn.primary{background:var(--lime);color:#1b2511;border-color:var(--lime)}.btn.primary:hover{background:#d3ff83}.btn.ghost{background:transparent}.btn.danger{color:#ffaaaa;border-color:#633b3b;background:#2a181c}.btn:disabled{opacity:.5;cursor:not-allowed}.toolbar{display:flex;gap:8px;align-items:center}.targetstrip{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-bottom:16px}.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.metric{background:#10161d;border:1px solid var(--line);padding:13px;border-radius:12px}.metric b{font-size:20px;display:block;margin-top:5px}.metric span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}.angle-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.angle{border:1px solid var(--line);border-radius:12px;background:#10161d;padding:13px;display:grid;gap:9px;transition:.16s}.angle:hover{border-color:#627247;transform:translateY(-1px)}.angle.selected{border-color:var(--lime);box-shadow:0 0 0 1px #c5f36b40}.angle-title{font-size:13px;font-weight:800}.angle-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}.chip{font-size:10px;border:1px solid #34414e;border-radius:99px;color:var(--muted);padding:4px 7px;white-space:nowrap}.chip.good{color:var(--green);border-color:#31583e}.chip.warn{color:var(--orange);border-color:#644a31}.score{font-variant-numeric:tabular-nums;color:var(--lime);font-weight:800}.angle button{justify-self:start;padding:7px 9px}.evidence-list{display:grid;gap:7px;margin-top:10px}.fact{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:9px;background:#10161d;border:1px solid var(--line);border-radius:10px}.fact strong{font-size:12px}.fact a{font-size:10px;display:block;overflow-wrap:anywhere;margin-top:4px}.hook{padding:9px 0;border-bottom:1px solid #26313c}.hook:last-child{border:0}.bar{height:6px;background:#26313c;border-radius:5px;overflow:hidden;margin-top:7px}.bar i{display:block;background:var(--lime);height:100%;border-radius:5px}.session-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.session-id{font-family:ui-monospace,Consolas,monospace;color:var(--blue);font-size:12px}.messages{display:flex;flex-direction:column;gap:10px;max-height:370px;overflow:auto;margin:14px 0}.bubble{max-width:92%;padding:11px 13px;border-radius:12px;background:#1e2a34;font-size:12px;line-height:1.5;white-space:pre-wrap}.bubble.out{align-self:flex-end;background:#24351e;border:1px solid #3e5531}.bubble.event{align-self:center;background:#191f28;color:var(--muted);border:1px dashed #36424e;font-size:11px}.bubble small{display:block;color:var(--muted);font-size:10px;margin-bottom:5px}.compose-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.compose-grid .wide{grid-column:1/-1}.outcome{border-left:3px solid var(--blue);padding:10px 12px;background:#10161d;border-radius:0 10px 10px 0;margin:8px 0}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:12px}.table th{text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}.table td{padding:10px;border-bottom:1px solid #202a34;vertical-align:top}.table tr:hover td{background:#ffffff04}.empty{border:1px dashed #3a4653;border-radius:12px;padding:25px;text-align:center;color:var(--muted);font-size:12px}.notice{border:1px solid #4e4928;color:#e9dfa1;background:#292718;padding:11px 13px;border-radius:11px;font-size:11px;line-height:1.5}.notice strong{color:#fff0a3}.callout{border:1px solid #31583e;color:#bceccc;background:#17251c;padding:12px 14px;border-radius:12px}.modal-backdrop{display:none;position:fixed;inset:0;z-index:5;background:#05080bd9;place-items:center;padding:20px}.modal-backdrop.open{display:grid}.modal{width:min(540px,100%);background:#151d26;border:1px solid var(--line);border-radius:17px;padding:20px;box-shadow:0 24px 80px #0008}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}.pill-tabs{display:flex;gap:6px;flex-wrap:wrap}.pill-tabs button{padding:7px 10px;background:#10161d;color:var(--muted);border:1px solid var(--line);border-radius:99px;font-size:11px}.pill-tabs button.active{color:#14200e;background:var(--lime);border-color:var(--lime)}.bar-chart{display:grid;gap:10px}.chart-row{display:grid;grid-template-columns:minmax(90px,160px) 1fr 45px;gap:10px;align-items:center;font-size:11px}.chart-track{height:9px;background:#26313c;border-radius:9px;overflow:hidden}.chart-track i{display:block;height:100%;background:linear-gradient(90deg,#a3d751,#d5ff80);border-radius:9px}.footer{text-align:center;color:#657585;font-size:10px;padding-top:24px}.hidden{display:none!important}
+    @media(max-width:1000px){.layout{grid-template-columns:1fr}.two{grid-template-columns:1fr}.metric-row{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.shell{padding:16px}.top{align-items:flex-start}.top-right{flex-direction:column;align-items:flex-end}.targetstrip{grid-template-columns:1fr}.angle-grid{grid-template-columns:1fr}.compose-grid{grid-template-columns:1fr}.compose-grid .wide{grid-column:auto}.nav{overflow:auto}.nav button{white-space:nowrap}.toolbar{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand"><div class="brand-mark">R8</div><div><div class="eyebrow">Practice research bench</div><h1>Revel8 Strategy Lab</h1></div></div>
+    <div class="top-right"><div id="api-status" class="status">Connecting to practice API…</div><button class="btn ghost" id="refresh-btn">Refresh data</button></div>
+  </header>
+  <nav class="nav" aria-label="Workspace sections">
+    <button class="active" data-view="strategies">Strategy patterns</button>
+    <button data-view="session">Live practice</button>
+    <button data-view="results">Results & patterns</button>
+  </nav>
+
+  <section class="view active" id="view-strategies">
+    <div class="notice" style="margin-bottom:15px"><strong>Practice scenario only.</strong> Live tests contact Revel8 AI twins through the official API; messages, calls and page submissions stay inside Revel8. The eval scenario is not exposed here. Use verified facts for real profiles and label synthetic archetypes clearly.</div>
+    <div class="targetstrip card">
+      <div class="field"><label for="target-select">PRACTICE TWIN</label><select id="target-select"><option>Loading practice targets…</option></select></div>
+      <div class="field"><label for="archetype-select">PATTERN LENS</label><select id="archetype-select"></select></div>
+      <div class="toolbar"><button class="btn" id="edit-profile-btn">Edit evidence</button><button class="btn primary" id="new-session-btn">New clean session</button></div>
+    </div>
+    <div class="metric-row" id="strategy-metrics"></div>
+    <div class="grid layout">
+      <main class="grid">
+        <div class="card" id="autorun-card">
+          <div class="row between wrap"><div><h2>Autonomous strategy run</h2><div class="muted small">The agent runs our ranked strategy against the live Revel8 API on its own — top approaches, each in a clean session, drafted by the model, reaction classified, one follow-up when the twin engages. You just watch the scoreboard.</div></div><button class="btn primary" id="autorun-btn">▶ Run autonomous pass</button></div>
+          <div class="row wrap" style="gap:14px;margin-top:12px;align-items:flex-end">
+            <div class="field" style="max-width:100px"><label>APPROACHES</label><input id="autorun-count" type="number" min="1" max="10" value="5"></div>
+            <div class="field" style="max-width:120px"><label>MAX TOUCHES / APPROACH</label><input id="autorun-maxtouches" type="number" min="1" max="10" value="4"></div>
+            <div class="field" style="max-width:170px"><label>TEXT TYPE</label><select id="autorun-texttype"></select></div>
+            <label class="small muted" style="display:flex;gap:7px;align-items:center;padding-bottom:9px"><input type="checkbox" id="autorun-followup" checked> Persist (build trust, then ask)</label>
+          </div>
+          <div class="metric-row" id="autorun-metrics" style="margin-top:14px"></div>
+          <div id="autorun-log" class="small muted" style="margin-top:10px;max-height:150px;overflow:auto;font-family:ui-monospace,monospace"></div>
+        </div>
+        <div class="card">
+          <div class="row between wrap"><div><h2>Approach portfolio</h2><div class="muted small">Compare pretexts and channels against the selected profile pattern. Rank is a starting hypothesis; observed reactions are the evidence.</div></div><div class="toolbar"><button class="btn" id="all-angles-btn">Show all angles</button><button class="btn primary" id="sweep-btn">Run one pass · 10 approaches</button></div></div>
+          <div class="pill-tabs" id="angle-filters" style="margin:16px 0 13px"></div>
+          <div id="angles" class="angle-grid"></div><div id="sweep-status" class="small muted" style="margin-top:12px"></div>
+        </div>
+        <div class="card">
+          <div class="row between wrap"><div><h2>Evidence profile</h2><div class="muted small">The profile pattern and facts used to rank approaches.</div></div><button class="btn" id="add-fact-btn">Add fact</button></div>
+          <div id="profile-facts" class="evidence-list"></div>
+          <div style="margin-top:14px"><div class="row between"><div class="label">HOOK HYPOTHESES</div><button class="btn ghost" id="suggest-hooks-btn" title="Infer hooks from the facts above using the shared signal rules">Infer from facts</button></div><div id="profile-hooks" style="margin-top:5px"></div></div>
+        </div>
+      </main>
+      <aside class="grid">
+        <div class="card"><h2>Pattern lens</h2><div id="pattern-description" class="muted small"></div><div class="notice" style="margin-top:13px">Synthetic archetypes help compare assumptions. They are not Revel8 targets; only the three practice twins can be contacted by API.</div></div>
+        <div class="card"><h3>How to read this board</h3><div class="small muted">Each approach lists the evidence it depends on and its match to the active hooks. A missing fact lowers confidence; it does not stop you experimenting. Keep separate sessions for clean comparisons, then log what the twin did.</div><div class="callout small" style="margin-top:12px">One API contact costs one touch. Practice sessions allow 30 touches; Revel8 limits new practice sessions to 60 per team per hour.</div></div>
+        <div class="card"><h3>Recent outcomes</h3><div id="recent-outcomes" class="small muted">No experiments recorded yet.</div></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="view" id="view-session">
+    <div class="grid layout">
+      <main class="grid">
+        <div class="card">
+          <div class="session-head"><div><div class="eyebrow">Revel8 practice session</div><h2 id="session-title" style="margin:5px 0">No active session</h2><div id="session-meta" class="muted small">Create a clean session to start trying strategies.</div></div><div class="toolbar"><button class="btn" id="load-sessions-btn">Load my sessions</button><button class="btn primary" id="session-start-inline">New session</button></div></div>
+          <div id="transcript" class="messages"><div class="empty">Your contacts and the twin’s reactions will appear here.</div></div>
+        </div>
+        <div class="card">
+          <div class="row between"><h2>Compose a contact</h2><button class="btn" id="draft-btn">Draft with Radeon</button></div>
+          <div class="compose-grid">
+            <div class="field"><label>APPROACH</label><select id="compose-pretext"></select></div>
+            <div class="field"><label>CHANNEL</label><select id="compose-channel"></select></div>
+            <div class="field"><label>TEXT TYPE</label><select id="compose-texttype"></select></div>
+            <div class="field"><label>SENDER NAME</label><input id="sender-name" value="Lena Hofer"></div>
+            <div class="field"><label>SENDER ADDRESS / HANDLE</label><input id="sender-address" value="lena.hofer@eventcrew-muc.de"></div>
+            <div class="field wide"><label>SUBJECT / TITLE (WHEN CHANNEL USES ONE)</label><input id="message-subject" placeholder="Optional"></div>
+            <div class="field wide"><label>MESSAGE</label><textarea id="message-body" placeholder="Write a practice message or draft one with Radeon. Keep claims tied to verified facts."></textarea></div>
+            <div class="field wide"><label>EXPERIMENT NOTE</label><input id="experiment-note" placeholder="What pattern are you testing? e.g. recent event interest + speaker invite"></div>
+          </div>
+          <div class="row between wrap" style="margin-top:12px"><div class="muted small">The selected target, sender, channel, message and outcome are logged locally for pattern analysis.</div><div class="toolbar"><button id="ab-texttype-btn" class="btn">A/B all text types</button><button id="send-btn" class="btn primary" disabled>Send practice contact</button></div></div>
+          <div id="ab-status" class="small muted" style="margin-top:8px"></div>
+        </div>
+      </main>
+      <aside class="grid">
+        <div class="card"><h3>Live session controls</h3><div class="field"><label>ACTIVE SESSION</label><select id="session-select"><option value="">No active session</option></select></div><div id="session-budget" class="callout small" style="margin-top:12px">30 touches per practice session. Calls consume one touch across up to 10 turns.</div><button class="btn" id="end-session-btn" style="margin-top:12px" disabled>End session</button></div>
+        <div class="card"><h3>Registered practice pages</h3><div class="muted small">Use the API’s registered-page simulation to test link trust. It is not a hosted website.</div><div class="field" style="margin-top:12px"><label>REGISTERED URL</label><input id="page-url" placeholder="https://your-registrable-domain.de/rsvp"></div><div class="field" style="margin-top:8px"><label>PAGE TITLE</label><input id="page-title" placeholder="Event details"></div><div class="field" style="margin-top:8px"><label>VISIBLE TEXT</label><textarea id="page-text" style="min-height:65px" placeholder="Page copy"></textarea></div><div class="field" style="margin-top:8px"><label>FIELDS (comma-separated)</label><input id="page-fields" value="name,email,availability"></div><button class="btn" id="register-page-btn" style="margin-top:10px" disabled>Register simulation page</button><div id="page-result" class="small muted" style="margin-top:8px"></div></div>
+        <div class="card"><h3>Experiment discipline</h3><div class="small muted">For clean comparisons, start a new session for each first-contact angle. Keep sender and message format consistent when isolating one variable. Use a follow-up in the same session when testing continuity and question handling.</div></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="view" id="view-results">
+    <div class="row between wrap" style="margin-bottom:15px"><div><div class="eyebrow">Pattern recognition</div><h2 style="margin:4px 0">Results & patterns</h2><div class="muted small">Reactions from actual practice API calls, grouped by approach. Notes and synthetic archetype labels stay in this browser.</div></div><div class="toolbar"><button class="btn" id="export-btn">Export experiment log</button><label class="btn" for="import-file">Import JSON</label><input type="file" id="import-file" accept="application/json" class="hidden"><button class="btn danger" id="clear-log-btn">Clear local log</button></div></div>
+    <div class="metric-row" id="result-metrics"></div>
+    <div class="card" style="margin-top:16px"><h3>Performance by target <span class="muted small">(generalisation across twins)</span></h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>Target</th><th>Contacts</th><th>Reply rate</th><th>Engaged</th><th>Incidents</th><th>Median → incident</th></tr></thead><tbody id="target-rollup"></tbody></table></div></div>
+    <div class="card" style="margin-top:16px"><div class="row between wrap"><div><h3>Strategy × text-type reply rate</h3><div class="muted small">Rows are approaches, columns are text types. Each cell is reply rate over contacts sent (n). Darker = higher. This is the fastest read on what strategy and writing style combination works.</div></div><select id="matrix-metric" style="max-width:180px"><option value="replied">Reply rate</option><option value="event">Any event rate</option><option value="incident">Incident rate</option></select></div><div class="table-wrap" style="margin-top:12px"><div id="matrix"></div></div></div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card"><h3>Response rate by approach</h3><div id="pretext-chart" class="bar-chart"></div></div>
+      <div class="card"><h3>Response rate by text type</h3><div id="texttype-chart" class="bar-chart"></div></div>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card"><h3>Response rate by channel</h3><div id="channel-chart" class="bar-chart"></div></div>
+      <div class="card"><h3>Best combinations <span class="muted small">(by reply rate, min 1 contact)</span></h3><div id="best-combos" class="bar-chart"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><div class="row between wrap"><div><h3>Contact ledger</h3><div class="muted small">Experiment notes, drafts and API reactions are stored in this browser’s localStorage. Contacts are sent to Revel8 only when you use the practice controls.</div></div><select id="result-filter" style="max-width:220px"><option value="all">All approaches</option></select></div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Time</th><th>Target / pattern</th><th>Approach</th><th>Text type</th><th>Channel</th><th>Reaction</th><th>Touches</th><th>Session</th></tr></thead><tbody id="log-table"></tbody></table></div></div>
+    <div class="card" style="margin-top:16px"><div class="row between wrap"><div><h3>Simulation transcripts</h3><div class="muted small">The exact message sequence per session — sender, channel, intent, our message and the twin's reaction — for manual verification. Newest first.</div></div><select id="transcript-filter" style="max-width:220px"><option value="all">All targets</option></select></div><div id="transcripts" style="margin-top:12px"></div></div>
+  </section>
+  <div class="footer">Local-first strategy notebook · Revel8 practice API · Browser data stays in localStorage</div>
+</div>
+
+<div class="modal-backdrop" id="profile-modal"><div class="modal"><div class="row between"><h2>Edit profile evidence</h2><button class="btn ghost" data-close="profile-modal">Close</button></div><div class="muted small">Add sourced facts and hooks. Unverified statements stay out of model drafts and lower approach confidence.</div><div class="field" style="margin-top:14px"><label>PROFILE PATTERN DESCRIPTION</label><textarea id="pattern-input" style="min-height:72px"></textarea></div><div class="field" style="margin-top:10px"><label>HOOKS (one per line: topic | probability 0–1 | evidence note)</label><textarea id="hooks-input" style="min-height:100px"></textarea></div><div class="modal-actions"><button class="btn primary" id="save-profile-btn">Save pattern</button></div></div></div>
+<div class="modal-backdrop" id="fact-modal"><div class="modal"><div class="row between"><h2>Add sourced fact</h2><button class="btn ghost" data-close="fact-modal">Close</button></div><div class="grid two" style="margin-top:13px"><div class="field"><label>FACT CATEGORY</label><select id="fact-category"></select></div><div class="field"><label>VERIFICATION</label><select id="fact-verified"><option value="true">Verified from source</option><option value="false">Unverified hypothesis</option></select></div><div class="field" style="grid-column:1/-1"><label>FACT / OBSERVATION</label><input id="fact-value" placeholder="A short factual observation"></div><div class="field" style="grid-column:1/-1"><label>SOURCE URL</label><input id="fact-source" placeholder="https://…"></div></div><div class="modal-actions"><button class="btn primary" id="save-fact-btn">Add to profile</button></div></div></div>
+<div class="modal-backdrop" id="confirm-modal"><div class="modal"><h2 id="confirm-title">Start clean practice session?</h2><p id="confirm-text" class="muted small">This creates a new Revel8 practice session. No message is sent until you press Send.</p><div class="modal-actions"><button class="btn" data-close="confirm-modal">Cancel</button><button class="btn primary" id="confirm-create">Create session</button></div></div></div>
+
+<script>
+// facts use canonical schemas.py FACT_CATEGORIES; ids match signals.json families.
+const PRETEXTS = [
+  {id:'speaker_invite',name:'Speaker or event invite',facts:['interests','upcoming_events'],channels:['email','linkedin_message','calendar_invite','phone_call'],goal:'Invite to speak or join a panel'},
+  {id:'press_request',name:'Press or podcast request',facts:['media','recent_activity'],channels:['email','linkedin_message','phone_call'],goal:'Request a short interview'},
+  {id:'customer_question',name:'Customer lead or question',facts:['role','company'],channels:['email','linkedin_message','teams_chat'],goal:'Start a substantive product conversation'},
+  {id:'recruiting',name:'Recruiter or candidate',facts:['hiring','role'],channels:['email','linkedin_message'],goal:'Ask about a relevant hiring process'},
+  {id:'document_share',name:'Document share',facts:['network','recent_activity'],channels:['email','shared_document','teams_chat'],goal:'Share a relevant simulation document'},
+  {id:'meeting_reschedule',name:'Meeting change',facts:['network','upcoming_events'],channels:['email','calendar_invite','teams_chat'],goal:'Confirm a realistic meeting detail'},
+  {id:'vendor_notice',name:'Known vendor or tool',facts:['vendors_and_tools','role'],channels:['email','teams_chat'],goal:'Ask a question about a known tool'},
+  {id:'security_alert',name:'Security notice',facts:['vendors_and_tools','role'],channels:['email','sms','teams_chat'],goal:'Test reaction to an account notice'},
+  {id:'internal_favor',name:'Internal colleague favor',facts:['network','communication_style'],channels:['email','teams_chat','slack','phone_call'],goal:'Request a small, plausible work favor'},
+  {id:'investor_intro',name:'Investor / partner intro',facts:['recent_activity','network'],channels:['email','linkedin_message'],goal:'Start an investor or partnership thread'},
+];
+const CHANNELS = ['email','calendar_invite','shared_document','voicemail','sms','whatsapp','signal','telegram','imessage','slack','teams_chat','discord','linkedin_message','linkedin_connection_request','x_dm','instagram_dm','facebook_messenger','mfa_push'];
+// Text types = how the message is written. The writing axis we A/B against strategies.
+const TEXT_TYPES = [
+  {id:'warm_personal',name:'Warm & personal',style:'Warm, friendly, first-person. Light rapport, specific personal reference, relaxed sign-off. No corporate boilerplate.'},
+  {id:'brief_direct',name:'Brief & direct',style:'Very short and to the point. One ask, no filler, plain sign-off. The kind of note a busy person sends from their phone.'},
+  {id:'formal_authority',name:'Formal & authoritative',style:'Formal, professional, confident. Precise wording, full signature with role and organisation. Credible and institutional.'},
+  {id:'urgent_timebound',name:'Urgent / time-bound',style:'Polite but time-pressured. A real, concrete deadline or scheduling constraint that prompts a quick reply. Never threatening.'},
+  {id:'flattering_peer',name:'Flattering peer',style:'Admiring, peer-to-peer. Open with genuine-sounding praise tied to a verified fact, then the ask. Insider, not salesy.'},
+  {id:'data_credible',name:'Specific & evidence-led',style:'Concrete and detail-rich. Cite specific names, dates, numbers or references (only from verified facts) so every claim is checkable.'},
+  {id:'casual_social',name:'Casual / social',style:'Casual, conversational, lower-case-friendly. Fits chat apps and DMs. Contractions, short lines, one emoji at most.'},
+];
+const ARCHETYPES = [
+  {id:'general_person',name:'General — role unknown',description:'Fallback for a target we have not profiled yet. Universal lures that land on almost anyone regardless of job: an account/security notice, a shared document, a quick favour from a colleague, a meeting change. Narrow as soon as recon hands over real facts.',hooks:[['account or security notice',.45,'Everyone has accounts and sign-ins'],['shared document to open',.40,'Anyone in an organisation opens shared files'],['quick favour from a colleague',.38,'Helpfulness and deference to authority are near-universal'],['a change to a meeting',.30,'Most people keep a calendar']]},
+  {id:'technical_founder',name:'Technical founder',description:'Synthetic pattern: time-constrained product builder; may respond to concrete technical relevance and trusted peer context.',hooks:[['shipping product',.62,'Recent product work is documented'],['security posture',.48,'Role includes technical responsibility'],['hiring engineers',.31,'Only if a current opening is verified']]},
+  {id:'commercial_founder',name:'Commercial founder',description:'Synthetic pattern: external-facing operator; may respond to credible partnerships, customers, or public events.',hooks:[['partnerships',.58,'Current partner activity is documented'],['public speaking',.42,'A recent appearance is verified'],['customer growth',.54,'Product/customer context is sourced']]},
+  {id:'security_lead',name:'Security lead',description:'Synthetic pattern: security professional; may prioritize incident clarity, vendor credibility, and concise evidence.',hooks:[['security operations',.64,'Security role is part of the archetype'],['vendor evaluation',.45,'Only if a tool or procurement need is evidenced'],['team workflow',.35,'Infer only from sourced team context']]},
+  {id:'people_ops',name:'People operations leader',description:'Synthetic pattern: people-focused operator; may prioritize hiring, employee experience, and event logistics.',hooks:[['hiring',.60,'Current open role is verified'],['employee experience',.49,'People remit is part of the archetype'],['community events',.34,'A recent event is sourced']]},
+  {id:'custom',name:'Custom pattern',description:'Build a pattern from sourced evidence, then compare it with observed reactions.',hooks:[]},
+];
+// Landing-page templates per pretext: what to register so a click/submit becomes an
+// incident. URLs are registrable lookalikes (never revel8's own domain). A matching
+// sender is used where it makes the link credible.
+const PAGE_TEMPLATES={
+  speaker_invite:{url:'https://eventcrew-muc.de/panel-rsvp',title:'Panel RSVP',text:'Confirm your availability and details for the panel.',fields:['name','availability'],linkText:'Confirm your slot'},
+  security_alert:{url:'https://account-shield-verify.com/signin',title:'Security verification',text:'Unusual sign-in detected. Confirm your identity to keep access.',fields:['email','password'],linkText:'Verify your account',sender:{name:'IT Security',address:'alerts@account-shield-verify.com'}},
+  document_share:{url:'https://team-docshare.net/open',title:'Shared document',text:'A document was shared with you. Open it to view.',fields:['email'],linkText:'Open the document',sender:{name:'Robert Seilbeck',address:'r.seilbeck@team-docshare.net'}},
+  vendor_notice:{url:'https://workspace-admin-portal.com/billing',title:'Workspace billing',text:'Action needed on your workspace billing.',fields:['email'],linkText:'Review billing'},
+  investor_intro:{url:'https://partners-deck.net/view',title:'Partnership intro deck',text:'View the partnership intro deck.',fields:['email'],linkText:'Open the deck'},
+};
+// Canonical fact categories (mirror schemas.py FACT_CATEGORIES) so facts feed inference.
+const FACT_CATEGORIES=['role','company','domain','vendors_and_tools','upcoming_events','media','network','hiring','recent_activity','interests','communication_style'];
+// Susceptibility rules loaded from /api/signals (same signals.json strategy.py uses).
+let SIGNALS={families:[],lambda:1.1,min_probability:0.12};
+function factWeight(f){let base=(f.verified&&f.source_url)?1:0.6;const c=Number(f.confidence);if(c>0)base*=Math.min(1,0.4+c);return base;}
+// Mirror of strategy.propose_hooks: infer ranked hook hypotheses from facts.
+function inferHooks(facts){
+  const list=(facts||[]).filter(f=>f&&f.category);const lam=Number(SIGNALS.lambda)||1.1;const floor=Number(SIGNALS.min_probability)||0.12;const out=[];
+  for(const fam of (SIGNALS.families||[])){
+    let total=0;const evidence=[];
+    for(const rule of (fam.signals||[])){
+      const kws=(rule.any||[]).map(k=>k.toLowerCase());
+      for(const f of list){
+        if(f.category!==rule.category)continue;
+        const v=String(f.value||'');
+        if(kws.length&&!kws.some(k=>v.toLowerCase().includes(k)))continue;
+        total+=Number(rule.weight||0)*factWeight(f);
+        if(v&&!evidence.includes(v))evidence.push(v);
+      }
+    }
+    if(total<=0)continue;
+    const probability=1-Math.exp(-lam*total);
+    if(probability<floor)continue;
+    out.push({pretext:fam.pretext,topic:fam.topic,probability:Number(probability.toFixed(4)),evidence,angle:fam.angle||'their_topic'});
+  }
+  out.sort((a,b)=>b.probability-a.probability);
+  return out;
+}
+// Per-pretext lookalike sender + landing-page generator (mirror of writer.py, data from /api/senders).
+let SENDERS={pretexts:{}};
+function brandTld(domain){const host=String(domain||'').toLowerCase().replace(/^www\./,'').split('/')[0];const l=host.split('.').filter(Boolean);return l.length>=2?[l[l.length-2],l[l.length-1]]:[l[0]||'company','com'];}
+function fillBrand(t,b,tld){return String(t).replace(/\{brand\}/g,b).replace(/\{tld\}/g,tld);}
+function localPart(name){return String(name).toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'')||'contact';}
+function targetDomain(){const p=profile();if(p.domain)return p.domain;const d=(p.facts||[]).find(f=>f.category==='domain');if(d&&/[a-z0-9.-]+\.[a-z]{2,}/i.test(d.value)){const m=d.value.match(/[a-z0-9.-]+\.[a-z]{2,}/i);if(m)return m[0];}return 'revel8.ai';}
+function colleagueHint(){const n=(profile().facts||[]).find(f=>f.category==='network');const m=n&&String(n.value).match(/[A-Z][a-z]+ [A-Z][a-z]+/);return m?m[0]:'';}
+// Vendor vector: impersonate a tool the target actually uses (mirror of writer.VENDOR_LOOKALIKES).
+const VENDOR_LOOKALIKES=[
+ {match:['docusign'],brand:'DocuSign',domain:'docusign-notifications.net',kind:'docs'},
+ {match:['dropbox'],brand:'Dropbox',domain:'dropbox-share.net',kind:'docs'},
+ {match:['google drive','google workspace','gmail','google'],brand:'Google Workspace',domain:'workspace-notice.com',kind:'identity'},
+ {match:['microsoft','365','outlook','sharepoint'],brand:'Microsoft 365',domain:'m365-security.com',kind:'identity'},
+ {match:['okta'],brand:'Okta',domain:'okta-verify.com',kind:'identity'},
+ {match:['workday'],brand:'Workday',domain:'workday-login.com',kind:'identity'},
+ {match:['github'],brand:'GitHub',domain:'github-security.net',kind:'identity'},
+ {match:['aws','amazon web'],brand:'AWS',domain:'aws-billing.net',kind:'billing'},
+ {match:['salesforce'],brand:'Salesforce',domain:'salesforce-login.net',kind:'identity'},
+ {match:['sap'],brand:'SAP',domain:'sap-portal.net',kind:'billing'},
+ {match:['hubspot'],brand:'HubSpot',domain:'hubspot-billing.net',kind:'billing'},
+ {match:['sendgrid'],brand:'SendGrid',domain:'sendgrid-mail.net',kind:'billing'},
+ {match:['slack'],brand:'Slack',domain:'slack-alerts.com',kind:'identity'}];
+const PRETEXT_VENDOR_KIND={security_alert:'identity',document_share:'docs',vendor_notice:'billing'};
+function vendorTexts(){return (profile().facts||[]).filter(f=>f.category==='vendors_and_tools').map(f=>String(f.value||'')).join(' ').toLowerCase();}
+function detectVendor(pretext){const kind=PRETEXT_VENDOR_KIND[pretext];if(!kind)return null;const blob=vendorTexts();for(const wk of [kind,null]){for(const v of VENDOR_LOOKALIKES){if((wk===null||v.kind===wk)&&v.match.some(m=>blob.includes(m)))return v;}}return null;}
+function buildSender(pretext){const [b,tld]=brandTld(targetDomain());const e=(SENDERS.pretexts||{})[pretext]||{technique:'invented_third_party',sender_name:'Alex Wagner',role:'contact',domain:'mail-relay-eu.com',page:null};let name=e.sender_name;if(name==='{colleague}')name=colleagueHint()||'Robert Seilbeck';let domain=fillBrand(e.domain,b,tld);let technique=e.technique;const vendor=detectVendor(pretext);if(vendor){name=vendor.brand;domain=vendor.domain;technique='vendor_impersonation:'+vendor.brand;}return{name,address:`${localPart(name)}@${domain}`,domain,technique,role:e.role};}
+function buildLanding(pretext){const [b,tld]=brandTld(targetDomain());const pg=((SENDERS.pretexts||{})[pretext]||{}).page;if(!pg)return null;let domain=fillBrand(pg.domain,b,tld);const vendor=detectVendor(pretext);if(vendor)domain=vendor.domain;return{url:`https://${domain}${pg.path||'/'}`,title:pg.title||'Details',fields:pg.fields||[],linkText:pg.title||'Open',domain};}
+const DEFAULT_SENDER={name:'Lena Hofer',address:'lena.hofer@eventcrew-muc.de'};
+const STORAGE='revel8-strategy-lab-v1';
+let state={targets:[],sessions:[],activeSession:null,activeTarget:null,experiments:[],profiles:{},archetype:'general_person',filter:'all',currentFilter:'all',call:null};
+let activeAngleFilter='all';
+const $=id=>document.getElementById(id);
+function load(){try{const saved=JSON.parse(localStorage.getItem(STORAGE)||'{}');state={...state,...saved};}catch{} }
+function persist(){localStorage.setItem(STORAGE,JSON.stringify({experiments:state.experiments,profiles:state.profiles,archetype:state.archetype,activeSession:state.activeSession,activeTarget:state.activeTarget}));}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtTime(v){return new Date(v).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+function selectedTarget(){return state.targets.find(t=>t.id===$('target-select').value)||state.targets[0];}
+function profileKey(){return `${$('target-select').value||'none'}:${state.archetype}`;}
+function profile(){return state.profiles[profileKey()]||{description:'',facts:[],hooks:[]};}
+function saveCurrentProfile(p){state.profiles[profileKey()]=p;persist();renderProfile();renderAngles();}
+async function api(path,options={}){const r=await fetch(path,{...options,headers:{'content-type':'application/json',...(options.headers||{})},body:options.body?JSON.stringify(options.body):undefined});const data=await r.json().catch(()=>({}));if(!r.ok){const error=new Error(data.error||data.detail?.detail||data.detail||`HTTP ${r.status}`);error.status=r.status;throw error}return data;}
+function flash(msg,bad=false){const n=$('api-status');n.textContent=msg;n.className='status '+(bad?'bad':'ok');setTimeout(()=>{if(n.textContent===msg)checkHealth()},4500);}
+async function checkHealth(){try{const h=await api('/api/health');if(!h.revel8_key){flash('Missing REVEL8_API_KEY in .env',true);return}flash('Practice API connected');}catch(e){flash(`API unavailable: ${e.message}`,true)}}
+function initSelectors(){
+  $('archetype-select').innerHTML=ARCHETYPES.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');$('archetype-select').value=state.archetype;
+  $('angle-filters').innerHTML=[['all','All angles'],['evidence','Evidence ready'],['gaps','Evidence gaps']].map(([v,n])=>`<button data-angle-filter="${v}" class="${v===activeAngleFilter?'active':''}">${n}</button>`).join('');
+  $('compose-pretext').innerHTML=PRETEXTS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  $('compose-channel').innerHTML=CHANNELS.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');
+  $('compose-texttype').innerHTML=TEXT_TYPES.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  $('fact-category').innerHTML=FACT_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  $('autorun-texttype').innerHTML=TEXT_TYPES.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+}
+function currentTextType(){return TEXT_TYPES.find(t=>t.id===$('compose-texttype').value)||TEXT_TYPES[0];}
+function currentHooks(){
+  const own=profile().hooks||[];if(own.length)return own;
+  const inferred=inferHooks(profile().facts||[]);if(inferred.length)return inferred;
+  return ((ARCHETYPES.find(a=>a.id===state.archetype)||ARCHETYPES[3]).hooks||[]).map(h=>({topic:h[0],probability:h[1],evidence:h[2]}));
+}
+// mirror strategy.py: partial evidence credit (verified 1.0, sourced-unverified 0.6)
+function creditByCategory(facts){const c={};(facts||[]).forEach(f=>{if(!f||!f.source_url)return;const v=f.verified?1:0.6;c[f.category]=Math.max(c[f.category]||0,v);});return c;}
+function sigWords(t){const stop=new Set(['their','they','from','join','with','that','uses','use','about','real','your','known','relevant','into']);return new Set((String(t).toLowerCase().match(/[a-z]+/g)||[]).filter(w=>w.length>3&&!stop.has(w)));}
+function matchFamily(topic){const words=sigWords(topic);let best='',hits=0;(SIGNALS.families||[]).forEach(fam=>{const fw=sigWords((fam.topic||'')+' '+String(fam.pretext||'').replace(/_/g,' '));const h=[...words].filter(w=>fw.has(w)).length;if(h>hits){hits=h;best=fam.pretext;}});return best;}
+function calcApproaches(){
+  // Per pretext: relevance from the recon hooks (mapped to a family) and the hooks
+  // inferred from facts; a pretext with no hook gets 0 (never borrows another's).
+  // The hook probability dominates; coverage is a mild bonus, never a veto.
+  const facts=profile().facts||[];const credit=creditByCategory(facts);
+  const byPretext={},angleBy={};
+  inferHooks(facts).forEach(h=>{byPretext[h.pretext]=Math.max(byPretext[h.pretext]||0,h.probability);if(h.angle)angleBy[h.pretext]=h.angle;});
+  (profile().hooks||[]).forEach(h=>{const pk=h.pretext||matchFamily(h.topic||'');if(!pk)return;byPretext[pk]=Math.max(byPretext[pk]||0,Number(h.probability||0));if(h.angle)angleBy[pk]=h.angle;});
+  // Unprofiled target: fall back to the selected pattern lens (e.g. the general playbook).
+  if(!Object.keys(byPretext).length){(currentHooks()||[]).forEach(h=>{const pk=h.pretext||matchFamily(h.topic||'');if(!pk)return;byPretext[pk]=Math.max(byPretext[pk]||0,Number(h.probability||0));if(h.angle)angleBy[pk]=h.angle;});}
+  return PRETEXTS.map(p=>{
+    const missing=p.facts.filter(f=>!(credit[f]>0));
+    const coverage=p.facts.length?p.facts.reduce((s,f)=>s+(credit[f]||0),0)/p.facts.length:1;
+    const relevance=byPretext[p.id]||0;const angle=angleBy[p.id]||'their_topic';
+    const score=Math.round((.8*relevance+.2*coverage+(angle==='own_angle'?.03:0))*100);
+    return{...p,missing,coverage,relevance,angle,score,hooks:currentHooks()};
+  }).sort((a,b)=>b.score-a.score);
+}
+function renderAngles(){
+  const host=$('angles');if(!host)return;let all=calcApproaches();if(activeAngleFilter==='evidence')all=all.filter(a=>!a.missing.length);if(activeAngleFilter==='gaps')all=all.filter(a=>a.missing.length);
+  const exp=state.experiments.filter(e=>e.targetId===$('target-select').value);
+  host.innerHTML=all.map(a=>{
+    const ex=exp.filter(e=>e.pretext===a.id);const replied=ex.filter(e=>e.replied).length;
+    const obs=ex.length?`<span class="chip good" title="Observed reply rate for this approach">${Math.round(100*replied/ex.length)}% reply · n=${ex.length}</span>`:'<span class="chip" title="No contacts sent for this approach yet">untested</span>';
+    const chans=a.channels.map(c=>`<button class="btn ghost" data-use-angle="${a.id}" data-channel="${c}">${c.replaceAll('_',' ')}</button>`).join('');
+    return `<article class="angle"><div class="angle-meta"><span class="score">${a.score}<small class="muted"> / 100 hypothesis</small></span>${obs}</div><div class="angle-title">${esc(a.name)}</div><div class="muted small">${esc(a.goal)}</div><div class="angle-meta"><span class="chip ${a.missing.length?'warn':'good'}">${a.missing.length?`${a.missing.length} evidence gap${a.missing.length>1?'s':''}`:'evidence ready'}</span><span class="small muted">${a.coverage?Math.round(a.coverage*100)+'% fact coverage':'No facts yet'}</span></div><div class="small muted">${a.missing.length?'Needs: '+esc(a.missing.join(', ')):'Supported by sourced profile facts'}</div><div class="label" style="margin-top:9px">SET UP VIA CHANNEL</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px">${chans}</div></article>`;
+  }).join('')||'<div class="empty">No approaches match this filter.</div>';
+  host.querySelectorAll('[data-use-angle]').forEach(b=>b.onclick=()=>{ $('compose-pretext').value=b.dataset.useAngle;$('compose-channel').value=b.dataset.channel;document.querySelector('[data-view="session"]').click();});
+  $('compose-pretext').value=$('compose-pretext').value||PRETEXTS[0].id;
+  renderStrategyMetrics(all);renderRecent();
+}
+function renderStrategyMetrics(approaches){const experiments=state.experiments;const matches=experiments.filter(e=>e.targetId===$('target-select').value);const replied=matches.filter(e=>e.replied).length;const top=[...approaches].sort((a,b)=>b.score-a.score)[0];$('strategy-metrics').innerHTML=`<div class="metric"><span>Approaches</span><b>${approaches.length}</b></div><div class="metric"><span>Practice contacts logged</span><b>${matches.length}</b></div><div class="metric"><span>Reply rate</span><b>${matches.length?Math.round(100*replied/matches.length):'—'}${matches.length?'%':''}</b></div><div class="metric"><span>Top hypothesis</span><b style="font-size:14px">${top?esc(top.name):'Add evidence'}</b></div>`;}
+function renderProfile(){
+  const p=profile(), arch=ARCHETYPES.find(a=>a.id===state.archetype)||ARCHETYPES[0];$('pattern-description').textContent=p.description||arch.description;
+  $('profile-facts').innerHTML=(p.facts||[]).map((f,i)=>`<div class="fact"><div><strong>${esc(f.category)} <span class="chip ${f.verified?'good':'warn'}">${f.verified?'verified':'unverified'}</span></strong><div class="small">${esc(f.value)}</div>${f.source_url?`<a href="${esc(f.source_url)}" target="_blank" rel="noreferrer">${esc(f.source_url)}</a>`:'<span class="small muted">No source recorded</span>'}</div><button class="btn ghost" data-delete-fact="${i}">Remove</button></div>`).join('')||'<div class="empty">No profile facts yet. Add sourced facts to improve ranking and draft quality.</div>';
+  $('profile-facts').querySelectorAll('[data-delete-fact]').forEach(b=>b.onclick=()=>{p.facts.splice(Number(b.dataset.deleteFact),1);saveCurrentProfile(p)});
+  $('profile-hooks').innerHTML=currentHooks().map(h=>`<div class="hook"><div class="row between"><strong>${esc(h.topic)}</strong><span class="small muted">${Math.round(Number(h.probability||0)*100)}% hypothesis</span></div><div class="bar"><i style="width:${Math.round(Number(h.probability||0)*100)}%"></i></div><div class="small muted" style="margin-top:5px">${esc(h.evidence||'No evidence note')}</div></div>`).join('')||'<div class="muted small">Add hook hypotheses in Edit evidence.</div>';
+}
+function renderRecent(){const entries=state.experiments.filter(e=>e.targetId===$('target-select').value).slice(-4).reverse();$('recent-outcomes').innerHTML=entries.length?entries.map(e=>`<div class="outcome"><strong>${esc(e.pretextName)}</strong> · ${esc(e.channel)}<div class="muted">${esc(e.reaction)} · ${fmtTime(e.time)}</div></div>`).join(''):'No experiments recorded for this twin.';}
+function modal(id,on=true){$(id).classList.toggle('open',on)}
+function setView(id){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${id}`));if(id==='results')renderResults();}
+function setTargetSelect(){const s=$('target-select');const old=state.activeTarget;s.innerHTML=state.targets.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} — ${esc(t.role)}</option>`).join('');if(old&&state.targets.some(t=>t.id===old))s.value=old;else if(state.targets.length)s.value=state.targets[0].id;state.activeTarget=s.value;}
+async function refresh(){try{const [scenario,channels,signals,senders]=await Promise.all([api('/api/scenarios'),api('/api/channels').catch(()=>null),api('/api/signals').catch(()=>null),api('/api/senders').catch(()=>null)]);if(signals&&Array.isArray(signals.families)&&signals.families.length)SIGNALS=signals;if(senders&&senders.pretexts)SENDERS=senders;state.targets=scenario.targets||[];setTargetSelect();if(channels){const list=Array.isArray(channels)?channels:channels.channels;if(Array.isArray(list)&&list.length){const approved=list.map(c=>typeof c==='string'?c:c.id||c.channel).filter(c=>CHANNELS.includes(c));if(approved.length)$('compose-channel').innerHTML=approved.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');}}await loadSessions(false);renderAll();await checkHealth();}catch(e){flash(`Could not load practice data: ${e.message}`,true)}}
+async function loadSessions(notify=true){try{const data=await api('/api/sessions');state.sessions=Array.isArray(data)?data:(data.sessions||[]);$('session-select').innerHTML='<option value="">Select a session</option>'+state.sessions.map(s=>`<option value="${esc(s.session_id||s.id)}">${esc(s.session_id||s.id)} · ${esc(s.status||'')}</option>`).join('');if(state.activeSession&&state.sessions.some(s=>(s.session_id||s.id)===state.activeSession))$('session-select').value=state.activeSession;if(notify)flash(`Loaded ${state.sessions.length} practice sessions`);}catch(e){if(notify)flash(`Could not load sessions: ${e.message}`,true)}}
+async function createSession(){try{const result=await api('/api/sessions',{method:'POST',body:{}});state.activeSession=result.session_id;persist();await loadSessions(false);$('session-select').value=state.activeSession;await showSession();setView('session');flash(`Created practice session ${state.activeSession}`);}catch(e){flash(`Session creation failed: ${e.message}`,true)}}
+function askNewSession(){modal('confirm-modal')}
+async function showSession(){
+  const sid=state.activeSession;if(!sid){$('session-title').textContent='No active session';$('session-meta').textContent='Create a clean session to start trying strategies.';$('send-btn').disabled=true;$('register-page-btn').disabled=true;$('end-session-btn').disabled=true;return}
+  try{const [session,eventData]=await Promise.all([api(`/api/sessions/${encodeURIComponent(sid)}`),api(`/api/sessions/${encodeURIComponent(sid)}/events`).catch(()=>({events:[]}))]);const events=eventData.events||[];$('session-title').textContent=sid;$('session-meta').textContent=`${session.status||'active'} · ${session.touches_used??0}/${session.touch_budget??30} touches · API practice scenario`;$('session-budget').textContent=`${session.touches_used??0} of ${session.touch_budget??30} touches used. A phone or live-chat conversation costs one touch and allows up to 10 turns.`;$('send-btn').disabled=(session.status&&session.status!=='active');$('register-page-btn').disabled=(session.status&&session.status!=='active');$('end-session-btn').disabled=(session.status&&session.status!=='active');$('transcript').innerHTML=events.length?events.map(e=>{if(e.type==='reply')return`<div class="bubble"><small>Revel8 twin · reply via ${esc(e.channel||'unknown channel')}</small>${esc(e.body||'')}</div>`;return`<div class="bubble event">${esc(e.type)}${e.fields?` · fields: ${esc(e.fields.join(', '))}`:''}${e.url?` · ${esc(e.url)}`:''}</div>`}).join(''):'<div class="empty">No contacts yet. Choose an angle and send a practice contact.</div>';}catch(e){flash(`Could not load session: ${e.message}`,true)}
+}
+function currentApproach(){const item=PRETEXTS.find(p=>p.id===$('compose-pretext').value)||PRETEXTS[0];return item}
+function sender(){return{name:$('sender-name').value.trim(),address:$('sender-address').value.trim()}}
+async function draft(){const target=selectedTarget();if(!target){flash('Select a practice twin first',true);return}const p=currentApproach();const tt=currentTextType();const btn=$('draft-btn');btn.disabled=true;btn.textContent='Drafting…';try{const out=await api('/api/draft',{method:'POST',body:{target,sender:sender(),approach:{...p,channel:$('compose-channel').value},channel:$('compose-channel').value,textType:tt.id,style:tt.style,verifiedFacts:profile().facts||[],priorContext:[...state.experiments].filter(e=>e.targetId===target.id).slice(-3).map(e=>e.reply||'').join('\n')}});$('message-subject').value=out.subject||'';$('message-body').value=out.body||'';flash(`Draft ready (${tt.name}) — review it, then send when ready`);}catch(e){flash(`Draft failed: ${e.message}`,true)}finally{btn.disabled=false;btn.textContent='Draft with Radeon'}}
+async function sendMessage(){const target=selectedTarget(),p=currentApproach(),tt=currentTextType(),channel=$('compose-channel').value,body=$('message-body').value.trim();if(!state.activeSession){flash('Create a practice session first',true);return}if(!body){flash('Write or draft the message first',true);return}if(!target){flash('Select a practice twin first',true);return}const btn=$('send-btn');btn.disabled=true;btn.textContent='Waiting for twin…';const started=Date.now();try{const result=await api(`/api/sessions/${encodeURIComponent(state.activeSession)}/messages`,{method:'POST',body:{to:target.id,channel,from:sender(),subject:$('message-subject').value,body}});const reply=(result.events||[]).filter(e=>e.type==='reply').map(e=>e.body||'').join('\n');const hasReply=Boolean(reply);const events=(result.events||[]).map(e=>e.type);const rec={id:crypto.randomUUID(),time:new Date().toISOString(),targetId:target.id,targetName:target.name,archetype:state.archetype,archetypeName:ARCHETYPES.find(a=>a.id===state.archetype)?.name||state.archetype,pretext:p.id,pretextName:p.name,textType:tt.id,textTypeName:tt.name,channel,sessionId:state.activeSession,messageId:result.message_id,touchesUsed:result.touches_used,replied:hasReply,reply,events,state:classifyReaction(events,reply).state,body,subject:$('message-subject').value,note:$('experiment-note').value,latencyMs:Date.now()-started};state.experiments.push(rec);persist();$('message-body').value='';$('message-subject').value='';$('experiment-note').value='';await showSession();renderAll();flash(hasReply?'Twin replied — outcome logged':events.length?`${events.join(', ')} — outcome logged`:'No events; twin ignored it. Outcome logged.');setView('session');}catch(e){flash(`Contact failed: ${e.message}`,true)}finally{btn.disabled=false;btn.textContent='Send practice contact'}}
+// Evaluator — mirror of strategy.evaluate_reaction: classify the twin's reaction.
+function classifyReaction(events,reply){
+  const t=new Set(events||[]);const text=(reply||'').toLowerCase();
+  if(t.has('page.submitted'))return{state:'incident',incident:true};
+  if(t.has('attachment.opened')||t.has('link.opened'))return{state:'engaged',incident:false};
+  if(/not interested|unsubscribe|stop contacting|do not contact/.test(text))return{state:'declined',incident:false};
+  if(/who are you|is this real|sounds suspicious|verify this/.test(text))return{state:'suspicious',incident:false};
+  if((reply||'').trim())return{state:'engaged',incident:false};
+  return{state:'silent',incident:false};
+}
+const STATE_CHIP={incident:'good',engaged:'good',suspicious:'warn',declined:'warn',silent:''};
+// Shared experiment logger so manual sends, sweeps and auto runs record the same shape.
+function logExperiment(o){
+  const arch=ARCHETYPES.find(a=>a.id===state.archetype);const reply=o.reply||'';const events=o.events||[];
+  const cls=o.state?{state:o.state}:classifyReaction(events,reply);
+  const rec={id:crypto.randomUUID(),time:new Date().toISOString(),targetId:o.target.id,targetName:o.target.name,archetype:state.archetype,archetypeName:arch?.name||state.archetype,pretext:o.approach.id,pretextName:o.approach.name,textType:(o.textType||{}).id||'',textTypeName:(o.textType||{}).name||'',channel:o.channel,sessionId:o.session,messageId:o.messageId,touchesUsed:o.touchesUsed,replied:Boolean(reply),reply,events,state:cls.state,followup:!!o.followup,intent:o.intent||'',senderName:(o.sender||{}).name||'',senderAddress:(o.sender||{}).address||'',senderTechnique:(o.sender||{}).technique||'',body:o.body||'',subject:o.subject||'',note:o.note||'',model:'Qwen3.8-27B'};
+  state.experiments.push(rec);persist();return rec;
+}
+function firstMessageChannel(channels){return (channels||['email']).find(c=>!['phone_call','video_call','teams_call','live_chat'].includes(c))||'email';}
+function renderAutoMetrics(){
+  const host=$('autorun-metrics');if(!host)return;
+  const list=state.experiments.filter(e=>e.targetId===$('target-select').value);
+  const incidents=list.filter(isIncident).length,engaged=list.filter(e=>e.state==='engaged').length;
+  host.innerHTML=`<div class="metric"><span>Contacts (this twin)</span><b>${list.length}</b></div><div class="metric"><span>Incidents</span><b>${incidents}</b></div><div class="metric"><span>Engaged</span><b>${engaged}</b></div><div class="metric"><span>Median contacts to incident</span><b>${medianContactsToIncident(list)}</b></div>`;
+}
+// TreeNode builder for the replay viewer (schemas.TreeNode shape).
+function node(run,nid,o){const n={id:o.id||nid(),run_id:run.run_id,level:o.level,agent:o.agent,decision:o.decision,reasoning:o.reasoning||'',parent_id:o.parent_id||null,rejected:o.rejected||[],incident_chance:o.incident_chance||0,expected_contacts:o.expected_contacts||0,evidence:o.evidence||[],status:o.status||'proposed',outcome:o.outcome||'',timestamp:new Date().toISOString()};run.nodes.push(n);return n;}
+function nextMoveLabel(st){return {incident:'Stop: incident reached',engaged:'Answer, then move toward the ask',suspicious:'Address the doubt once',declined:'Stop: recipient declined',silent:'No answer — switch channel and follow up'}[st]||'Continue';}
+// Next-move planner (mirror of strategy.plan_next_move): build trust, then ask.
+function planMove({turn,lastState,lastEvents,engagedCount,hasPage}){
+  if(lastState==='declined'||lastState==='incident')return{stop:true};
+  if(turn===1)return{intent:'introduce',includeLink:false};
+  if((lastEvents||[]).includes('link.opened'))return{intent:'push_complete',includeLink:true};
+  if(lastState==='suspicious')return{intent:'reassure',includeLink:false};
+  if(lastState==='silent')return turn<=2?{intent:'nudge',includeLink:false}:{stop:true};
+  if(lastState==='engaged')return engagedCount>=2?{intent:'make_ask',includeLink:hasPage}:{intent:'answer_build',includeLink:false};
+  return{intent:'answer_build',includeLink:false};
+}
+// One approach = one session, a multi-turn thread that persists toward an incident.
+async function converse({target,approach,tt,facts,maxTouches,persist,log,run,nid,targetNode,rejected}){
+  const session=await api('/api/sessions',{method:'POST',body:{}});const sid=session.session_id;
+  const senderUse=buildSender(approach.id);            // lookalike/invented sender from the target's brand
+  const landing=buildLanding(approach.id);let link='',linkText='',hasPage=false;
+  if(landing){try{await api(`/api/sessions/${encodeURIComponent(sid)}/pages`,{method:'POST',body:{url:landing.url,title:landing.title,text:landing.title,fields:landing.fields}});link=landing.url;linkText=landing.linkText;hasPage=true;}catch(pe){log(`   (page register failed: ${pe.message})`);}}
+  // tree: hook node -> approach node (with rejected alternatives)
+  let hookNode=null,approachNode=null,parentId=targetNode?targetNode.id:null;
+  if(run){
+    hookNode=node(run,nid,{level:'hook',agent:'profiler',decision:`Hook: ${approach.hook||approach.name}`,reasoning:approach.rationale||`Relevance ${(approach.relevance||0).toFixed(2)} from the target's facts`,parent_id:targetNode.id,incident_chance:approach.relevance||0,evidence:approach.evidence||[],status:'active'});
+    approachNode=node(run,nid,{level:'approach',agent:'strategist',decision:`${approach.name} via ${(approach.channels||['email'])[0].replace(/_/g,' ')} as ${senderUse.name} <${senderUse.address}>${landing?' + landing page':''} — goal: ${approach.goal||approach.incident_goal||'engagement'}`,reasoning:`Lookalike technique: ${senderUse.technique}${landing?'; page on '+landing.domain:''}. Score ${approach.score}/100.`,parent_id:hookNode.id,rejected:(rejected||[]).slice(0,4).map(r=>({option:`${r.name} (score ${r.score})`,reason:'lower-ranked approach for this target'})),incident_chance:(approach.score||0)/100,expected_contacts:2,evidence:approach.evidence||[],status:'active'});
+    parentId=approachNode.id;
+  }
+  const channels=(approach.channels||['email']).filter(c=>CHANNELS.includes(c));if(!channels.length)channels.push('email');
+  let chIdx=0;const transcript=[];let engagedCount=0,lastState='',lastEvents=[],turns=0,incident=false;
+  const cap=persist?Math.max(1,maxTouches):1;
+  for(let turn=1;turn<=cap;turn++){
+    const plan=planMove({turn,lastState,lastEvents,engagedCount,hasPage});
+    if(plan.stop)break;
+    const channel=channels[Math.min(chIdx,channels.length-1)];   // multi-channel: current channel
+    const includeLink=hasPage&&plan.includeLink;
+    const prior=transcript.map(t=>`${t.who}: ${t.text}`).join('\n');
+    let d;
+    try{d=await api('/api/draft',{method:'POST',body:{target,sender:senderUse,approach:{...approach,channel},channel,textType:tt.id,style:tt.style,verifiedFacts:facts,priorContext:prior,intent:plan.intent,link:includeLink?link:'',linkText:includeLink?linkText:''}});}
+    catch(e){log(`   t${turn} draft failed: ${e.message}`);break;}
+    const r=await api(`/api/sessions/${encodeURIComponent(sid)}/messages`,{method:'POST',body:{to:target.id,channel,from:senderUse,subject:d.subject||'',body:d.body||''}});
+    turns=turn;
+    const events=(r.events||[]).map(e=>e.type);const reply=(r.events||[]).filter(e=>e.type==='reply').map(e=>e.body||'').join('\n');
+    const cls=classifyReaction(events,reply);lastState=cls.state;lastEvents=events;if(cls.state==='engaged')engagedCount++;
+    logExperiment({target,approach,channel,textType:tt,session:sid,messageId:r.message_id,touchesUsed:r.touches_used,events,reply,body:d.body,subject:d.subject,note:`${approach.name} · t${turn} · ${plan.intent}${includeLink?' +link':''}`,state:cls.state,followup:turn>1,sender:senderUse,intent:plan.intent});
+    // tree: contact node (the message) + its reaction node
+    if(run){
+      const contactNode=node(run,nid,{level:'contact',agent:'sender',decision:`${plan.intent} via ${channel.replace(/_/g,' ')}${d.subject?': '+d.subject:''}`,reasoning:`Turn ${turn}, ${senderUse.name}`,parent_id:parentId,status:cls.state==='incident'?'incident':cls.state,outcome:reply?reply.slice(0,140):(events.join(', ')||'no response')});
+      run.messages.push({session_id:sid,channel,to:target.id,sender:{name:senderUse.name,address:senderUse.address},subject:d.subject||'',body:d.body||'',landing_page:(includeLink&&landing)?{url:landing.url,title:landing.title,fields:landing.fields,html:'',text:landing.title}:null,attachments:[],idempotency_key:`${run.run_id}-${contactNode.id}`,node_id:contactNode.id});
+      run.events[contactNode.id]=r.events||[];
+      const reactionNode=node(run,nid,{level:'reaction',agent:'evaluator',decision:nextMoveLabel(cls.state),reasoning:`Observed: ${cls.state}${events.length?' ['+events.join(', ')+']':''}`,parent_id:contactNode.id,status:cls.state==='incident'?'incident':cls.state});
+      parentId=reactionNode.id;
+    }
+    transcript.push({who:senderUse.name,text:d.body});if(reply)transcript.push({who:target.name,text:reply});
+    log(`   t${turn} ${channel.replace(/_/g,' ')} · ${plan.intent}${includeLink?'+link':''} → ${cls.state}${events.length?' ['+events.join(',')+']':''}`);
+    renderAutoMetrics();renderResults();
+    if(cls.state==='incident'){incident=true;break;}
+    if(cls.state==='declined')break;
+    if(cls.state==='silent')chIdx=Math.min(chIdx+1,channels.length-1);   // no answer → switch channel next turn
+    await new Promise(res=>setTimeout(res,1000));
+  }
+  if(run&&approachNode){approachNode.status=incident?'incident':(lastState||'failed');approachNode.outcome=incident?`Incident after ${turns} touch(es)`:`Ended: ${lastState} after ${turns} touch(es)`;if(hookNode)hookNode.status=approachNode.status;}
+  return {incident,lastState,turns};
+}
+function profileForViewer(target){const p=profile();return{name:target.name,role:target.role||'',company:(p.facts.find(f=>f.category==='company')||{}).value||'',domain:targetDomain(),facts:p.facts||[],hooks:(p.hooks&&p.hooks.length?p.hooks:inferHooks(p.facts||[])),exposure_score:0,generated_at:new Date().toISOString()};}
+async function runAutoPass(){
+  if(!state.targets.length){flash('Load the practice targets first',true);return;}
+  const target=selectedTarget();const count=Math.max(1,Math.min(10,Number($('autorun-count').value)||5));
+  const tt=TEXT_TYPES.find(t=>t.id===$('autorun-texttype').value)||TEXT_TYPES[0];const persist=$('autorun-followup').checked;const maxTouches=Math.max(1,Math.min(10,Number($('autorun-maxtouches').value)||4));
+  const ranked=calcApproaches();const seen=new Set();const picks=[];
+  for(const a of ranked){if(seen.has(a.id))continue;seen.add(a.id);picks.push(a);if(picks.length>=count)break;}
+  if(!picks.length){flash('No approaches to run',true);return;}
+  if(!confirm(`Run the top ${picks.length} ranked approaches against ${target.name} via the LIVE Revel8 API?\nEach opens a clean session and ${persist?`persists up to ${maxTouches} touches (building trust, then asking)`:'sends one contact'} — up to ${picks.length*(persist?maxTouches:1)} touches total. Revel8 allows 60 new practice sessions/hour.`))return;
+  const btn=$('autorun-btn');btn.disabled=true;btn.textContent='Running…';const facts=profile().facts||[];const senderInfo=sender();const logLines=[];
+  const log=s=>{logLines.unshift(s);$('autorun-log').innerHTML=logLines.map(esc).join('<br>');};
+  let done=0;const CONCURRENCY=4;let next=0;
+  // Build one replay-viewer run bundle for this pass (target -> hooks -> approaches -> contacts -> reactions).
+  const run={run_id:`run_${target.id}_${Date.now().toString(36)}`,mode:'practice',profile:profileForViewer(target),nodes:[],messages:[],events:{}};
+  let nseq=0;const nid=()=>`n${++nseq}`;
+  const targetNode=node(run,nid,{level:'target',agent:'orchestrator',decision:`Target ${target.name}`,reasoning:`${target.role||''} — ${picks.length} ranked approaches this pass`,status:'active'});
+  // Run approaches concurrently (revel8 allows 6 parallel) so slow model drafts
+  // overlap instead of queuing — each approach is its own session.
+  async function worker(){
+    while(next<picks.length){
+      const a=picks[next++];log(`▶ ${a.name} …`);
+      try{
+        const res=await converse({target,approach:a,tt,facts,maxTouches,persist,log,run,nid,targetNode,rejected:picks.filter(p=>p.id!==a.id)});
+        log(`   ✓ ${a.name}: ${res.incident?'★ INCIDENT':res.lastState} (${res.turns}t)`);
+        done++;
+      }catch(e){log(`   ✗ ${a.name}: ${e.message}`);}
+      renderAutoMetrics();renderResults();
+    }
+  }
+  try{
+    await Promise.all(Array.from({length:Math.min(CONCURRENCY,picks.length)},()=>worker()));
+    const anyInc=run.nodes.some(n=>n.status==='incident');targetNode.status=anyInc?'incident':'failed';targetNode.outcome=anyInc?'Reached an incident':'No incident this pass';
+    try{const sv=await api('/api/runs',{method:'POST',body:run});log(`✔ run saved: ${sv.path} — open the viewer (python viewer/serve.py 8770) to replay the tree`);}catch(e){log(`run save failed: ${e.message}`);}
+  }finally{btn.disabled=false;btn.textContent='▶ Run autonomous pass';log(`Pass finished: ${done}/${picks.length} approaches.`);renderAll();flash(`Autonomous pass finished · ${done} approaches`);setView('results');}
+}
+async function sweepAll(){
+  if(!state.targets.length){flash('Load the practice targets first',true);return}
+  if(!confirm('Run 10 model-drafted first-contact experiments? This creates 10 new practice sessions and sends one contact in each. The Revel8 limit is 60 new practice sessions per team per hour.'))return;
+  const target=selectedTarget(),senderInfo=sender(),facts=profile().facts||[],tt=currentTextType(),button=$('sweep-btn'),status=$('sweep-status');button.disabled=true;let completed=0;const errors=[];
+  try{
+    for(let i=0;i<PRETEXTS.length;i++){
+      const approach=PRETEXTS[i],channel=approach.channels.find(c=>CHANNELS.includes(c))||'email';status.textContent=`Experiment ${i+1}/${PRETEXTS.length}: ${approach.name} via ${channel}…`;
+      try{
+        const session=await api('/api/sessions',{method:'POST',body:{}});
+        const draftOut=await api('/api/draft',{method:'POST',body:{target,sender:senderInfo,approach,channel,textType:tt.id,style:tt.style,verifiedFacts:facts}});
+        const response=await api(`/api/sessions/${encodeURIComponent(session.session_id)}/messages`,{method:'POST',body:{to:target.id,channel,from:senderInfo,subject:draftOut.subject||'',body:draftOut.body||''}});
+        const events=(response.events||[]).map(e=>e.type),reply=(response.events||[]).filter(e=>e.type==='reply').map(e=>e.body||'').join('\n');
+        state.experiments.push({id:crypto.randomUUID(),time:new Date().toISOString(),targetId:target.id,targetName:target.name,archetype:state.archetype,archetypeName:ARCHETYPES.find(a=>a.id===state.archetype)?.name||state.archetype,pretext:approach.id,pretextName:approach.name,textType:tt.id,textTypeName:tt.name,channel,sessionId:session.session_id,messageId:response.message_id,touchesUsed:response.touches_used,replied:Boolean(reply),reply,events,state:classifyReaction(events,reply).state,body:draftOut.body,subject:draftOut.subject||'',note:'Automated one-pass first-contact comparison',model:'Qwen3.8-27B'});completed++;persist();renderResults();
+      }catch(error){errors.push(`${approach.name}: ${error.message}`);if([401,403,429].includes(error.status)){break}}
+      await new Promise(resolve=>setTimeout(resolve,1050));
+    }
+  }finally{button.disabled=false;status.textContent=`Pass finished: ${completed}/${PRETEXTS.length} contacts sent${errors.length?` · ${errors.length} error(s): ${errors.join(' | ')}`:''}. Each approach used a clean practice session.`;renderAll();flash(`Sweep finished · ${completed} practice contacts${errors.length?' · '+errors.length+' error(s)':''}`,errors.length>0);}
+}
+async function abTextTypes(){
+  if(!state.targets.length){flash('Load the practice targets first',true);return}
+  const target=selectedTarget(),p=currentApproach(),channel=$('compose-channel').value,senderInfo=sender(),facts=profile().facts||[];
+  if(!confirm(`A/B the "${p.name}" approach across all ${TEXT_TYPES.length} text types? This opens ${TEXT_TYPES.length} clean practice sessions (one per text type) and sends one first contact in each via ${channel}. Revel8 allows 60 new practice sessions per team per hour.`))return;
+  const button=$('ab-texttype-btn'),status=$('ab-status');button.disabled=true;let completed=0;const errors=[];
+  try{
+    for(let i=0;i<TEXT_TYPES.length;i++){
+      const tt=TEXT_TYPES[i];status.textContent=`Text type ${i+1}/${TEXT_TYPES.length}: ${tt.name}…`;
+      try{
+        const session=await api('/api/sessions',{method:'POST',body:{}});
+        const draftOut=await api('/api/draft',{method:'POST',body:{target,sender:senderInfo,approach:{...p,channel},channel,textType:tt.id,style:tt.style,verifiedFacts:facts}});
+        const response=await api(`/api/sessions/${encodeURIComponent(session.session_id)}/messages`,{method:'POST',body:{to:target.id,channel,from:senderInfo,subject:draftOut.subject||'',body:draftOut.body||''}});
+        const events=(response.events||[]).map(e=>e.type),reply=(response.events||[]).filter(e=>e.type==='reply').map(e=>e.body||'').join('\n');
+        state.experiments.push({id:crypto.randomUUID(),time:new Date().toISOString(),targetId:target.id,targetName:target.name,archetype:state.archetype,archetypeName:ARCHETYPES.find(a=>a.id===state.archetype)?.name||state.archetype,pretext:p.id,pretextName:p.name,textType:tt.id,textTypeName:tt.name,channel,sessionId:session.session_id,messageId:response.message_id,touchesUsed:response.touches_used,replied:Boolean(reply),reply,events,state:classifyReaction(events,reply).state,body:draftOut.body,subject:draftOut.subject||'',note:`Text-type A/B · ${p.name}`,model:'Qwen3.8-27B'});completed++;persist();renderResults();
+      }catch(error){errors.push(`${tt.name}: ${error.message}`);if([401,403,429].includes(error.status))break}
+      await new Promise(resolve=>setTimeout(resolve,1050));
+    }
+  }finally{button.disabled=false;status.textContent=`A/B finished: ${completed}/${TEXT_TYPES.length} contacts sent${errors.length?` · ${errors.length} error(s): ${errors.join(' | ')}`:''}. See the matrix in Results.`;renderAll();flash(`Text-type A/B finished · ${completed} contacts${errors.length?' · '+errors.length+' error(s)':''}`,errors.length>0);}
+}
+async function registerPage(){if(!state.activeSession)return;const fields=$('page-fields').value.split(',').map(x=>x.trim()).filter(Boolean);const body={url:$('page-url').value.trim(),title:$('page-title').value.trim(),text:$('page-text').value.trim(),fields};try{const result=await api(`/api/sessions/${encodeURIComponent(state.activeSession)}/pages`,{method:'POST',body});$('page-result').textContent=`Registered simulation page ${result.page_id||''}`;flash('Page registered in this session');}catch(e){$('page-result').textContent=e.message;flash(`Page registration failed: ${e.message}`,true)}}
+async function endSession(){if(!state.activeSession)return;try{await api(`/api/sessions/${encodeURIComponent(state.activeSession)}/end`,{method:'POST',body:{}});flash('Practice session ended');await loadSessions(false);await showSession()}catch(e){flash(`Could not end session: ${e.message}`,true)}}
+function isIncident(e){return e.state==='incident'||(e.events||[]).includes('page.submitted');}
+function medianContactsToIncident(list){
+  const bySession={};list.forEach(e=>{(bySession[e.sessionId]=bySession[e.sessionId]||[]).push(e);});
+  const firsts=[];for(const sid in bySession){const idx=bySession[sid].findIndex(isIncident);if(idx>=0)firsts.push(idx+1);}
+  if(!firsts.length)return '—';firsts.sort((a,b)=>a-b);return firsts[Math.floor(firsts.length/2)];
+}
+function renderResults(){const list=state.experiments;const replies=list.filter(e=>e.replied).length;const incidents=list.filter(isIncident).length;const engaged=list.filter(e=>e.state==='engaged').length;const replyRate=list.length?Math.round(100*replies/list.length):0;$('result-metrics').innerHTML=`<div class="metric"><span>Contacts</span><b>${list.length}</b></div><div class="metric"><span>Incidents</span><b>${incidents}</b></div><div class="metric"><span>Engaged</span><b>${engaged}</b></div><div class="metric"><span>Reply rate</span><b>${list.length?replyRate+'%':'—'}</b></div><div class="metric"><span>Median contacts to incident</span><b>${medianContactsToIncident(list)}</b></div>`;
+  const pretextOpts=[...new Set(list.map(e=>e.pretext))];$('result-filter').innerHTML='<option value="all">All approaches</option>'+pretextOpts.map(id=>`<option value="${esc(id)}">${esc(PRETEXTS.find(p=>p.id===id)?.name||id)}</option>`).join('');$('result-filter').value=state.currentFilter||'all';const shown=list.filter(e=>state.currentFilter==='all'||e.pretext===state.currentFilter).slice().reverse();$('log-table').innerHTML=shown.map(e=>`<tr><td>${fmtTime(e.time)}</td><td><strong>${esc(e.targetName)}</strong><div class="muted">${esc(e.archetypeName)}</div></td><td>${esc(e.pretextName)}</td><td>${esc(e.textTypeName||'—')}</td><td>${esc(e.channel)}</td><td>${e.state?`<span class="chip ${STATE_CHIP[e.state]||''}">${esc(e.state)}</span>`:(e.replied?'<span class="chip good">reply</span>':e.events.length?`<span class="chip">${esc(e.events.join(', '))}</span>`:'<span class="chip warn">ignored</span>')}${e.followup?' <span class="chip">follow-up</span>':''}<div class="muted">${esc((e.reply||'').slice(0,100))}</div></td><td>${e.touchesUsed??'—'}</td><td class="session-id">${esc(e.sessionId)}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty">No contacts yet. Run an experiment in Live practice.</div></td></tr>';
+  renderTargetRollup(list);renderTranscripts(list);
+  renderChart('pretext-chart','pretextName',list);renderChart('texttype-chart','textTypeName',list);renderChart('channel-chart','channel',list);renderMatrix(list);renderCombos(list);
+}
+function rollupRow(label,rows){
+  const n=rows.length,replied=rows.filter(e=>e.replied).length,eng=rows.filter(e=>e.state==='engaged').length,inc=rows.filter(isIncident).length;
+  const rr=n?Math.round(100*replied/n)+'%':'—';
+  return `<tr><td><strong>${esc(label)}</strong></td><td>${n}</td><td>${rr}</td><td>${eng}</td><td>${inc?`<span class="chip good">${inc}</span>`:'0'}</td><td>${medianContactsToIncident(rows)}</td></tr>`;
+}
+function renderTranscripts(list){
+  const host=$('transcripts');if(!host)return;
+  const filt=$('transcript-filter');if(filt){const opts=[...new Set(list.map(e=>e.targetId))];filt.innerHTML='<option value="all">All targets</option>'+opts.map(id=>`<option value="${esc(id)}">${esc(list.find(e=>e.targetId===id)?.targetName||id)}</option>`).join('');filt.value=state.transcriptFilter||'all';}
+  const shown=list.filter(e=>!state.transcriptFilter||state.transcriptFilter==='all'||e.targetId===state.transcriptFilter);
+  // group by session, keep send order
+  const sessions={};shown.forEach(e=>{(sessions[e.sessionId]=sessions[e.sessionId]||[]).push(e);});
+  const order=Object.keys(sessions).sort((a,b)=>new Date(sessions[b][0].time)-new Date(sessions[a][0].time));
+  host.innerHTML=order.map(sid=>{
+    const turns=sessions[sid].slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+    const h=turns[0];const inc=turns.some(isIncident);
+    const head=`<div class="row between wrap" style="margin-bottom:6px"><div><strong>${esc(h.targetName)}</strong> · ${esc(h.pretextName)} <span class="chip">${esc(h.senderTechnique||'sender')}</span>${inc?' <span class="chip good">incident</span>':''}</div><div class="muted small">${esc(h.senderName||'')} &lt;${esc(h.senderAddress||'')}&gt; · ${esc(sid)}</div></div>`;
+    const body=turns.map((e,i)=>{
+      const out=`<div class="bubble" style="margin:4px 0"><small>→ us · ${esc(e.channel)} · ${esc(e.intent||'')}${e.subject?' · '+esc(e.subject):''}</small>${esc(e.body||'')}</div>`;
+      const rx=e.reply?`<div class="bubble" style="margin:4px 0;opacity:.9"><small>← ${esc(e.targetName)} · reply</small>${esc(e.reply)}</div>`:`<div class="bubble event" style="margin:4px 0"><small>← ${esc(e.targetName)}</small>${e.events&&e.events.length?esc(e.events.join(', ')):'no response ('+esc(e.state)+')'}</div>`;
+      return out+rx;
+    }).join('');
+    return `<details class="card" style="margin-bottom:10px;padding:12px" ${inc?'open':''}><summary style="cursor:pointer">${head}</summary><div style="margin-top:8px">${body}</div></details>`;
+  }).join('')||'<div class="empty">No simulations yet. Run an autonomous pass.</div>';
+}
+function renderTargetRollup(list){
+  const host=$('target-rollup');if(!host)return;
+  const targets=state.targets.length?state.targets:[...new Set(list.map(e=>e.targetId))].map(id=>({id,name:list.find(e=>e.targetId===id)?.targetName||id}));
+  let html=targets.map(t=>rollupRow(t.name,list.filter(e=>e.targetId===t.id))).join('');
+  html+=rollupRow('All targets',list);
+  host.innerHTML=html||'<tr><td colspan="6"><div class="empty">Run approaches against each twin to compare.</div></td></tr>';
+}
+function cellMetric(e,metric){if(metric==='replied')return e.replied?1:0;if(metric==='incident')return e.events.includes('page.submitted')?1:0;return e.events.length?1:0;}
+function rateColor(rate,n){if(!n)return 'transparent';const a=Math.min(1,0.12+rate/100*0.78);return `rgba(34,197,94,${a.toFixed(3)})`;}
+function renderMatrix(list){
+  const metric=state.matrixMetric||'replied';const host=$('matrix');if(!host)return;
+  const usedPretexts=PRETEXTS.filter(p=>list.some(e=>e.pretext===p.id));
+  if(!usedPretexts.length){host.innerHTML='<div class="empty">Run a few contacts (try “A/B all text types”) to populate the matrix.</div>';return;}
+  const cell=(rows)=>{const n=rows.length;const hits=rows.reduce((s,e)=>s+cellMetric(e,metric),0);const rate=n?Math.round(100*hits/n):0;return{n,rate};};
+  let html='<table class="table matrix"><thead><tr><th style="text-align:left">Approach \\ Text type</th>'+TEXT_TYPES.map(t=>`<th title="${esc(t.name)}">${esc(t.name)}</th>`).join('')+'<th>Row</th></tr></thead><tbody>';
+  for(const p of usedPretexts){
+    const rowRows=list.filter(e=>e.pretext===p.id);const rowAgg=cell(rowRows);
+    html+=`<tr><td style="text-align:left"><strong>${esc(p.name)}</strong></td>`;
+    for(const t of TEXT_TYPES){const c=cell(rowRows.filter(e=>e.textType===t.id));html+=`<td style="background:${rateColor(c.rate,c.n)};text-align:center">${c.n?`${c.rate}%<div class="muted" style="font-size:10px">n=${c.n}</div>`:'<span class="muted">·</span>'}</td>`;}
+    html+=`<td style="text-align:center"><strong>${rowAgg.rate}%</strong><div class="muted" style="font-size:10px">n=${rowAgg.n}</div></td></tr>`;
+  }
+  html+='<tr><td style="text-align:left"><strong>Column</strong></td>';
+  for(const t of TEXT_TYPES){const c=cell(list.filter(e=>e.textType===t.id));html+=`<td style="text-align:center"><strong>${c.n?c.rate+'%':'—'}</strong><div class="muted" style="font-size:10px">${c.n?'n='+c.n:''}</div></td>`;}
+  const all=cell(list);html+=`<td style="text-align:center"><strong>${all.rate}%</strong><div class="muted" style="font-size:10px">n=${all.n}</div></td></tr>`;
+  html+='</tbody></table>';host.innerHTML=html;
+}
+function renderCombos(list){
+  const groups={};for(const e of list){const k=`${e.pretextName} · ${e.textTypeName||'—'}`;if(!groups[k])groups[k]={n:0,r:0};groups[k].n++;if(e.replied)groups[k].r++;}
+  const values=Object.entries(groups).map(([name,v])=>({name,...v,rate:Math.round(100*v.r/v.n)})).sort((a,b)=>b.rate-a.rate||b.n-a.n).slice(0,8);
+  $('best-combos').innerHTML=values.length?values.map(v=>`<div class="chart-row"><span title="${esc(v.name)}">${esc(v.name)}</span><div class="chart-track"><i style="width:${v.rate}%"></i></div><span>${v.rate}% <small class="muted">n=${v.n}</small></span></div>`).join(''):'<div class="empty">No combinations logged yet.</div>';
+}
+function renderChart(id,key,list){const groups={};for(const e of list){const k=e[key];if(!groups[k])groups[k]={n:0,r:0};groups[k].n++;if(e.replied)groups[k].r++;}const values=Object.entries(groups).map(([name,v])=>({name,...v,rate:Math.round(100*v.r/v.n)})).sort((a,b)=>b.rate-a.rate||b.n-a.n);$(id).innerHTML=values.length?values.map(v=>`<div class="chart-row"><span title="${esc(v.name)}">${esc(v.name)}</span><div class="chart-track"><i style="width:${v.rate}%"></i></div><span>${v.rate}% <small class="muted">n=${v.n}</small></span></div>`).join(''):'<div class="empty">Run a few experiments to compare response rates.</div>'}
+function renderAll(){renderProfile();renderAngles();renderAutoMetrics();renderResults();$('archetype-select').value=state.archetype;showSession();}
+function editProfile(){const p=profile(),arch=ARCHETYPES.find(a=>a.id===state.archetype)||ARCHETYPES[0];$('pattern-input').value=p.description||arch.description;$('hooks-input').value=(p.hooks?.length?p.hooks:currentHooks()).map(h=>`${h.topic} | ${h.probability} | ${h.evidence||''}`).join('\n');modal('profile-modal')}
+function saveProfile(){const p=profile();p.description=$('pattern-input').value.trim();p.hooks=$('hooks-input').value.split(/\r?\n/).map(line=>line.split('|').map(x=>x.trim())).filter(a=>a[0]).map(a=>({topic:a[0],probability:Math.max(0,Math.min(1,Number(a[1])||0)),evidence:a.slice(2).join(' | ')}));saveCurrentProfile(p);modal('profile-modal',false);flash('Pattern lens saved locally')}
+function suggestHooks(){const p=profile();const inferred=inferHooks(p.facts||[]);if(!inferred.length){flash('Add verified facts first — inference reads the facts above',true);return;}p.hooks=inferred.map(h=>({topic:h.topic,probability:h.probability,evidence:(h.evidence||[]).join('; '),angle:h.angle,pretext:h.pretext}));saveCurrentProfile(p);flash(`Inferred ${inferred.length} hooks from facts — ranking updated`);}
+function addFact(){const p=profile();p.facts=p.facts||[];p.facts.push({category:$('fact-category').value.trim(),value:$('fact-value').value.trim(),source_url:$('fact-source').value.trim(),verified:$('fact-verified').value==='true'});saveCurrentProfile(p);modal('fact-modal',false);['fact-category','fact-value','fact-source'].forEach(id=>$(id).value='');flash('Profile evidence saved locally')}
+function exportLog(){const blob=new Blob([JSON.stringify({version:1,exported_at:new Date().toISOString(),experiments:state.experiments,profiles:state.profiles},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='revel8-strategy-lab.json';a.click();URL.revokeObjectURL(a.href)}
+async function importLog(file){try{const data=JSON.parse(await file.text());if(Array.isArray(data.experiments))state.experiments=[...state.experiments,...data.experiments];if(data.profiles)state.profiles={...state.profiles,...data.profiles};persist();renderAll();flash('Imported local experiment log')}catch(e){flash(`Import failed: ${e.message}`,true)}}
+function bind(){
+  document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+  $('refresh-btn').onclick=refresh;$('target-select').onchange=()=>{state.activeTarget=$('target-select').value;persist();renderAll()};$('archetype-select').onchange=()=>{state.archetype=$('archetype-select').value;persist();renderAll()};
+  $('angle-filters').onclick=e=>{const b=e.target.closest('[data-angle-filter]');if(!b)return;activeAngleFilter=b.dataset.angleFilter;initSelectors();renderAngles()};$('all-angles-btn').onclick=()=>{activeAngleFilter='all';initSelectors();renderAngles()};
+  $('edit-profile-btn').onclick=editProfile;$('save-profile-btn').onclick=saveProfile;$('add-fact-btn').onclick=()=>modal('fact-modal');$('save-fact-btn').onclick=addFact;$('suggest-hooks-btn').onclick=suggestHooks;
+  $('new-session-btn').onclick=askNewSession;$('session-start-inline').onclick=askNewSession;$('confirm-create').onclick=()=>{modal('confirm-modal',false);createSession()};$('session-select').onchange=async()=>{state.activeSession=$('session-select').value||null;persist();await showSession()};$('load-sessions-btn').onclick=()=>loadSessions(true);$('send-btn').onclick=sendMessage;$('draft-btn').onclick=draft;$('end-session-btn').onclick=endSession;$('register-page-btn').onclick=registerPage;
+  $('sweep-btn').onclick=sweepAll;$('ab-texttype-btn').onclick=abTextTypes;$('autorun-btn').onclick=runAutoPass;$('matrix-metric').onchange=e=>{state.matrixMetric=e.target.value;renderResults()};
+  $('export-btn').onclick=exportLog;$('import-file').onchange=e=>e.target.files[0]&&importLog(e.target.files[0]);$('clear-log-btn').onclick=()=>{if(confirm('Clear the locally stored experiment history? This does not delete Revel8 sessions.')){state.experiments=[];persist();renderAll()}};$('result-filter').onchange=e=>{state.currentFilter=e.target.value;renderResults()};$('transcript-filter').onchange=e=>{state.transcriptFilter=e.target.value;renderResults()};
+  document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>modal(b.dataset.close,false));document.querySelectorAll('.modal-backdrop').forEach(m=>m.onclick=e=>{if(e.target===m)modal(m.id,false)});
+}
+load();initSelectors();bind();refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "_comment": "Per-pretext sender + landing-page playbook. Picks a lookalike/invented domain technique that fits each pretext (Neryss' table). Placeholders {brand} and {tld} are filled from the target's own domain (e.g. revel8.ai -> brand=revel8, tld=ai); {colleague} is filled from a network fact when we have one. All domains are registrable lookalikes an attacker could own; NEVER the target's real domain (the quality gate enforces that). Shared by writer.py and the frontend via /api/senders.",
+  "techniques": {
+    "invented_third_party": "A standalone org with no real brand to compare against — most believable for speaker/recruiter/press/investor/customer.",
+    "vendor_lookalike": "Looks like a tool/vendor the target uses — invoices, document shares, auditors.",
+    "cousin_brand": "{brand}-security.com / {brand}-hr.com — reads as an internal portal.",
+    "typosquat": "{brand}-team.com or a 1-for-l swap — reads as an internal colleague.",
+    "subdomain": "{brand}.{tld}.secure-login.com — strong for a sign-in (credentials) page."
+  },
+  "pretexts": {
+    "speaker_invite":    {"technique": "invented_third_party", "sender_name": "Lena Hofer",   "role": "events lead",    "domain": "eventcrew-muc.de",        "page": {"domain": "eventcrew-muc.de",        "path": "/panel-rsvp",  "title": "Panel RSVP",            "fields": ["name", "availability"]}},
+    "press_request":     {"technique": "invented_third_party", "sender_name": "Jonas Brandt",  "role": "podcast host",   "domain": "techpress-briefing.de",   "page": null},
+    "recruiting":        {"technique": "invented_third_party", "sender_name": "Mara Feld",     "role": "recruiter",      "domain": "feld-talent-search.de",   "page": {"domain": "feld-talent-search.de",   "path": "/candidate",   "title": "Candidate profile",    "fields": ["email"]}},
+    "customer_question": {"technique": "invented_third_party", "sender_name": "Daniel Weiss",  "role": "procurement",    "domain": "nordwind-procurement.de", "page": null},
+    "investor_intro":    {"technique": "invented_third_party", "sender_name": "Clara Benn",    "role": "partner",        "domain": "benn-capital-partners.de","page": {"domain": "benn-capital-partners.de","path": "/deck",       "title": "Intro deck",           "fields": ["email"]}},
+    "document_share":    {"technique": "vendor_lookalike",     "sender_name": "{colleague}",   "role": "colleague",      "domain": "docsign-mail.net",        "page": {"domain": "docsign-mail.net",        "path": "/open",        "title": "Shared document",      "fields": ["email"]}},
+    "vendor_notice":     {"technique": "vendor_lookalike",     "sender_name": "Billing Team",  "role": "billing",        "domain": "workspace-billing.net",   "page": {"domain": "workspace-billing.net",   "path": "/account",     "title": "Account billing",      "fields": ["email"]}},
+    "security_alert":    {"technique": "cousin_brand",         "sender_name": "IT Security",   "role": "security",       "domain": "{brand}-security.com",    "page": {"domain": "{brand}.{tld}.secure-login.com", "path": "/signin", "title": "Security verification", "fields": ["email", "password"]}},
+    "internal_favor":    {"technique": "typosquat",            "sender_name": "{colleague}",   "role": "colleague",      "domain": "{brand}-team.com",        "page": null},
+    "meeting_reschedule":{"technique": "typosquat",            "sender_name": "{colleague}",   "role": "assistant",      "domain": "{brand}-team.com",        "page": null}
+  }
+}
