@@ -8,6 +8,22 @@ from test_quality_gate import context
 
 
 class LatestWriterMergeTests(unittest.TestCase):
+    def test_brand_sender_instructions_do_not_require_an_invented_person(self):
+        import json
+        import writer
+        cfg=writer.ModelConfig(api_key='synthetic',fallback_model='synthetic-fallback')
+        def complete(config,model,messages):
+            payload=json.loads(messages[-1]['content'])
+            self.assertEqual(payload['you_are']['name'],'Example Billing')
+            rules=' '.join(payload['writing_rules'])
+            self.assertIn('using exactly you_are.name',rules)
+            self.assertIn('Never invent the recipient',rules)
+            return json.dumps({'subject':'Question','body':'Hi Mara,\nWho handles billing enquiries?\nBest,\nExample Billing'})
+        with patch.object(writer,'_completion',side_effect=complete):
+            result=writer.generate_message(cfg,target={'name':'Mara Felsen'},approach={'channel':'email'},
+                sender={'name':'Example Billing','email':'billing@events.example'},verified_facts=[])
+        self.assertIn('Example Billing',result['content']['body'])
+
     def setUp(self):
         with patch.object(runner, 'Revel8Client', return_value=Mock()):
             self.agent = runner.Orchestrator('mara', use_model=True)

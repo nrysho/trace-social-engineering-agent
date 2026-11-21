@@ -69,7 +69,8 @@ WRITING_RULES = [
     "Make exactly one clear ask that serves the plan. Mention a file or a link only if included_with_your_text has it; otherwise ask for a reply with one specific detail.",
     "Do not name other people or companies the recipient could look up and find missing; describe them in general terms (for example 'two founders from the Munich security scene').",
     "In a follow-up, refer to your earlier message and add one new reason or detail; never repeat it.",
-    "Sign off with a full plausible name, role and organisation; a company sender adds a one-line footer.",
+    "Sign off using exactly you_are.name. Never invent a different personal name. If the supplied name is a company or team, sign as that company/team; include only the supplied role and organisation.",
+    "Never invent the recipient's subscription, billing, renewal, expiry, upgrade, incident or account status. A DNS/SPF record does not prove any of those. Ask a neutral question when the verified facts do not establish the detail.",
     "Any date you mention lies after today. Plain text, under 130 words, no markdown, no placeholders.",
     "Reply with the JSON object only.",
 ]

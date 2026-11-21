@@ -2,7 +2,7 @@
 
 Integration checked on 22 November 2026 on **theja-person5**, incorporating main
 **cb9b2e8**, including the latest writer/strategy update. The final combined
-regression suite has 197 passing tests with browser checks enabled and no skips.
+regression suite has 200 passing tests with browser checks enabled and no skips.
 
 ## Implemented and locally checked
 
@@ -157,3 +157,24 @@ zero official mutation requests, zero contacts and zero touches. Its evidence
 is local under runs/quality/research-fix/. No new practice/eval contacts were
 spent on these fixes. The earlier successful email/call receipt tests remain
 historical integration evidence, not proof of research quality.
+
+## Updated-environment retest
+
+With the locally supplied Tavily/Serper/Bright Data keys, fresh recon returned
+24 unique results and saved 49 sourced facts, nine marked verified. The Qwen
+corroboration call timed out once; recon used its existing exact-group fallback.
+These flags are not a guarantee of factual truth.
+
+The test exposed a false positive: an unverified `company` label containing only
+the company name blocked any mention of it. Entity labels are now distinguished
+from assertions; exact verified claim spans also avoid duplicate unverified
+substring blocks. Actual unverified claims remain blocked.
+
+The writer also invented personal signatures for a company sender because its
+instructions requested a plausible full name. Instructions now require the exact
+supplied sender identity and prohibit inventing account/renewal/expiry status.
+A real model draft check passed, followed by one accepted official practice
+email. The API returned a message ID, one touch and no events: no reply and no
+incident. The two earlier blocked attempts spent zero touches. All private run
+and profile evidence remains ignored. The final regression suite passes 200
+tests with Chrome enabled and no skips. No eval contacts were used.

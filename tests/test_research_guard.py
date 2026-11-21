@@ -14,6 +14,19 @@ from test_quality_gate import context, message
 
 
 class ResearchGuardTests(unittest.TestCase):
+    def test_company_entity_label_does_not_block_all_mentions(self):
+        facts=[dict(category='company',value='Example Corp',verified=False)]
+        self.assertTrue(profile_claim_checks('A question about Example Corp.',facts).passed)
+        facts.append(dict(category='role',value='You work at Example Corp',verified=False))
+        self.assertFalse(profile_claim_checks('You work at Example Corp.',facts).passed)
+
+    def test_exact_verified_sentence_overrides_duplicate_unverified_substring_only_within_its_span(self):
+        facts=[dict(category='role',value='Co-Founder and CEO of Example',verified=False),
+               dict(category='role',value='Mara is Co-Founder and CEO of Example.',verified=True,
+                    source_url='https://company.example/team')]
+        self.assertTrue(profile_claim_checks('Mara is Co-Founder and CEO of Example.',facts).passed)
+        self.assertFalse(profile_claim_checks('Someone else is Co-Founder and CEO of Example.',facts).passed)
+
     def test_profile_requires_matching_identity_and_sourced_verified_facts(self):
         fact = dict(value='Finance lead', verified=True, source_url='https://company.example/team')
         good = dict(name='Mara Felsen', target_id='mara', facts=[fact])

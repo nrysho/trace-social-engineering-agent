@@ -54,6 +54,12 @@ def profile_claim_checks(text, facts):
         return report
     report.errors.extend(operational_claim_checks(text, facts))
     text = normalized(re.sub(r'<[^>]*>', ' ', text)).casefold()
+    from .research_gate import sourced_verified_facts
+    supported_spans = []
+    for verified in sourced_verified_facts(facts):
+        claim = normalized(verified['value']).casefold().strip(' .')
+        if claim:
+            supported_spans.extend((m.start(),m.end()) for m in re.finditer(re.escape(claim),text))
     for fact in facts:
         if not isinstance(fact, dict) or not isinstance(fact.get('value'), str):
             continue
@@ -61,11 +67,20 @@ def profile_claim_checks(text, facts):
         if not value or value not in text:
             continue
         if fact.get('verified') is not True:
-            prefix = text[max(0, text.index(value)-50):text.index(value)]
-            if re.search(r'\b(if|might|may|perhaps|unconfirmed|possibly)\b', prefix):
-                report.warnings.append('Tentative use of an unverified profile fact')
-            else:
-                report.errors.append('Unverified profile fact stated as certain')
+            # A company label alone is an entity mention, not an assertion of
+            # employment, tools or another attribute. Do not block every message
+            # containing the company name because recon supplied such a row.
+            if fact.get('category') == 'company' and not re.search(
+                    r'\b(is|are|uses?|using|has|have|employs?|works?|based|founded|raised|acquired)\b',value):
+                continue
+            for mention in re.finditer(r'(?<!\w)'+re.escape(value)+r'(?!\w)',text):
+                if any(start <= mention.start() and mention.end() <= end for start,end in supported_spans):
+                    continue
+                prefix = text[max(0, mention.start()-50):mention.start()]
+                if re.search(r'\b(if|might|may|perhaps|unconfirmed|possibly)\b', prefix):
+                    report.warnings.append('Tentative use of an unverified profile fact')
+                else:
+                    report.errors.append('Unverified profile fact stated as certain')
         elif not fact.get('source_url'):
             report.warnings.append('Verified flag lacks a source URL')
     if re.search(r"\byou(?: are|'re| recently)|\byour company\b", text):
