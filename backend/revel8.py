@@ -134,13 +134,17 @@ class Revel8Client:
 
     # ----- messages -----
 
-    def send_message(self, msg):
+    def send_message(self, msg, sent_at=None):
         """msg is a schemas.Message. Registers its landing page first, then sends.
+        sent_at (ISO 8601) sets the story time, so the target senses how much time
+        passed: spacing contacts avoids chasing within seconds, which makes them hold off.
         Returns the raw reaction {message_id, touches_used, events}."""
         sid = msg.session_id
         if msg.landing_page is not None:
             self.register_page(sid, msg.landing_page)
         body = _message_body(msg)
+        if sent_at:
+            body["sent_at"] = sent_at
         key = msg.idempotency_key or str(uuid.uuid4())
         r = self._call("POST", f"/sessions/{sid}/messages", body, idempotent=True, idem_key=key)
         self._log(sid, {"kind": "sent", "node_id": msg.node_id,
@@ -152,20 +156,26 @@ class Revel8Client:
 
     # ----- conversations (live calls and chats) -----
 
-    def start_conversation(self, sid, to, channel, sender=None, idem_key=None):
-        """Begin a call/chat. A whole conversation costs one touch, max 10 turns."""
+    def start_conversation(self, sid, to, channel, sender=None, idem_key=None, sent_at=None):
+        """Begin a call/chat. A whole conversation costs one touch, max 10 turns.
+        sent_at (ISO 8601) is the story time the phone rings."""
         body = {"to": to, "channel": channel}
         if sender is not None:
             body["from"] = _sender_body(sender)
+        if sent_at:
+            body["sent_at"] = sent_at
         r = self._call("POST", f"/sessions/{sid}/conversations", body,
                        idempotent=True, idem_key=idem_key)
         self._log(sid, {"kind": "call.start", "conversation_id": r.get("conversation_id"),
                         "to": to, "channel": channel, "persona_says": r.get("persona_says")})
         return r
 
-    def say(self, cid, line, sid=None, idem_key=None):
+    def say(self, cid, line, sid=None, idem_key=None, sent_at=None):
         """One turn in an open conversation. Returns {persona_says, ended, events, turns_used}."""
-        r = self._call("POST", f"/conversations/{cid}/turns", {"say": line},
+        body = {"say": line}
+        if sent_at:
+            body["sent_at"] = sent_at
+        r = self._call("POST", f"/conversations/{cid}/turns", body,
                        idempotent=True, idem_key=idem_key)
         self._log(sid, {"kind": "turn", "conversation_id": cid, "say": line,
                         "persona_says": r.get("persona_says"), "ended": r.get("ended")})
