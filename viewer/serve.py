@@ -18,6 +18,8 @@ VIEWER = pathlib.Path(__file__).resolve().parent
 ROOT = VIEWER.parent
 RUNS = ROOT / "runs"
 MOCK = ROOT / "mock"
+sys.path.insert(0,str(ROOT))
+from viewer.qa_metrics import quality_summary, by_version
 
 
 def load(path):
@@ -58,6 +60,7 @@ def summary(run_id, bundle):
         "id": run_id,
         "target": profile.get("name", ""),
         "mode": bundle.get("mode", ""),
+        "qa": quality_summary(bundle),
         "contacts": len(contacts),
         "incident": any(n.get("status") == "incident" for n in nodes),
     }
@@ -78,6 +81,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == '/api/quality/versions':
+            records = []
+            for loader in bundles().values():
+                try: records.append(loader())
+                except (OSError,ValueError): continue
+            return self.send_json(by_version(records))
         if path == "/api/runs":
             out = []
             for run_id, loader in bundles().items():
