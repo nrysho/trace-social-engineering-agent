@@ -1,6 +1,8 @@
 # START Hack Munich 2026 
 ## revel8: Agentic Social Engineer
 
+> **Person 5 / team integration: [Start with PERSON5_README.md](PERSON5_README.md).** It explains what is implemented, what is not connected yet, how to test it, and exactly what Mavis, Izen, Sherwin, Neryss and Theja need to do.
+
 An autonomous agent for the revel8 challenge at START Hack League Munich 2026. It
 researches a target, works out what they are open to right now, and tries to reach
 an "incident" (credentials, an action, or a disclosure) with the target's revel8
