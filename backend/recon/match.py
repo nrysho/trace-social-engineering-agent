@@ -17,6 +17,7 @@ class Anchor:
     name: str
     company: str
     domain: str = ""
+    role: str = ""  # job title, a second corroboration signal for low-presence people
 
 
 @dataclass
@@ -40,6 +41,18 @@ def _strip(s):
     return re.sub(r"[^a-z0-9]", "", s.lower())  # drop spacing and punctuation to compare
 
 
+ROLE_STOP = {"senior", "junior", "lead", "head", "chief", "staff", "principal", "intern",
+             "manager", "director", "officer", "engineer", "developer", "specialist",
+             "consultant", "analyst", "the", "and", "for", "vice", "president", "founder"}
+
+
+def _role_hit(anchor, text):
+    # a distinctive word from the role appears in the text (generic title words are ignored)
+    blob = _strip(text)
+    toks = [t for t in re.split(r"[^a-z0-9]+", anchor.role.lower()) if len(t) >= 4 and t not in ROLE_STOP]
+    return any(_strip(t) in blob for t in toks)
+
+
 def _company_hit(anchor, text):
     # match company ignoring spacing and punctuation: "Ramblr ai" == "Ramblr.ai"
     blob = _strip(text)
@@ -52,18 +65,18 @@ def _company_hit(anchor, text):
 
 
 def judge(anchor, candidate, use_llm=True):
-    # return (accepted, confidence, reason)
+    # high-confidence only: the full name must match, then company or role must corroborate
     name_score = name_overlap(anchor.name, candidate.name)
-    if name_score < 0.5:
-        return False, name_score, "name does not match"
-    company_hit = _company_hit(anchor, f"{candidate.name} {candidate.text}")
-    if name_score >= 0.99 and company_hit:
-        return True, 0.95, "name and company both match"  # the anchor rule
-    if company_hit:
-        return True, 0.8, "company matches, name partial"
+    if name_score < 0.99:
+        return False, name_score, "name does not fully match"
+    text = f"{candidate.name} {candidate.text}"
+    if _company_hit(anchor, text):
+        return True, 0.95, "name and company match"
+    if anchor.role and _role_hit(anchor, text):
+        return True, 0.85, "name and role match"
     if use_llm:
-        return _llm_judge(anchor, candidate)  # name matches but no company signal in the text
-    return False, name_score, "name matches but no company corroboration"
+        return _llm_judge(anchor, candidate)
+    return False, name_score, "name matches but no company or role corroboration"
 
 
 def _llm_judge(anchor, candidate):

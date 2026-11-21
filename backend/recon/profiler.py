@@ -25,6 +25,17 @@ def _host(url):
     return url.split("/")[2] if "://" in url else ""
 
 
+def _best_linkedin(results, name):
+    # prefer a profile whose slug carries the target's name tokens, not just the first /in/ hit
+    toks = [t for t in re.split(r"[^a-z0-9]+", name.lower()) if len(t) > 1]
+    profiles = [r.url for r in results if "linkedin.com/in/" in r.url]
+    for url in profiles:
+        slug = url.split("/in/")[1].lower()
+        if toks and all(t in slug for t in toks):
+            return url
+    return profiles[0] if profiles else ""
+
+
 def _domain_from(company, results):
     # guess the company domain from the first result host that contains the company token
     token = re.sub(r"[^a-z0-9]", "", company.lower())
@@ -45,7 +56,7 @@ def _current_role(facts, company, domain):
     return max(roles, key=key).value
 
 
-def build(name, company):
+def build(name, company, role=""):
     env = config.load_env()
 
     # 1. search every query, merge and dedup, then cap
@@ -61,7 +72,7 @@ def build(name, company):
             r.content = fetch.fetch(r.url)
 
     # 3. extract sourced facts from the results
-    facts = extract.extract_facts(name, company, results)
+    facts = extract.extract_facts(name, company, results, role)
     for f in facts:  # a real post timestamp beats the model's guessed date
         posted = linkedin.post_date(f.source_url)
         if posted:
@@ -75,14 +86,15 @@ def build(name, company):
             facts += dns.facts(domain)
         except Exception as e:
             print(f"  dns failed: {e}")
-    li_url = next((r.url for r in results if "linkedin.com/in/" in r.url), "")
+    li_url = _best_linkedin(results, name)
     if li_url and env.get("BRIGHTDATA_API_KEY"):
         try:
             rec = linkedin.profile(li_url, env["BRIGHTDATA_API_KEY"])
             if rec:
                 lname, lcompany = linkedin.name_and_company(rec)
-                ok, _, _ = match.judge(match.Anchor(name, company),
-                                       match.Candidate(lname, lcompany), use_llm=False)
+                slug = li_url.split("/in/")[1].split("?")[0].replace("-", " ")  # the slug carries the full name
+                ok, _, _ = match.judge(match.Anchor(name, company, domain=domain, role=role),
+                                       match.Candidate(slug, f"{lname} {lcompany}"), use_llm=False)
                 if ok:
                     facts += linkedin.facts(rec, li_url)
                     print("  linkedin anchor confirmed")
