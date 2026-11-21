@@ -11,7 +11,7 @@ from pathlib import Path
 
 from backend import config
 from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, github, match,
-                           extract, verify, hooks, exposure, render, recency, bench_osint, geo)
+                           extract, verify, hooks, exposure, render, recency, bench_osint, geo, channel)
 from backend.recon import company as company_osint  # aliased: `company` is a param name in build()
 from schemas import Profile
 
@@ -171,8 +171,10 @@ def build(name, company, role="", bench_target=None):
     facts.sort(key=lambda f: recency.weight(f.date), reverse=True)  # freshest first for the profile
     role = _current_role(facts, company, domain)
     country = geo.resolve(company, domain, facts)  # for choosing a lookalike domain tld
+    pref = channel.infer(facts)  # best-guess contact channel, the evaluator refines it
     profile = Profile(
         name=name, role=role, company=company, domain=domain, country=country,
+        preferred_channel=pref,
         facts=facts, hooks=ranked, exposure_score=sc, exposure_breakdown=breakdown,
         sources=sorted({f.source_url for f in facts if f.source_url}),
     )

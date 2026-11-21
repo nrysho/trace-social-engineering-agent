@@ -6,6 +6,8 @@ def to_markdown(p):
     lines.append(f"**{p.role or 'role unknown'}** - {p.company}" + (f" ({p.domain})" if p.domain else ""))
     if p.country:
         lines.append(f"**Country:** {p.country}")
+    if p.preferred_channel:
+        lines.append(f"**Preferred channel:** {p.preferred_channel}")
     lines.append(f"**Exposure score:** {p.exposure_score}/100")
     lines.append("")
 
