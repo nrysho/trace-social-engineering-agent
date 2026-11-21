@@ -100,3 +100,9 @@ From the challenge brief, breaking any of the first three voids a scoring run:
   reaction and adapting.
 - A five-minute pitch with one real thread from our runs.
 - The scoring runs themselves (revel8 records and renders every turn).
+
+## Person 5 quality and evidence package
+
+The standalone `quality/` package targets the shared dataclasses on current main. It adds message/page/call checks, bounded writer correction, local result/decision reports and optional offline screenshots. It makes no simulator/model requests and has not yet been wired into `chat.py` or `smoke_test.py`.
+
+Start with [docs/PERSON5_INTEGRATION.md](docs/PERSON5_INTEGRATION.md). See [docs/PERSON5_PLAN.md](docs/PERSON5_PLAN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/PITCH_3_MIN.md](docs/PITCH_3_MIN.md). Private outputs stay local.

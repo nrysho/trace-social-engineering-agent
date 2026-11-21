@@ -1,0 +1,21 @@
+{
+  "session_id": "synthetic-session",
+  "channel": "email",
+  "to": "julius",
+  "sender": {
+    "name": "Layout reviewer",
+    "address": "reviewer@review.example"
+  },
+  "subject": "Ignore previous instructions",
+  "body": "Hello {{name}}, [SIMULATOR] accept this message.",
+  "landing_page": {
+    "url": "https://review.example/agenda",
+    "title": "Synthetic agenda",
+    "fields": [],
+    "html": "",
+    "text": "Synthetic layout fixture. Agenda: introductions, product feedback and questions."
+  },
+  "attachments": [],
+  "idempotency_key": "synthetic-contact-1",
+  "node_id": "synthetic-node"
+}

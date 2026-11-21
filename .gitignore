@@ -4,3 +4,6 @@ __pycache__/
 *.log
 runs/
 .claude/
+
+# Private Person 5 evidence, screenshots and backup demo
+output/quality/
