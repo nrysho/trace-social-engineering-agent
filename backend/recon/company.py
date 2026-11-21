@@ -84,8 +84,33 @@ OPEN_ROLES = Aspect(
     system=ROLE_SYSTEM,
 )
 
+# --- events: where the company is showing up ---------------------------------
+EVENT_SYSTEM = (
+    "You research ONE company and extract the EVENTS it is taking part in, for an "
+    "authorised research exercise, so prefer upcoming or recent ones. Return JSON only: "
+    "{\"facts\": [{\"value\": ..., \"source_url\": ..., \"date\": ..., \"confidence\": "
+    "0-1}]}. An event is a named conference, trade show, summit, webinar or meetup the "
+    "company exhibits at, sponsors, speaks at or hosts. value names the event and the "
+    "company's part in one short phrase, e.g. 'Exhibiting at CES 2026 (Las Vegas)' or "
+    "'Hosting a webinar on AI annotation'. Extract ONLY events clearly tied to THIS "
+    "company; never invent one. source_url MUST be copied exactly from a result. date is "
+    "the event date YYYY-MM (or YYYY) when stated, else \"\"; never guess. confidence "
+    "(0-1) is how sure you are the company is really taking part."
+)
+EVENTS = Aspect(
+    category="upcoming_events",
+    queries=[
+        '"{company}" event OR conference OR summit 2026',
+        '"{company}" booth OR exhibitor OR exhibiting',
+        '"{company}" sponsor OR keynote OR webinar',
+        '"{company}" "will be at" OR "join us at" OR "meet us at"',
+    ],
+    seed_paths=("events", "news", "blog", "press", "events/upcoming"),
+    system=EVENT_SYSTEM,
+)
+
 # every aspect the collector runs; a new kind of company fact is a new entry here
-ASPECTS = [RELATIONSHIPS, OPEN_ROLES]
+ASPECTS = [RELATIONSHIPS, OPEN_ROLES, EVENTS]
 
 
 def _search_all(queries, company):
