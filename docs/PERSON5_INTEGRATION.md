@@ -2,7 +2,7 @@
 
 ## Setup and local checks
 
-Python 3.11+; the checker and reports use only the standard library. From this branch's repository root:
+Python 3.11+; the checker and reports use only the standard library. Client-integration tests also need the team client's existing requests dependency (python -m pip install requests). From this branch's repository root:
 
 ```powershell
 python -m unittest discover -s tests -v
@@ -59,3 +59,49 @@ Mavis: for reliable first-signal timing, log cumulative touches_used alongside e
 ## Files and boundaries
 
 Output, screenshots, video and private thread exports belong under ignored output/quality/ or runs/. No keys enter examples or reports. Never put full provider errors, keys or credential values in screenshots. These helpers never call revel8, a model, email, or a real person. Existing manual practice scripts and teammates' shared modules are unchanged.
+
+## Opt-in wrapper for Mavis's actual client (tested offline)
+
+```python
+from backend.revel8 import Revel8Client
+from quality.guarded_client import GuardedClient
+
+client = Revel8Client()
+guarded = GuardedClient(client, context, session_ids=[session_id], audit=save_report)
+response = guarded.send_message(shared_message)
+```
+
+Explicit session IDs must come from the caller's authorised session setup. This wrapper validates the entire message and its page before Mavis can register the page or send. It passes a copied shared Message to the existing client, preserving its page-before-message behavior and retry keys. It does not alter Mavis's implementation or automatically wrap other code. Do not also register a message's page separately: client.send_message already handles it.
+
+For separate pages: guarded.register_page(session_id, page). For calls: guarded.start_conversation(session_id, target, channel, sender, idem_key=key), then guarded.say(conversation_id, line, sid=session_id, idem_key=turn_key). Resumed calls must be explicitly supplied as conversation_sessions={conversation_id: session_id} when constructing the wrapper. Unknown sessions/conversations fail before a request. Keys must be stable per contact/turn across retries.
+
+Tests run Mavis's real methods against fake HTTP responses and prohibit real requests. They verify zero requests on blocked content/pages, page-before-message ordering, copied payloads, key reuse on timeout and guarded calls. Context and payloads are copied; report callbacks receive no message text or credential material. Scope failures and malformed runtime inputs fail closed but not every operational failure is a retryable writer error.
+
+Reporting now recognises backend/revel8.py call.start entries, scenario labels and touches_used on sent records. Event message IDs join to those cumulative touch counts. Conflicting timing is withheld. Calls with no recorded touch count remain unknown; local event counts still do not authenticate results.
+
+## One-command offline acceptance demo
+
+```powershell
+python -m quality.demo --output output/quality/walkthrough
+```
+
+Open index.html: PASS, BLOCK (zero fake sends), automatic correction on attempt two, then synthetic evidence report with duplicate removal. Ten versioned fixture cases cover emails/pages/turns. No keys or network needed. The demo uses an in-memory fake sender; the separate client tests exercise Mavis's real transport methods with fake HTTP.
+
+Optional screenshots and silent video:
+
+```powershell
+python -m pip install requests -r requirements-quality.txt
+python -m playwright install ffmpeg
+python -m quality.demo --output output/quality/walkthrough --screenshots --video
+```
+
+Chrome must be installed. Rendering aborts all network requests and disables page JavaScript/service workers. Images remain unsupported. The video is a synthetic QA walkthrough, not a real scoring result or a speaker rehearsal.
+
+## Browser acceptance tests
+
+```powershell
+$env:PERSON5_BROWSER_TESTS = '1'
+python -m unittest discover -s tests -v
+```
+
+Without that variable, two optional Chrome tests skip. With Chrome/Playwright installed and enabled, the full 38-test suite includes real overflow/clipping detection and stale-screenshot cleanup. Visual flags identify horizontal overflow, clipped containers and excessive page height; they do not establish visual perfection or factual correctness. A render command exits nonzero on these defects.

@@ -19,3 +19,7 @@ An optional locally recorded QA demo is stored in ignored output/quality/demo. I
 Mavis: wire checked_message/checked_turn/page report before send and preserve touch counts. Izen: writer callback accepts structured feedback. Neryss: show reports and distinct provenance labels. Sherwin: source-backed profiles. Theja: visual craft review, decision log, final script and rehearsal.
 
 Confirm organiser logistics and perform Hack League submission manually; no submission or message to teammates has been sent by this work.
+
+## Repeatable synthetic acceptance demo
+
+Use `python -m quality.demo --output output/quality/walkthrough` for a self-contained run without private evidence. It asserts all ten fixture expectations, blocks the invalid draft with zero fake sends, corrects it on attempt two and reports a deduplicated synthetic reply. Optional `--screenshots --video` produces a silent twenty-second browser clip after installing Playwright/FFmpeg and Chrome. Label it synthetic; do not call it a scoring result. Human timing goes in REHEARSAL.md.

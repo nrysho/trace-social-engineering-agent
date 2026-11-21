@@ -30,3 +30,9 @@ TreeNode.outcome is text on main, so it cannot authenticate or reconstruct raw e
 Offline craft evidence uses 700 px mail and 1200 px page viewports, scripts/network disabled. HTML is checked before screenshots; images currently fail closed. Rule heuristics and screenshots do not award official craft points, verify factual claims or prove domain availability. Exposure and hook probabilities are not success measurements.
 
 Team responsibilities remain Sherwin (research), Izen (strategy/writer/evaluation), Mavis (shared schemas and orchestrator), Neryss (test bench/replay/results UI), Theja (quality/evidence/architecture/pitch). Full integration, automatic visual rewrite and verified scoring results remain pending.
+
+## Client integration update
+
+Baseline now includes main 58d6dac and its real API client. quality.guarded_client.GuardedClient is an opt-in adapter around it: checks run before page registration/message requests and before call turns, with explicit authorised session scope. The team orchestrator still needs to choose this wrapper. Real-client behavior has been verified against fake HTTP, not a fresh live send. Reporting supports the new API JSONL format and associates available message touch counts.
+
+Offline craft checks now flag overflow, clipped containers, excessive height and visible-URL mismatches. They remain mechanical signals, not an official craft or factual score.

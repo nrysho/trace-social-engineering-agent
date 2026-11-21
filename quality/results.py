@@ -88,24 +88,48 @@ def normalize_record(record):
                    'mode': 'unknown', 'nodes': record}
             warnings.append('Tree-only export: mode and touch count are not established; text outcomes are not parsed as events.')
         else:
-            events = []
+            reactions = []
             contacts = set()
             unkeyed = 0
+            touch_by_message = {}
+            scenarios = set()
+            maximum = None
             for row in record:
                 if not isinstance(row, dict):
                     raise ValueError('Log entries must be objects')
                 kind = row.get('kind')
-                if kind == 'event':
-                    events.append(row.get('event'))
-                elif kind in {'sent', 'call'}:
+                if kind == 'session.create' and isinstance(row.get('scenario_id'), str):
+                    scenarios.add(row['scenario_id'])
+                if kind in {'sent', 'call', 'call.start'}:
                     identity = row.get('message_id' if kind == 'sent' else 'conversation_id')
                     if identity:
-                        contacts.add((kind, str(identity)))
+                        contacts.add(('message' if kind == 'sent' else 'call', str(identity)))
                     else:
                         unkeyed += 1
-            run = {'id': 'imported-chat-log', 'mode': 'unknown', 'contacts': len(contacts) + unkeyed,
-                   'nodes': [{'level': 'reaction', 'outcome': {'events': events}}]}
-            warnings.append('chat.py local log: recorded contacts only, not authoritative session total; call turns do not add touches.')
+                    touches = row.get('touches_used')
+                    if type(touches) is int and touches >= 1:
+                        maximum = max(maximum or 0, touches)
+                        if kind == 'sent' and identity:
+                            if str(identity) in touch_by_message and touch_by_message[str(identity)] != touches:
+                                warnings.append('Conflicting cumulative touch counts for message ID; timing withheld.')
+                                touch_by_message[str(identity)] = None
+                            else:
+                                touch_by_message[str(identity)] = touches
+            for row in record:
+                if row.get('kind') == 'event':
+                    event = row.get('event')
+                    if not isinstance(event, dict):
+                        raise ValueError('Event log entries require an event object')
+                    mid = row.get('message_id') or event.get('message_id') or event.get('in_reply_to')
+                    touches = touch_by_message.get(str(mid)) if mid else None
+                    reactions.append({'level': 'reaction', 'outcome': {'events': [event], 'touches_used': touches}})
+            mode = next(iter(scenarios)) if len(scenarios) == 1 else 'unknown'
+            if len(scenarios) > 1:
+                warnings.append('Multiple scenario labels in imported log; keep separate session files.')
+            run = {'id': 'imported-api-or-chat-log', 'mode': mode,
+                   'contacts': len(contacts) + unkeyed, 'nodes': reactions,
+                   'recorded_cumulative_touch_max': maximum}
+            warnings.append('Local API/chat log: recorded contacts only, not authoritative session total; call turns do not add touches.')
             if unkeyed:
                 warnings.append('Contacts without IDs counted per occurrence; deduplication uncertain.')
     elif isinstance(record, dict):
@@ -132,6 +156,7 @@ def normalize_record(record):
 def summarize_run(record):
     run, warnings = normalize_record(record)
     summary = _summarize_trace(run)
+    summary['recorded_cumulative_touch_max'] = run.get('recorded_cumulative_touch_max')
     summary['warnings'] = list(dict.fromkeys(summary['warnings'] + warnings))
     return summary
 
@@ -171,5 +196,7 @@ def report_html(summary, decisions):
             'overflow-wrap:anywhere}</style><h1>TRACE evidence report</h1><p>Run: ' +
             escape(str(summary['run_id'])) + ' | Reported mode: ' + escape(str(summary['reported_mode'])) +
             '</p><p>Reported contacts: ' + escape(str(summary['reported_contacts'])) +
+            '</p><p>Duplicate event records ignored: ' + str(summary['duplicate_events_ignored']) +
             '</p><p>Official outcome and topic hits: not established</p><h2>Observed events</h2><ul>' + rows +
-            '</ul><h2>Provenance and limits</h2><ul>' + notes + '</ul><h2>Recorded decisions</h2>' + records + '</html>')
+            '</ul><h2>Provenance and limits</h2><ul>' + notes + '</ul>' +
+            ('<h2>Recorded decisions</h2>' + records if decisions else '') + '</html>')

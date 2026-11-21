@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import io
+from contextlib import redirect_stdout
 from dataclasses import asdict
 from schemas import message_from_dict, treenode_from_dict
 from quality.checks import check_artifact
@@ -165,8 +167,9 @@ class QualityTests(unittest.TestCase):
 
     def test_cli_and_preview_are_offline_and_escaped(self):
         with tempfile.TemporaryDirectory() as temp:
-            code = main(['validate', str(ROOT/'quality/samples/invalid_message.json'),
-                         '--context', str(ROOT/'quality/samples/context.json'), '--output', temp])
+            with redirect_stdout(io.StringIO()):
+                code = main(['validate', str(ROOT/'quality/samples/invalid_message.json'),
+                             '--context', str(ROOT/'quality/samples/context.json'), '--output', temp])
             self.assertEqual(code, 2)
             self.assertTrue((Path(temp)/'preview.html').exists())
         html = preview({'body': '<script>bad</script>'}, {'passed': False})

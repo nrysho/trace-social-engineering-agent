@@ -17,3 +17,7 @@ The package does not alter chat.py or smoke_test.py. Its checks are NOT automati
 Uploaded images remain blocked pending local asset resolution. Domain approval is team-reviewed exact-host configuration, not proof of domain availability. Tone, authenticity and factual accuracy are not established by regex checks. No official craft score is generated.
 
 Two actual timed speaker rehearsals, organiser-confirmed logistics, final scoring-thread selection and submission remain human tasks. A recorded local demo is not a rehearsal or a scoring run. No new practice contacts are needed for this work.
+
+## Independent acceptance iteration completed
+
+Integrated main 58d6dac into this branch. Added an opt-in guard around Mavis's real API client, tested its HTTP boundary with fake responses and prohibited real requests. Added API-log compatibility, ten reusable cases, link/signature checks and browser overflow/clipping tests. Built quality.demo for a reproducible synthetic walkthrough and silent backup clip. Full suite: 38 tests pass including two optional Chrome tests. Actual team send paths and two human speaker rehearsals remain pending.

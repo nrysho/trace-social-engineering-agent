@@ -1,23 +1,22 @@
-# Person 5 verification record
+# Person 5 acceptance verification
 
-Baseline main: 1b764bc. No live API/model requests were made by this implementation. Shared schemas, model/config, chat.py and smoke_test.py are unchanged.
+Based on main 58d6dac, including Mavis's backend/revel8.py. Her schemas, model client, API implementation and practice scripts are unchanged.
 
-## Automated
+## Executed checks
 
-22 tests pass in the current-main package. This is a separate suite from the older TRACE branch tests.
+- Full 38-test suite passed with PERSON5_BROWSER_TESTS=1. Default run has 36 passing tests and two optional Chrome skips. No test spends a live touch.
+- Mavis's actual Revel8Client methods were exercised with a fake HTTP session and a network prohibition. Blocked message/page: zero requests. Accepted message: page then message, correct sender mapping and metadata separation. Timeout: same idempotency key on retry. Unknown sessions/conversations and invalid call turns block.
+- Ten versioned message/page/turn fixture expectations passed.
+- Real offline Chrome detects deliberately wide and clipped content; a clean fixture passes. Rerunning blocked input removes its stale screenshot.
+- Main API logs count call.start once, associate message event IDs with recorded cumulative touches, deduplicate events and withhold conflicting/missing timing. No official outcome is inferred.
+- Repeatable synthetic demo: valid PASS, invalid BLOCK with zero fake sends, automatic correction on attempt two, one fake contact/reply and one ignored duplicate. Screenshots and a silent backup video generated locally.
 
-Run python -m unittest discover -s tests -v from this branch. The suite uses local dataclasses, fixtures, temporary files and fake writer callbacks. It covers the actual main mock Message/TreeNode contract, sender and target authority, domain separation, organisation blocks, subject/body directives, placeholders, malformed content, pages, call turns, correction success/exhaustion, event deduplication and provenance limits.
+## Artifact locations
 
-## Manual offline checks
+Run python -m quality.demo --output output/quality/walkthrough. Optional --screenshots --video adds browser evidence. Outputs remain ignored. The original development laptop also has a convenient parent-workspace copy under output/quality/person5-main/walkthrough/.
 
-- Valid synthetic fixture: PASS; invalid synthetic fixture: BLOCK, exit 2.
-- Chrome mail screenshot: 700 px; page screenshot: 1200 px. Both visually inspected with scripts/network disabled. Synthetic fixture uses no images or external resources.
-- Current main mock/tree.json report: no structured reply events inferred, contacts and official outcomes unknown.
-- Earlier local TRACE practice replay: saved run practice-e8a0ff5a16; one previously verified contact and reply, no incident. Explicitly labeled earlier practice, not current-main autonomy or scoring.
-- Twelve-second silent backup clip: synthetic PASS, synthetic BLOCK, earlier practice replay. Local only; no narration and not a human rehearsal.
+## Remaining limits
 
-Artifacts remain under ignored output/quality/. On the original development laptop a convenient copy is in the parent TRACE workspace at output/quality/person5-main/. Other teammates must generate their own synthetic previews or arrange an authorised private replay export.
+The wrapper is opt-in and not automatically installed in team send paths. No new live API/model requests, real incidents or scoring results were generated. Images/local asset resolution, automatic aesthetic/factual critique and production orchestration remain outside this verified package. Exact-domain approval is configuration, not registration proof. First-signal timing follows recorded event order, not reconstructed hidden timing.
 
-## Not verified or completed
-
-No automatic gate invocation in actual chat/smoke sends, no full autonomous orchestrator, no official score or incident, no image asset resolver, no automatic visual rewrite, no domain registration/availability validation. Two actual timed human pitch rehearsals and Hack League submission are outstanding. The pitch script and decision/architecture docs must be updated when the team's integrated system changes.
+Two actual timed speaker rehearsals and final submission remain human tasks; docs/REHEARSAL.md provides the worksheet. Generated silent video is not a rehearsal.

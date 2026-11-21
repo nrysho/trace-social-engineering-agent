@@ -1,50 +1,49 @@
-# Three-minute pitch: speaker script and demo cues
+# Three-minute pitch: acceptance-stage draft
 
-Draft for rehearsal, about three minutes at a measured pace. This script distinguishes main's implementation from earlier TRACE practice evidence. Replace practice with an actual scoring thread only after one exists. Do not claim the package is wired into every sender yet.
+Rehearse aloud with a timer. This script separates tested QA behavior from pending team integration. All demo examples in the repeatable walkthrough are synthetic. Earlier practice evidence must be labeled separately.
 
-## 0:00-0:30 Problem
+## 0:00-0:25 Problem
 
-Imagine receiving an email that understands your role and responds naturally when you ask questions. AI makes personalised social engineering easier to automate. Seeing the final email is not enough: defenders need to understand how the system chose an approach, what the recipient did, and whether the evidence supports the claimed result.
+AI can automate personalised social-engineering conversations. But seeing a final email does not tell defenders what the system knew, why it chose an approach, or whether the reported result is true.
 
-We are SchnitzelStrikers, and our project makes those decisions inspectable.
+We are SchnitzelStrikers. Our project makes that process inspectable inside revel8's authorised AI-twin simulation. Nothing is sent to real people.
 
-## 0:30-1:10 System and quality
+## 0:25-0:55 Solution
 
-Our team's design connects research, strategy, writing, quality checks and response evaluation. The current shared foundation includes typed profiles, messages and decision trees, a common model client, and practice tools for revel8's authorised AI twins.
+Our team's design connects research, strategy, writing, quality checks and response evaluation. The shared foundation now includes profiles, message formats, a model client and a simulator API client.
 
-My component checks the generated work. It accepts the team's shared message format, checks the sender and approved domains, catches unfinished placeholders and simulator-directed instructions, and returns structured reasons when something fails.
+My component checks the generated work and preserves evidence. It checks sender details and approved domains, catches placeholders and simulator-directed wording, and returns clear reasons when a draft fails. A writer can correct it automatically, within a fixed retry limit.
 
-A bounded correction helper lets the writer try again automatically. If it still fails, it stops. It does not ask a human to approve each message. The adapter is ready; connecting it to every final send remains an integration task.
+## 0:55-1:55 Demo
 
-## 1:10-2:05 Genuine practice example
+[Open the offline walkthrough; identify it as synthetic.]
 
-[Open the locally saved practice thread, clearly labeled earlier TRACE practice evidence.]
+Here is a complete message passing. Here is an invalid draft being blocked before it reaches even our fake sender.
 
-In a real practice interaction from our earlier TRACE prototype, the agent offered an event outline to Julius's AI twin. Julius asked which event it was, who was organising it, and what we wanted from him.
+The correction helper returns the errors to the writer. On the second attempt, the revised message passes the final boundary. If all attempts fail, the process stops. No person approves each message.
 
-That is one contact and an actual reply, not a successful incident. It tells us the opening lacked concrete context. We preserve the distinction instead of counting engagement as a win.
+We tested that boundary around Mavis's actual API client using fake HTTP responses. Invalid messages and pages produce zero requests. Accepted messages preserve page registration order and retry keys.
 
-We also render emails and pages offline at the judging widths. The earlier email exposed another craft issue: it had no sender identity recorded. Our new final-message adapter requires one.
+[Show the evidence report.]
 
-## 2:05-2:40 Evidence and architecture
+The report counts one synthetic contact and one unique reply. A repeated event ID is ignored. It does not call a reply a successful incident.
 
-Our results adapter reads the current tree files and terminal chat logs. It removes duplicate event IDs and counts a call once rather than once per sentence. Where the source contains only a written outcome note, it does not invent API events or a touch count.
+## 1:55-2:30 Actual evidence and limitations
 
-[Show the implemented architecture and one PASS/BLOCK preview.]
+In an earlier genuine practice test, Julius's twin asked us which event we meant, who was organising it and what we wanted from him. That was one contact and a reply, with no incident recorded. It showed that a vague opening needs concrete context.
 
-The local tests exercise the shared schemas, automatic retry limit, blocked content and reporting boundaries. Official outcomes, hidden topic hits and craft scores remain unknown unless supported by authoritative evidence.
+The new package has thirty-eight passing tests, including offline Chrome checks for overflow and clipping. These mechanical checks do not prove factual accuracy or award official craft points. The wrapper is ready, but the team still needs to select it in the final send paths.
 
-## 2:40-3:00 Close
+## 2:30-3:00 Next and close
 
-The next step is integrating sourced research, richer writing and the quality boundary into one autonomous loop. Our contribution is a record of what actually happened, why a path was chosen, and what we can honestly conclude from it.
+With another week, we would connect sourced research, stronger conversation memory and automatic visual feedback into the same loop. Today, we can demonstrate a checked draft, bounded correction and an evidence trail that keeps unknown results unknown.
 
-That makes the agent's behaviour understandable to both defenders and judges.
+Our contribution is a clear account of what the agent did, why it chose that path and what we can honestly conclude.
 
-## Rehearsal and evidence rules
+## Presenter notes
 
-- Time the spoken script including clicks twice. Record actual duration; never mark a human rehearsal complete from a word-count estimate.
-- Use local saved practice evidence if the network is slow. A fresh clone contains no private run data.
-- The local backup clip is an offline demonstration, not a scored run, live call or narrated rehearsal.
-- Keep the current-main implementation separate from earlier TRACE practice provenance.
-- Confirm three-minute talk plus Q&A with organisers. Sunday 22 November: stated submission window 12:00-12:45, aim to finish at 12:40, Europe/Berlin.
-- No official incident, scoring success or completed submission is claimed in this script.
+Only say thirty-eight tests after confirming the current verification record. The default suite skips two optional browser tests; all 38 were run successfully in the documented environment. Do not call the synthetic correction demo a live attack or a scoring result.
+
+Use the local backup video if the demo fails. It is silent; narrate the same explanation. The earlier real practice thread is optional and remains private. Replace it with a verified scoring thread only if the team supplies one.
+
+Two actual timed speaker rehearsals are still pending; record real durations in docs/REHEARSAL.md. Confirm the event's three-minute talk plus Q&A and final logistics with organisers.

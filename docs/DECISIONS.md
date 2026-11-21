@@ -9,3 +9,10 @@ Recorded on 21 November 2026 during this implementation, not a reconstructed fir
 - We chose unique message/conversation IDs over line counts because one call can have ten turns but costs one touch. Local log counts are not assumed to be session totals.
 - We chose separate exact-host sender/link approvals with organisation blocks over guessing domain availability. Configuration requires team review.
 - We chose local offline evidence over publishing thread contents. Synthetic fixtures, real practice and scoring are never merged into one claimed success metric.
+
+## API compatibility and acceptance iteration
+
+- We chose an opt-in GuardedClient around Mavis's implementation over editing her methods, so teammates can adopt one verified boundary without conflicting ownership. It validates a copied shared Message before either page registration or sending.
+- We chose real-client/fake-HTTP tests over a fresh practice send because they prove request ordering, retry-key preservation and zero calls on rejection reproducibly without spending touches.
+- We joined event message IDs to logged cumulative touches instead of inferring time from contact order. Missing call timing and conflicting evidence remain unknown.
+- We separated mechanical overflow/clipping flags from official craft scores: a passing layout check is not aesthetic approval. We added a repeatable synthetic demo rather than relabeling it as live evidence.

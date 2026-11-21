@@ -34,11 +34,24 @@ class Markup(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.links = []
+        self.anchors = []
+        self.anchor = None
 
     def handle_starttag(self, tag, attrs):
+        if tag.lower() == 'a':
+            self.anchor = [dict(attrs).get('href', ''), '']
         for name, value in attrs:
             if name.lower() in {'href', 'action', 'src', 'srcset', 'poster', 'data'} and value:
                 self.links.append(value)
+
+    def handle_data(self, data):
+        if self.anchor is not None:
+            self.anchor[1] += data
+
+    def handle_endtag(self, tag):
+        if tag.lower() == 'a' and self.anchor is not None:
+            self.anchors.append(self.anchor)
+            self.anchor = None
 
 
 def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
@@ -89,6 +102,23 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
     urls = re.findall(r'https?://[^\s<>\x22\x27)]+', unescape(text))
     markup = Markup()
     markup.feed(str(content))
+    for target, label in markup.anchors:
+        if not isinstance(target, str) or not target.strip() or target.strip() == '#':
+            report.errors.append('Link target missing or placeholder')
+            continue
+        label = normalized(label)
+        if re.fullmatch(r'(?:https?://)?[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?::\d+)?(?:[/?#]\S*)?', label):
+            try:
+                shown = urlsplit(label if '://' in label else 'https://' + label)
+                actual = urlsplit(target)
+                if (shown.hostname != actual.hostname or
+                    ('://' in label and shown.scheme != actual.scheme) or
+                    (shown.port is not None and shown.port != actual.port) or
+                    (shown.query and shown.query != actual.query) or
+                    (shown.path.rstrip('/') and shown.path.rstrip('/') != actual.path.rstrip('/'))):
+                    report.errors.append('Visible link address does not match destination')
+            except ValueError:
+                report.errors.append('Malformed visible link address')
     for link in markup.links:
         link = normalized(link)
         if link.startswith('#'):

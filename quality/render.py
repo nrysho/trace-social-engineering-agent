@@ -2,13 +2,27 @@
 
 python -m quality.cli render quality/samples/valid_message.json --context quality/samples/context.json --output output/quality/render
 """
-import argparse
 import hashlib
 from html import escape
 import json
 from pathlib import Path
 import re
 from .checks import check_artifact
+
+
+def layout_checks(page):
+    """Deterministic overflow/clipping signals, not an aesthetic or factual score."""
+    return page.locator('main').evaluate('''root => {
+      const clipped = [document.documentElement, document.body, root, ...root.querySelectorAll('*')].filter(el => {
+        const s = getComputedStyle(el), r = el.getBoundingClientRect();
+        if (!r.width || !r.height || s.visibility === 'hidden') return false;
+        return ((['hidden','clip'].includes(s.overflowX) && el.scrollWidth > el.clientWidth + 1) ||
+                (['hidden','clip'].includes(s.overflowY) && el.scrollHeight > el.clientHeight + 1));
+      }).map(el => el.tagName.toLowerCase());
+      return {horizontal_overflow: document.body.scrollWidth > innerWidth,
+              clipped_element_count: clipped.length, clipped_tags: clipped.slice(0,20),
+              excessive_height: document.documentElement.scrollHeight > 12000};
+    }''')
 
 
 def document(artifact):
@@ -56,6 +70,8 @@ def render_review(artifacts, output, *, approved_domains=(), browser_channel='ch
                 record = {'index': index, 'width_px': width, 'quality': report.to_dict(),
                           'sha256': hashlib.sha256(json.dumps(artifact, sort_keys=True).encode()).hexdigest()}
                 manifest['items'].append(record)
+                stale = output / f'item-{index:03d}.png'
+                stale.unlink(missing_ok=True)
                 if not report.passed:
                     record['render_status'] = 'blocked'
                     continue
@@ -66,10 +82,13 @@ def render_review(artifacts, output, *, approved_domains=(), browser_channel='ch
                     context.route('**/*', lambda route: route.abort())
                     page = context.new_page()
                     page.set_content(document(artifact), wait_until='load')
-                    record['horizontal_overflow'] = page.locator('body').evaluate(
-                        '(el) => el.scrollWidth > window.innerWidth')
+                    record['layout'] = layout_checks(page)
+                    record['horizontal_overflow'] = record['layout']['horizontal_overflow']
+                    record['visual_checks_passed'] = not (record['horizontal_overflow'] or
+                        record['layout']['clipped_element_count'] or record['layout']['excessive_height'])
                     record['screenshot'] = f'item-{index:03d}.png'
-                    page.screenshot(path=str(output / record['screenshot']), full_page=True, animations='disabled')
+                    page.screenshot(path=str(output / record['screenshot']),
+                                    full_page=not record['layout']['excessive_height'], animations='disabled')
                     record['render_status'] = 'saved'
                 finally:
                     context.close()

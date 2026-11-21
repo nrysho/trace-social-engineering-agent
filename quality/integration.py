@@ -55,6 +55,10 @@ def inspect_artifact(artifact, context, *, sender=None):
             report.errors.append('Sender name and address required')
         else:
             address = sender['address']
+            if artifact.get('channel', 'email') == 'email':
+                tail = re.sub(r'<[^>]*>', '', normalized(artifact.get('body', '')))[-240:].lower()
+                if normalized(sender['name']).lower() not in tail:
+                    report.warnings.append('Sender name not found near end of email; inspect signature')
             # Check sender wording as well as body; domain approval is separate.
             report.errors.extend(check_artifact({'kind': 'turn', 'say': sender['name'] + ' ' + address}).errors)
             if '@' in address:

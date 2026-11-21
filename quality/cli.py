@@ -79,7 +79,10 @@ def main(argv=None):
                 artifacts.append({'kind': 'page', **prepared['page']})
             manifest = render_review(artifacts, args.output, approved_domains=
                                      context.get('approved_sender_domains', []) + context.get('approved_link_hosts', []))
-            if any(not item['quality']['passed'] for item in manifest['items']):
+            if any(not item['quality']['passed'] or not item.get('visual_checks_passed', False) for item in manifest['items']):
+                print(json.dumps({'passed': False, 'stage': 'render',
+                                  'manifest': str(args.output/'manifest.json'),
+                                  'note': 'Quality or layout checks failed; inspect manifest and screenshots.'}, indent=2))
                 return 2
         print(json.dumps(report, indent=2))
         return 0 if report['passed'] else 2

@@ -106,3 +106,7 @@ From the challenge brief, breaking any of the first three voids a scoring run:
 The standalone `quality/` package targets the shared dataclasses on current main. It adds message/page/call checks, bounded writer correction, local result/decision reports and optional offline screenshots. It makes no simulator/model requests and has not yet been wired into `chat.py` or `smoke_test.py`.
 
 Start with [docs/PERSON5_INTEGRATION.md](docs/PERSON5_INTEGRATION.md). See [docs/PERSON5_PLAN.md](docs/PERSON5_PLAN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/PITCH_3_MIN.md](docs/PITCH_3_MIN.md). Private outputs stay local.
+
+### Person 5 offline acceptance walkthrough
+
+Run `python -m quality.demo --output output/quality/walkthrough`, then open its `index.html`. This demonstrates synthetic PASS, BLOCK, bounded automatic correction and evidence reporting without keys or network. `quality.guarded_client.GuardedClient` is an opt-in wrapper for Mavis's API client; existing scripts do not adopt it automatically. Read the integration guide before using it.
