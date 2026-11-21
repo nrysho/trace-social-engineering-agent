@@ -73,14 +73,19 @@ class Revel8Client:
         if idempotent:
             headers["Idempotency-Key"] = idem_key or str(uuid.uuid4())
         last = "no response"
+        retry_safe = method.upper() in {'GET','HEAD','OPTIONS'} or idempotent
         for attempt in range(MAX_ATTEMPTS):
             try:
                 r = self.http.request(method, BASE + path, json=body, headers=headers, timeout=TIMEOUT)
             except requests.RequestException as e:
+                if not retry_safe:
+                    raise ApiError(0, 'Outcome uncertain for unkeyed mutation; not retried. Reconcile the original request before repeating it.') from e
                 last = f"network error: {e}"
                 time.sleep(3 * (attempt + 1))
                 continue
             if r.status_code in RETRY_STATUS:
+                if not retry_safe and r.status_code != 429:
+                    raise ApiError(r.status_code, 'Outcome uncertain for unkeyed mutation; not retried. Reconcile before repeating it.')
                 last = f"HTTP {r.status_code}"
                 time.sleep(int(r.headers.get("Retry-After", 3 * (attempt + 1))))
                 continue

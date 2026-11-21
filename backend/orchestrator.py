@@ -436,6 +436,7 @@ class Orchestrator:
                 result = self.client.send_message(msg, sent_at=sent_at)
                 if not isinstance(result.get('message_id'), str) or not result['message_id'] or not isinstance(result.get('events'), list):
                     raise ValueError('No valid send acknowledgement; reconcile original request')
+                self._check_contact_touches(result)
             except QualityBlocked as exc:
                 self.qa_by_node[contact.id] = exc.report.to_dict()
                 contact.level, contact.status, contact.outcome = 'attempt', 'failed', 'QA blocked before send; no contact'
@@ -507,6 +508,7 @@ class Orchestrator:
         try:
             conv = self.client.start_conversation(sid, self.target_id, approach["channel"],
                                                   sender=sender, sent_at=sent_at, idem_key=str(uuid.uuid4()))
+            self._check_contact_touches(conv)
         except Exception as e:
             contact.level = "attempt"
             if isinstance(e, QualityBlocked):
@@ -524,6 +526,17 @@ class Orchestrator:
         heard = conv.get("persona_says", "")
         print(f"     [call {approach['channel']}] persona: {heard[:60]}")
         transcript = [{"role": "them", "text": heard}] if heard else []
+        # Persist the acknowledged contact before any further model/API work.
+        # A later turn failure must not erase an already spent call touch.
+        call_record = {
+            'session_id':sid, 'channel':approach['channel'], 'to':self.target_id,
+            'conversation_id':cid, 'touches_used':conv['touches_used'],
+            'sender':sender, 'subject':'', 'node_id':contact.id,
+            'qa':self.qa_by_node.get(contact.id),
+            'body':'\n'.join(f"{t['role']}: {t['text']}" for t in transcript),
+        }
+        self.messages.append(call_record)
+        self._save_tree()
         incident_type = incident_reason = None
         max_turns = 10
         for turn in range(1, max_turns + 1):
@@ -558,6 +571,8 @@ class Orchestrator:
             self.events.setdefault(contact.id, []).extend(events)
             transcript.append({"role": "us", "text": line})
             transcript.append({"role": "them", "text": heard})
+            call_record['body'] = '\n'.join(f"{t['role']}: {t['text']}" for t in transcript)
+            self._save_tree()
             print(f"     you: {line[:48]} | persona: {heard[:48]}")
             incident_type, incident_reason = classify_incident(events)
             if not incident_type and heard:            # the persona may disclose internal info on the call
@@ -574,16 +589,15 @@ class Orchestrator:
         self.add_node("reaction", "evaluator", f"call {state}",
                       incident_reason or "call ended", contact.id, status=state,
                       incident_chance=1.0 if incident_type else 0.0)
-        self.messages.append({
-            "session_id": sid, "channel": approach["channel"], "to": self.target_id,
-            "conversation_id": cid, "touches_used": conv.get('touches_used'),
-            "sender": sender, "subject": "", "node_id": contact.id, "qa": self.qa_by_node.get(contact.id),
-            "body": "\n".join(f"{t['role']}: {t['text']}" for t in transcript),
-        })
         self._save_tree()
         if incident_type:
             print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
         return bool(incident_type)
+
+    def _check_contact_touches(self, response):
+        used = response.get('touches_used')
+        if type(used) is not int or used <= self.budget.used:
+            raise ValueError('Missing or non-increasing API touch count; delivery may have occurred, reconcile before another send')
 
     def _draft(self, approach, sid, node_id, history, include_link, feedback=None):
         """build the next message: a persuasive, adaptive body from the model writer, with

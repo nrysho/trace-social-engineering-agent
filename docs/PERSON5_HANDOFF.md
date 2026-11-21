@@ -34,7 +34,7 @@ $env:PERSON5_BROWSER_TESTS='1'
 py -m unittest discover -s tests -v
 ```
 
-Verified: 200 tests pass with browser checks enabled, zero skips. These include
+Verified: 208 tests pass with browser checks enabled, zero skips. These include
 actual loopback HTTP against Neryss's bench, with a deterministic fake persona
 engine and external HTTP prohibited. No real revel8 session, scoring contact
 or external model request was made by that regression suite. Tests use fictional

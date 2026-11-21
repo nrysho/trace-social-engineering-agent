@@ -2,7 +2,7 @@
 
 Integration checked on 22 November 2026 on **theja-person5**, incorporating main
 **cb9b2e8**, including the latest writer/strategy update. The final combined
-regression suite has 200 passing tests with browser checks enabled and no skips.
+regression suite has 208 passing tests with browser checks enabled and no skips.
 
 ## Implemented and locally checked
 
@@ -178,3 +178,32 @@ email. The API returned a message ID, one touch and no events: no reply and no
 incident. The two earlier blocked attempts spent zero touches. All private run
 and profile evidence remains ignored. The final regression suite passes 200
 tests with Chrome enabled and no skips. No eval contacts were used.
+
+## Run-integrity audit
+
+The audited code passes 208 tests with Chrome enabled and no skips. The final
+suite was also run with external Python HTTP prohibited; no external HTTP
+attempts were observed. The Node routes use fake upstream responses and browser
+requests are intercepted. No official session, contact or eval run was created
+for this audit.
+
+Additional failure-injection tests now cover:
+
+- Missing, boolean, string or non-increasing contact touch counts stop the
+  orchestrator; it does not assume the previous budget value and keep sending.
+- A count advancing beyond the local cap exhausts the local budget immediately.
+- A timeout propagates out of a branch instead of pivoting to another send.
+- An acknowledged call is saved before turn generation, and its replay record
+  updates after each successful turn. A later turn timeout retains the call
+  receipt, original spent touch and already observed transcript exactly once.
+- The raw client does not automatically repeat unkeyed mutations (including
+  session creation) on network errors or 502/503/504. Their acceptance may be
+  unknown; reconcile the original operation before repeating it. Explicit 429
+  rejection remains retryable. GET and keyed contact retries retain their usual
+  bounded retry policy; keyed retries preserve both key and payload.
+
+These changes avoid losing evidence or silently spending another session after
+an ambiguous response. They do not provide full automatic used-session recovery;
+that existing reconciliation requirement remains in place. A malformed contact
+receipt can mean delivery occurred: it must not be interpreted as confirmed
+silence or a safe invitation to resend under a new key.
