@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from .integration import prepare_message, prepare_page, checked_turn, QualityBlocked
 from .results import summarize_run, decision_records, report_html
+from .presentation import issue_sections
 
 
 def load(path):
@@ -26,7 +27,7 @@ def preview(message, report):
             'HTML source is escaped here; use render for craft screenshots.</p><h2>Sender</h2><pre>' +
             escape(json.dumps(sender, indent=2)) + '</pre><h2>Subject</h2><p>' +
             escape(str(message.get('subject', ''))) + '</p><h2>Body</h2><pre>' +
-            escape(str(message.get('body', ''))) + '</pre><h2>Quality report</h2><pre>' +
+            escape(str(message.get('body', ''))) + '</pre>' + issue_sections(report) + '<h2>Machine-readable report</h2><pre>' +
             escape(json.dumps(report, indent=2)) + '</pre></html>')
 
 

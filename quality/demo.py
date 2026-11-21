@@ -10,6 +10,7 @@ from .cli import preview
 from .guarded_client import GuardedClient
 from .integration import prepare_message, prepare_page, checked_turn, generate_checked, QualityBlocked
 from .results import summarize_run, report_html
+from .presentation import revision_preview
 
 SAMPLES = Path(__file__).with_name('samples')
 
@@ -85,9 +86,8 @@ def build_demo(output):
         (output/(name+'.json')).write_text(json.dumps(value, indent=2), encoding='utf-8')
     (output/'pass.html').write_text(preview(valid, valid_report), encoding='utf-8')
     (output/'block.html').write_text(preview(invalid, blocked_report), encoding='utf-8')
-    corrected_preview = preview(final_message, corrected['report']).replace(
-        '<h1>Local QA: PASS</h1>', '<h1>Automatic correction: attempt 2 passed</h1>'
-        '<p>Attempt 1 was blocked. The fake writer received the errors and returned this corrected draft.</p>')
+    corrected_preview = revision_preview(invalid, final_message, blocked_report, corrected['report'],
+                                         attempts=len(retry_audits))
     (output/'corrected.html').write_text(corrected_preview, encoding='utf-8')
     (output/'report.html').write_text(report_html(summary, []), encoding='utf-8')
     (output/'index.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8">
@@ -126,7 +126,13 @@ def capture(output, valid, context, *, video=False):
                 page.set_content((output/(name+'.html')).read_text(encoding='utf-8'))
                 page.screenshot(path=str(output/(name+'.png')), full_page=True)
                 if video:
-                    page.wait_for_timeout(4000)
+                    if name in {'block', 'corrected'}:
+                        page.wait_for_timeout(1800)
+                        heading = 'Accepted revision' if name == 'corrected' else 'What needs fixing'
+                        page.get_by_role('heading', name=heading, exact=True).scroll_into_view_if_needed()
+                        page.wait_for_timeout(2200)
+                    else:
+                        page.wait_for_timeout(4000)
             ctx.close()
             if clip:
                 clip.save_as(str(output/'person5-offline-walkthrough.webm'))

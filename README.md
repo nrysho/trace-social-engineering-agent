@@ -110,3 +110,7 @@ Start with [docs/PERSON5_INTEGRATION.md](docs/PERSON5_INTEGRATION.md). See [docs
 ### Person 5 offline acceptance walkthrough
 
 Run `python -m quality.demo --output output/quality/walkthrough`, then open its `index.html`. This demonstrates synthetic PASS, BLOCK, bounded automatic correction and evidence reporting without keys or network. `quality.guarded_client.GuardedClient` is an opt-in wrapper for Mavis's API client; existing scripts do not adopt it automatically. Read the integration guide before using it.
+
+## Teammate acceptance command
+
+Run `python -m quality.acceptance --output output/quality/acceptance` (requests must be installed for client tests). Add `--browser` with Playwright and Chrome to include the optional visual tests. The current full suite has 53 passing tests. Read [TEAMMATE_ACCEPTANCE.md](docs/TEAMMATE_ACCEPTANCE.md) for commands, expected outcomes, role-specific checks and troubleshooting.

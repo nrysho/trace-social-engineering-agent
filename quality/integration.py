@@ -24,7 +24,7 @@ def plain(value):
         return asdict(value)
     if isinstance(value, dict):
         return deepcopy(value)
-    raise ValueError('Expected a dataclass instance or object')
+    raise QualityBlocked(QualityReport(errors=['Expected a shared dataclass instance or JSON object']))
 
 
 def validate_context(context):
@@ -45,7 +45,7 @@ def inspect_artifact(artifact, context, *, sender=None):
     text = normalized(' '.join(str(artifact.get(k, '')) for k in ('body', 'html', 'text', 'url', 'say')))
     markup = Markup()
     markup.feed(text)
-    for url in re.findall(r'https?://[^\s<>\x22\x27)]+', text) + markup.links:
+    for url in re.findall(r'https?://[^\s<>\x22\x27)]+', text, re.I) + markup.links:
         try:
             hosts.append((urlsplit(url).hostname or '').lower().rstrip('.'))
         except ValueError:
@@ -85,6 +85,8 @@ def prepare_page(page, context):
         report.errors.append('Unknown landing-page fields')
     if not isinstance(data.get('fields', []), list) or any(not isinstance(f, str) for f in data.get('fields', [])):
         report.errors.append('Page field names must be a list of strings')
+    elif len(data.get('fields', [])) > 20 or any(not f.strip() for f in data.get('fields', [])):
+        report.errors.append('Use at most 20 nonempty page field names')
     return data, report
 
 
@@ -101,7 +103,7 @@ def prepare_message(message, context):
     report = inspect_artifact(artifact, context, sender=sender or {})
     if data.get('to') not in context.get('authorized_targets', []):
         report.errors.append('Unauthorized simulator target')
-    if data.get('channel') not in MESSAGE_CHANNELS:
+    if not isinstance(data.get('channel'), str) or data.get('channel') not in MESSAGE_CHANNELS:
         report.errors.append('Unsupported message channel; use call-turn adapter for live conversations')
     if not isinstance(data.get('session_id'), str) or not data['session_id'].strip():
         report.errors.append('Session ID required')
@@ -114,9 +116,12 @@ def prepare_message(message, context):
         report.errors.append('Ambiguous sender fields; use shared sender or API from, not both')
     page = None
     if data.get('landing_page'):
-        page, page_report = prepare_page(data['landing_page'], context)
-        report.errors.extend('Page: ' + e for e in page_report.errors)
-        report.warnings.extend('Page: ' + w for w in page_report.warnings)
+        try:
+            page, page_report = prepare_page(data['landing_page'], context)
+            report.errors.extend('Page: ' + e for e in page_report.errors)
+            report.warnings.extend('Page: ' + w for w in page_report.warnings)
+        except QualityBlocked as exc:
+            report.errors.extend('Page: ' + e for e in exc.report.errors)
     report.errors = list(dict.fromkeys(report.errors))
     return {'session_id': data.get('session_id'), 'idempotency_key': data.get('idempotency_key'),
             'node_id': data.get('node_id'), 'payload': payload, 'page': page, 'report': report.to_dict()}
@@ -133,6 +138,8 @@ def checked_turn(turn, context):
     data = plain(turn)
     report = inspect_artifact({'kind': 'turn', 'say': data.get('say'),
                                'attachments': data.get('attachments', [])}, context)
+    if isinstance(data.get('say'), str) and len(data['say']) > 4000:
+        report.errors.append('Call turn exceeds 4000 characters')
     if set(data) - {'say', 'attachments'}:
         report.errors.append('Unknown call-turn fields')
     if not report.passed:

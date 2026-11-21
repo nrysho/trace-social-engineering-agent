@@ -53,6 +53,12 @@ class Markup(HTMLParser):
             self.anchors.append(self.anchor)
             self.anchor = None
 
+    def close(self):
+        super().close()
+        if self.anchor is not None:
+            self.anchors.append(self.anchor)
+            self.anchor = None
+
 
 def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
     """Accept kind=message/page/turn, body/html/text/say, subject, from, url.
@@ -65,11 +71,16 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
     if not isinstance(artifact, dict):
         report.errors.append('Artifact must be an object')
         return report
-    for key in ('subject', 'title', 'html', 'body', 'text', 'say', 'url'):
+    for key in ('kind', 'channel', 'subject', 'title', 'html', 'body', 'text', 'say', 'url'):
         if key in artifact and not isinstance(artifact[key], str):
             report.errors.append(f'{key} must be text')
     if report.errors:
         return report
+    if sum(len(artifact.get(key, '').encode('utf-8')) for key in ('subject', 'title', 'html', 'body', 'text', 'say')) > 2 * 1024 * 1024:
+        report.errors.append('Content exceeds 2 MB input limit')
+        return report
+    if any(c in artifact.get('subject', '') for c in '\r\n'):
+        report.errors.append('Email subject must be a single line')
     kind = artifact.get('kind', 'message')
     if kind not in {'message', 'page', 'turn'}:
         report.errors.append('Unsupported artifact kind')
@@ -82,14 +93,16 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
     visible = re.sub(r'<[^>]*>', '', text)
     directives = [r'\bignore\b.{0,50}\b(instructions|rules|prompt)\b',
                   r'\byou (?:are|are acting as) (?:an? )?(?:ai|llm|language model|chatbot)\b',
-                  r'\b(system prompt|developer message|as an ai|simulation override)\b',
+                  r'\b(system prompt|developer message|simulation override)\b',
+                  r'\bas an ai(?:\s*[,;:]|\s+(?:you|assistant|model|must|should)\b)',
                   r'\b(?:reveal|print|show)\b.{0,30}\b(?:hidden prompt|system instructions)\b',
                   r'\[(?:system|assistant|simulator|persona notes)\]',
                   r'<\|(?:im_start|system|assistant)\|>',
                   r'\b(?:override|disregard)\b.{0,40}\b(?:instructions|rules|prompt)\b']
     if any(re.search(p, candidate, re.I) for p in directives for candidate in (text, visible)):
         report.errors.append('AI-directed or simulator-like wording')
-    if re.search(r'\b(?:TODO|TBD|lorem ipsum|YOUR_KEY|YOUR_NAME|INSERT_HERE)\b|\{\{[^}]+\}\}|\[(?:name|company|date|link|insert[^\]]*)\]', visible, re.I):
+    if (re.search(r'\b(?:TODO|TBD|lorem ipsum|YOUR_KEY|YOUR_NAME|INSERT_HERE)\b|\{\{[^}]+\}\}|\[(?:name|company|date|link|insert[^\]]*)\]', visible, re.I)
+            or re.search(r'<(?:name|first_name|company|date|link)>', text, re.I)):
         report.errors.append('Unresolved placeholder text')
     if re.search(r'<\s*(?:script|iframe|object|embed|base)\b|\bon\w+\s*=|javascript\s*:|@import|url\s*\(', text, re.I):
         report.errors.append('Active or externally loaded HTML content')
@@ -99,9 +112,10 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
         report.errors.append('Possible credential in content; remove before sending')
 
     allowed = {str(d).lower().rstrip('.') for d in approved_domains}
-    urls = re.findall(r'https?://[^\s<>\x22\x27)]+', unescape(text))
+    urls = re.findall(r'https?://[^\s<>\x22\x27)]+', unescape(text), re.I)
     markup = Markup()
     markup.feed(str(content))
+    markup.close()
     for target, label in markup.anchors:
         if not isinstance(target, str) or not target.strip() or target.strip() == '#':
             report.errors.append('Link target missing or placeholder')
@@ -153,7 +167,7 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
         report.errors.append('Sender or link domain is not explicitly approved')
     # Reject non-http hyperlinks, including protocol-relative and file URLs.
     for href in re.findall(r'\bhref\s*=\s*[\x22\x27]([^\x22\x27]+)', text, re.I):
-        if not href.startswith(('https://', 'http://', '#')):
+        if not href.lower().startswith(('https://', 'http://', '#')):
             report.errors.append('Unsupported hyperlink scheme')
     if kind == 'page' and not artifact.get('url'):
         report.errors.append('Page URL missing')
@@ -161,6 +175,8 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
     if not isinstance(attachments, list):
         report.errors.append('Attachments must be a list')
     else:
+        if len(attachments) > 10:
+            report.errors.append('At most 10 attachments are supported per message')
         for item in attachments:
             filename = item.get('filename') if isinstance(item, dict) else item
             if not isinstance(filename, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._ -]{0,79}', filename):

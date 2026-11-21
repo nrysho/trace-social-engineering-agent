@@ -105,3 +105,7 @@ python -m unittest discover -s tests -v
 ```
 
 Without that variable, two optional Chrome tests skip. With Chrome/Playwright installed and enabled, the full 38-test suite includes real overflow/clipping detection and stale-screenshot cleanup. Visual flags identify horizontal overflow, clipped containers and excessive page height; they do not establish visual perfection or factual correctness. A render command exits nonzero on these defects.
+
+## Teammate acceptance update
+
+Use `python -m quality.acceptance --output output/quality/acceptance` for a single local acceptance run; add --browser for Chrome checks. See TEAMMATE_ACCEPTANCE.md. The current full suite has 53 passing tests; the default run skips two browser tests. New edge cases cover multilingual text, long valid mail, header newlines, malformed types, uppercase links and credential-free human-readable correction reports. Reports now show Not recorded for missing metrics.

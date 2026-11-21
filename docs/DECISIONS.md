@@ -16,3 +16,9 @@ Recorded on 21 November 2026 during this implementation, not a reconstructed fir
 - We chose real-client/fake-HTTP tests over a fresh practice send because they prove request ordering, retry-key preservation and zero calls on rejection reproducibly without spending touches.
 - We joined event message IDs to logged cumulative touches instead of inferring time from contact order. Missing call timing and conflicting evidence remain unknown.
 - We separated mechanical overflow/clipping flags from official craft scores: a passing layout check is not aesthetic approval. We added a repeatable synthetic demo rather than relabeling it as live evidence.
+
+## Teammate acceptance and false-positive iteration
+
+- We chose a one-command acceptance runner with saved machine-readable results over requiring teammates to interpret scattered commands. Requested browser checks cannot silently skip and still pass acceptance.
+- We narrowed the as-an-AI rule to model-directed contexts and accepted case-insensitive HTTPS because legitimate AI-related work descriptions and valid URL schemes should not be blocked unnecessarily. Regression tests retain actual prohibited directives.
+- We chose structured rejection for malformed shared payloads and readable repair guidance over exposing a traceback or requiring users to inspect raw JSON first. Raw reports remain available for integration.

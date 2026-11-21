@@ -185,18 +185,37 @@ def report_html(summary, decisions):
     """Escaped offline report for a human reviewer; no scripts or external resources."""
     rows = ''.join(f'<li>{escape(k)}: {v}</li>' for k, v in summary['event_counts'].items())
     notes = ''.join(f'<li>{escape(w)}</li>' for w in summary['warnings'])
-    records = ''.join('<section><h3>' + escape(str(d['title'] or 'Untitled decision')) + '</h3><p>Status: ' +
-                      escape(str(d['status'])) + '</p><p>Recorded reason: ' +
-                      escape(str(d['recorded_reason'] or 'Not recorded')) + '</p><pre>' +
-                      escape(json.dumps(d['recorded_alternatives'], indent=2)) + '</pre></section>' for d in decisions)
+    records = ''
+    for decision in decisions:
+        records += '<section><h3>' + escape(str(decision.get('title') or 'Untitled decision')) + '</h3><p><b>Recorded status:</b> ' + escape(str(decision.get('status') or 'Not recorded')) + '</p>'
+        records += '<p><b>Recorded reason:</b> ' + escape(str(decision.get('recorded_reason') or 'Not recorded')) + '</p>'
+        alternatives = decision.get('recorded_alternatives') or []
+        if alternatives:
+            records += '<h4>Recorded alternatives</h4><ul>'
+            for alt in alternatives:
+                if isinstance(alt, dict):
+                    records += '<li><b>' + escape(str(alt.get('option', alt.get('title', 'Unnamed alternative')))) + '</b>: ' + escape(str(alt.get('reason') or 'Reason not recorded')) + '</li>'
+                else:
+                    records += '<li>' + escape(str(alt)) + '</li>'
+            records += '</ul>'
+        if decision.get('evidence_refs'):
+            records += '<p><b>Recorded evidence references:</b> ' + escape('; '.join(map(str, decision['evidence_refs']))) + '</p>'
+        if decision.get('recorded_outcome_note'):
+            records += '<p><b>Outcome note (not a structured API event):</b> ' + escape(str(decision['recorded_outcome_note'])) + '</p>'
+        records += '</section>'
+    contact_label = 'Not recorded' if summary['reported_contacts'] is None else str(summary['reported_contacts'])
+    first = summary.get('first_observed_signal')
+    signal_html = ''
+    if first:
+        signal_html = '<p><b>Observed signal:</b> ' + escape(str(first['type'])) + ' (not an official confirmed incident)</p><p>Recorded cumulative touches at signal: ' + escape(str(first['touches_used']) if first['touches_used'] is not None else 'Not recorded') + '</p>'
     return ('<!doctype html><html lang="en"><meta charset="utf-8">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">'
             '<title>TRACE evidence report</title><style>body{max-width:900px;margin:32px auto;padding:0 24px;'
             'font:16px/1.6 Arial;color:#182633}section{border-top:1px solid #ccd2d8}pre{white-space:pre-wrap;'
             'overflow-wrap:anywhere}</style><h1>TRACE evidence report</h1><p>Run: ' +
             escape(str(summary['run_id'])) + ' | Reported mode: ' + escape(str(summary['reported_mode'])) +
-            '</p><p>Reported contacts: ' + escape(str(summary['reported_contacts'])) +
+            '</p><p>Reported contacts: ' + escape(contact_label) +
             '</p><p>Duplicate event records ignored: ' + str(summary['duplicate_events_ignored']) +
             '</p><p>Official outcome and topic hits: not established</p><h2>Observed events</h2><ul>' + rows +
-            '</ul><h2>Provenance and limits</h2><ul>' + notes + '</ul>' +
+            '</ul>' + signal_html + '<h2>Provenance and limits</h2><ul>' + notes + '</ul>' +
             ('<h2>Recorded decisions</h2>' + records if decisions else '') + '</html>')

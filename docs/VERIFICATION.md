@@ -20,3 +20,11 @@ Run python -m quality.demo --output output/quality/walkthrough. Optional --scree
 The wrapper is opt-in and not automatically installed in team send paths. No new live API/model requests, real incidents or scoring results were generated. Images/local asset resolution, automatic aesthetic/factual critique and production orchestration remain outside this verified package. Exact-domain approval is configuration, not registration proof. First-signal timing follows recorded event order, not reconstructed hidden timing.
 
 Two actual timed speaker rehearsals and final submission remain human tasks; docs/REHEARSAL.md provides the worksheet. Generated silent video is not a rehearsal.
+
+## Teammate acceptance iteration
+
+Executed python -m quality.acceptance --browser: accepted=true, 53 tests, zero skips, suite exit 0, all fixture expectations matched, zero sends after BLOCK and two correction attempts. No live contacts. The default non-browser run has 51 passing tests and two skips.
+
+Added regression coverage for valid multilingual content, long valid emails, legitimate AI-related role descriptions, uppercase HTTPS, malformed field types, oversized content, subject newlines, unfinished angle placeholders, unclosed empty anchors and attachment limits. Correction pages now show the original rejected draft, suggested fixes and accepted revision; result pages display readable unknowns and alternatives.
+
+Human rehearsals remain unperformed. Acceptance does not install the wrapper in team scripts or establish real outcomes.
