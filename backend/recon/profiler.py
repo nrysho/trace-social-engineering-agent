@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 from backend import config
-from backend.recon import (queries, search, fetch, dns, linkedin, match,
+from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, match,
                            extract, verify, hooks, exposure, render, recency)
 from schemas import Profile
 
@@ -80,12 +80,13 @@ def build(name, company, role=""):
     print(f"  {len(facts)} extracted facts")
 
     # 4. structured collectors: company domain -> dns; a linkedin url -> the anchor
-    domain = _domain_from(company, results)
+    domain = domains.resolve(company, results)
     if domain:
         try:
-            facts += dns.facts(domain)
+            facts += dns.facts(domain)      # mail provider + spf vendors
+            facts += tech.facts(domain)     # txt tokens, m365 realm, website fingerprint
         except Exception as e:
-            print(f"  dns failed: {e}")
+            print(f"  dns/tech failed: {e}")
     li_url = _best_linkedin(results, name)
     if li_url and env.get("BRIGHTDATA_API_KEY"):
         try:
