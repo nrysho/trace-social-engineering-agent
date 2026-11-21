@@ -109,8 +109,33 @@ EVENTS = Aspect(
     system=EVENT_SYSTEM,
 )
 
+# --- fund: only when the target company is itself an investor -----------------
+FUND_SYSTEM = (
+    "You research ONE company and, ONLY IF it is itself an investor or venture fund, "
+    "extract its fund details, for an authorised research exercise. Return JSON only: "
+    "{\"facts\": [{\"value\": ..., \"source_url\": ..., \"date\": ..., \"confidence\": 0-1}]}. "
+    "If the company is an operating company and NOT an investor or fund, return "
+    "{\"facts\": []}. Otherwise extract: the fund name, the investment stage(s) it backs "
+    "(e.g. pre-seed, seed, Series A), the typical ticket or check size, and named portfolio "
+    "companies. One short fact each, e.g. 'Writes EUR 0.5-2M seed checks' or 'Portfolio "
+    "includes Personio and Trade Republic'. source_url MUST be copied exactly from a result. "
+    "date is YYYY when stated, else \"\". confidence (0-1) is how sure you are it is a real "
+    "detail of this fund."
+)
+FUND = Aspect(
+    category="network",
+    queries=[
+        '"{company}" portfolio companies',
+        '"{company}" fund OR "assets under management" OR AUM',
+        '"{company}" "check size" OR "ticket size" OR "we invest"',
+        '"{company}" seed OR "series a" OR "pre-seed" stage',
+    ],
+    seed_paths=("portfolio", "fund", "investments", "companies", "thesis"),
+    system=FUND_SYSTEM,
+)
+
 # every aspect the collector runs; a new kind of company fact is a new entry here
-ASPECTS = [RELATIONSHIPS, OPEN_ROLES, EVENTS]
+ASPECTS = [RELATIONSHIPS, OPEN_ROLES, EVENTS, FUND]
 
 
 def _search_all(queries, company):
