@@ -29,3 +29,9 @@ class StoryTests(unittest.TestCase):
         from quality.checks import check_artifact
         report=check_artifact({'kind':'message','channel':'sms','subject':'Unexpected','body':'Please reply. Could you confirm? '+('Text '*100)})
         self.assertTrue(report.passed);self.assertTrue(any('subject' in w for w in report.warnings));self.assertTrue(any('one clear ask' in w for w in report.warnings))
+
+    def test_formal_target_greeting_does_not_block_valid_email(self):
+        from test_quality_gate import context,message
+        from quality.integration import prepare_message
+        candidate=message();candidate['body']=candidate['body'].replace('Hi Mara,','Dear Dr Felsen,')
+        self.assertTrue(prepare_message(candidate,context())['report']['passed'])

@@ -193,7 +193,8 @@ def check_names(data, context, report):
     greeting = re.search(r'^\s*(?:hi|hello|dear|hallo)\s+([^,!:\n]+)[,!:]', text, re.I)
     def matches(actual, expected):
         actual, expected = normalized(actual).casefold(), normalized(expected).casefold()
-        return actual == expected or actual == expected.split()[0] if expected else False
+        actual = re.sub(r'^(?:(?:mr|mrs|ms|dr|prof|herr|frau)\.?\s+)+', '', actual)
+        return actual in {expected, expected.split()[0], expected.split()[-1]} if expected else False
     if greeting and target and greeting[1].strip().casefold() not in {'team','all','there','everyone'} and not matches(greeting[1], target):
         report.errors.append('Greeting names a different person than the target')
     signature = re.search(r'(?:^|\n)\s*(?:best(?: regards)?|regards|kind regards|sincerely|cheers|thanks)[,.!]?\s*\n([^\n]+)', text, re.I)
