@@ -309,6 +309,9 @@ function renderAutoMetrics(){
   const incidents=list.filter(isIncident).length,engaged=list.filter(e=>e.state==='engaged').length;
   host.innerHTML=`<div class="metric"><span>Contacts (this twin)</span><b>${list.length}</b></div><div class="metric"><span>Incidents</span><b>${incidents}</b></div><div class="metric"><span>Engaged</span><b>${engaged}</b></div><div class="metric"><span>Median contacts to incident</span><b>${medianContactsToIncident(list)}</b></div>`;
 }
+// TreeNode builder for the replay viewer (schemas.TreeNode shape).
+function node(run,nid,o){const n={id:o.id||nid(),run_id:run.run_id,level:o.level,agent:o.agent,decision:o.decision,reasoning:o.reasoning||'',parent_id:o.parent_id||null,rejected:o.rejected||[],incident_chance:o.incident_chance||0,expected_contacts:o.expected_contacts||0,evidence:o.evidence||[],status:o.status||'proposed',outcome:o.outcome||'',timestamp:new Date().toISOString()};run.nodes.push(n);return n;}
+function nextMoveLabel(st){return {incident:'Stop: incident reached',engaged:'Answer, then move toward the ask',suspicious:'Address the doubt once',declined:'Stop: recipient declined',silent:'No answer — switch channel and follow up'}[st]||'Continue';}
 // Next-move planner (mirror of strategy.plan_next_move): build trust, then ask.
 function planMove({turn,lastState,lastEvents,engagedCount,hasPage}){
   if(lastState==='declined'||lastState==='incident')return{stop:true};
@@ -320,11 +323,18 @@ function planMove({turn,lastState,lastEvents,engagedCount,hasPage}){
   return{intent:'answer_build',includeLink:false};
 }
 // One approach = one session, a multi-turn thread that persists toward an incident.
-async function converse({target,approach,tt,facts,maxTouches,persist,log}){
+async function converse({target,approach,tt,facts,maxTouches,persist,log,run,nid,targetNode,rejected}){
   const session=await api('/api/sessions',{method:'POST',body:{}});const sid=session.session_id;
   const senderUse=buildSender(approach.id);            // lookalike/invented sender from the target's brand
   const landing=buildLanding(approach.id);let link='',linkText='',hasPage=false;
   if(landing){try{await api(`/api/sessions/${encodeURIComponent(sid)}/pages`,{method:'POST',body:{url:landing.url,title:landing.title,text:landing.title,fields:landing.fields}});link=landing.url;linkText=landing.linkText;hasPage=true;}catch(pe){log(`   (page register failed: ${pe.message})`);}}
+  // tree: hook node -> approach node (with rejected alternatives)
+  let hookNode=null,approachNode=null,parentId=targetNode?targetNode.id:null;
+  if(run){
+    hookNode=node(run,nid,{level:'hook',agent:'profiler',decision:`Hook: ${approach.hook||approach.name}`,reasoning:approach.rationale||`Relevance ${(approach.relevance||0).toFixed(2)} from the target's facts`,parent_id:targetNode.id,incident_chance:approach.relevance||0,evidence:approach.evidence||[],status:'active'});
+    approachNode=node(run,nid,{level:'approach',agent:'strategist',decision:`${approach.name} via ${(approach.channels||['email'])[0].replace(/_/g,' ')} as ${senderUse.name} <${senderUse.address}>${landing?' + landing page':''} — goal: ${approach.goal||approach.incident_goal||'engagement'}`,reasoning:`Lookalike technique: ${senderUse.technique}${landing?'; page on '+landing.domain:''}. Score ${approach.score}/100.`,parent_id:hookNode.id,rejected:(rejected||[]).slice(0,4).map(r=>({option:`${r.name} (score ${r.score})`,reason:'lower-ranked approach for this target'})),incident_chance:(approach.score||0)/100,expected_contacts:2,evidence:approach.evidence||[],status:'active'});
+    parentId=approachNode.id;
+  }
   const channels=(approach.channels||['email']).filter(c=>CHANNELS.includes(c));if(!channels.length)channels.push('email');
   let chIdx=0;const transcript=[];let engagedCount=0,lastState='',lastEvents=[],turns=0,incident=false;
   const cap=persist?Math.max(1,maxTouches):1;
@@ -342,6 +352,14 @@ async function converse({target,approach,tt,facts,maxTouches,persist,log}){
     const events=(r.events||[]).map(e=>e.type);const reply=(r.events||[]).filter(e=>e.type==='reply').map(e=>e.body||'').join('\n');
     const cls=classifyReaction(events,reply);lastState=cls.state;lastEvents=events;if(cls.state==='engaged')engagedCount++;
     logExperiment({target,approach,channel,textType:tt,session:sid,messageId:r.message_id,touchesUsed:r.touches_used,events,reply,body:d.body,subject:d.subject,note:`${approach.name} · t${turn} · ${plan.intent}${includeLink?' +link':''}`,state:cls.state,followup:turn>1,sender:senderUse,intent:plan.intent});
+    // tree: contact node (the message) + its reaction node
+    if(run){
+      const contactNode=node(run,nid,{level:'contact',agent:'sender',decision:`${plan.intent} via ${channel.replace(/_/g,' ')}${d.subject?': '+d.subject:''}`,reasoning:`Turn ${turn}, ${senderUse.name}`,parent_id:parentId,status:cls.state==='incident'?'incident':cls.state,outcome:reply?reply.slice(0,140):(events.join(', ')||'no response')});
+      run.messages.push({session_id:sid,channel,to:target.id,sender:{name:senderUse.name,address:senderUse.address},subject:d.subject||'',body:d.body||'',landing_page:(includeLink&&landing)?{url:landing.url,title:landing.title,fields:landing.fields,html:'',text:landing.title}:null,attachments:[],idempotency_key:`${run.run_id}-${contactNode.id}`,node_id:contactNode.id});
+      run.events[contactNode.id]=r.events||[];
+      const reactionNode=node(run,nid,{level:'reaction',agent:'evaluator',decision:nextMoveLabel(cls.state),reasoning:`Observed: ${cls.state}${events.length?' ['+events.join(', ')+']':''}`,parent_id:contactNode.id,status:cls.state==='incident'?'incident':cls.state});
+      parentId=reactionNode.id;
+    }
     transcript.push({who:senderUse.name,text:d.body});if(reply)transcript.push({who:target.name,text:reply});
     log(`   t${turn} ${channel.replace(/_/g,' ')} · ${plan.intent}${includeLink?'+link':''} → ${cls.state}${events.length?' ['+events.join(',')+']':''}`);
     renderAutoMetrics();renderResults();
@@ -350,8 +368,10 @@ async function converse({target,approach,tt,facts,maxTouches,persist,log}){
     if(cls.state==='silent')chIdx=Math.min(chIdx+1,channels.length-1);   // no answer → switch channel next turn
     await new Promise(res=>setTimeout(res,1000));
   }
+  if(run&&approachNode){approachNode.status=incident?'incident':(lastState||'failed');approachNode.outcome=incident?`Incident after ${turns} touch(es)`:`Ended: ${lastState} after ${turns} touch(es)`;if(hookNode)hookNode.status=approachNode.status;}
   return {incident,lastState,turns};
 }
+function profileForViewer(target){const p=profile();return{name:target.name,role:target.role||'',company:(p.facts.find(f=>f.category==='company')||{}).value||'',domain:targetDomain(),facts:p.facts||[],hooks:(p.hooks&&p.hooks.length?p.hooks:inferHooks(p.facts||[])),exposure_score:0,generated_at:new Date().toISOString()};}
 async function runAutoPass(){
   if(!state.targets.length){flash('Load the practice targets first',true);return;}
   const target=selectedTarget();const count=Math.max(1,Math.min(10,Number($('autorun-count').value)||5));
@@ -363,13 +383,17 @@ async function runAutoPass(){
   const btn=$('autorun-btn');btn.disabled=true;btn.textContent='Running…';const facts=profile().facts||[];const senderInfo=sender();const logLines=[];
   const log=s=>{logLines.unshift(s);$('autorun-log').innerHTML=logLines.map(esc).join('<br>');};
   let done=0;const CONCURRENCY=4;let next=0;
+  // Build one replay-viewer run bundle for this pass (target -> hooks -> approaches -> contacts -> reactions).
+  const run={run_id:`run_${target.id}_${Date.now().toString(36)}`,mode:'practice',profile:profileForViewer(target),nodes:[],messages:[],events:{}};
+  let nseq=0;const nid=()=>`n${++nseq}`;
+  const targetNode=node(run,nid,{level:'target',agent:'orchestrator',decision:`Target ${target.name}`,reasoning:`${target.role||''} — ${picks.length} ranked approaches this pass`,status:'active'});
   // Run approaches concurrently (revel8 allows 6 parallel) so slow model drafts
   // overlap instead of queuing — each approach is its own session.
   async function worker(){
     while(next<picks.length){
       const a=picks[next++];log(`▶ ${a.name} …`);
       try{
-        const res=await converse({target,approach:a,tt,baseSender:senderInfo,facts,maxTouches,persist,log});
+        const res=await converse({target,approach:a,tt,facts,maxTouches,persist,log,run,nid,targetNode,rejected:picks.filter(p=>p.id!==a.id)});
         log(`   ✓ ${a.name}: ${res.incident?'★ INCIDENT':res.lastState} (${res.turns}t)`);
         done++;
       }catch(e){log(`   ✗ ${a.name}: ${e.message}`);}
@@ -378,6 +402,8 @@ async function runAutoPass(){
   }
   try{
     await Promise.all(Array.from({length:Math.min(CONCURRENCY,picks.length)},()=>worker()));
+    const anyInc=run.nodes.some(n=>n.status==='incident');targetNode.status=anyInc?'incident':'failed';targetNode.outcome=anyInc?'Reached an incident':'No incident this pass';
+    try{const sv=await api('/api/runs',{method:'POST',body:run});log(`✔ run saved: ${sv.path} — open the viewer (python viewer/serve.py 8770) to replay the tree`);}catch(e){log(`run save failed: ${e.message}`);}
   }finally{btn.disabled=false;btn.textContent='▶ Run autonomous pass';log(`Pass finished: ${done}/${picks.length} approaches.`);renderAll();flash(`Autonomous pass finished · ${done} approaches`);setView('results');}
 }
 async function sweepAll(){

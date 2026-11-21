@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { createReadStream, readFileSync, statSync } from 'node:fs';
+import { createReadStream, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -216,6 +216,16 @@ async function handleApi(req, res, url) {
     if (route === '/api/draft' && req.method === 'POST') {
       const input = await readBody(req);
       return json(res, 200, await sendModelDraft(input));
+    }
+    if (route === '/api/runs' && req.method === 'POST') {
+      // Save an autonomous pass as a viewer run bundle in runs/<run_id>.json.
+      const run = await readBody(req);
+      const id = String(run.run_id || '').replace(/[^a-zA-Z0-9_.-]/g, '');
+      if (!id) return json(res, 400, { error: 'run_id required' });
+      const dir = join(repoRoot, 'runs');
+      try { mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
+      writeFileSync(join(dir, `${id}.json`), JSON.stringify(run, null, 2), 'utf8');
+      return json(res, 201, { ok: true, run_id: id, path: `runs/${id}.json` });
     }
 
     let match = route.match(/^\/api\/sessions\/([^/]+)(?:\/(events|messages|pages|end))?$/);
