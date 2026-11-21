@@ -36,6 +36,12 @@ with patch.object(serve,'bundles',return_value=loaders):
             browser=p.chromium.launch(channel='chrome',headless=True)
             context=browser.new_context(viewport={'width':1440,'height':900},record_video_dir=str(out/'video'),record_video_size={'width':1440,'height':900})
             page=context.new_page()
+            page.add_init_script("""document.addEventListener('DOMContentLoaded',()=>{
+              const label=document.createElement('div');
+              label.textContent='SYNTHETIC LOCAL BENCH - deterministic fake persona responses; no official simulator calls';
+              label.style.cssText='position:fixed;right:20px;top:75px;max-width:460px;padding:12px;background:#664100;color:white;border:2px solid #e8b760;border-radius:8px;z-index:100000;font:600 15px/1.5 system-ui;pointer-events:none';
+              document.body.append(label);
+            })""")
             page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(f'http://127.0.0.1:{http.server_port}/') else route.abort())
             errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto(f'http://127.0.0.1:{http.server_port}/')

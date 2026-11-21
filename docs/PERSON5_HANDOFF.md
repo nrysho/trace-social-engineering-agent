@@ -1,6 +1,6 @@
 # Person 5: integration-first handoff
 
-Based on main f1169f3 and the supplied teammate brief. Use this small PR stack
+Based on main 1c68d1f and the supplied teammate brief. Use this small PR stack
 instead of merging the older full theja-person5-main package into main.
 
 ## Review order
@@ -31,7 +31,7 @@ $env:PERSON5_BROWSER_TESTS='1'
 py -m unittest discover -s tests -v
 ```
 
-Verified: 33 tests pass with browser checks enabled, zero skips. These include
+Verified: 37 tests pass with browser checks enabled, zero skips. These include
 actual loopback HTTP against Neryss's bench, with a deterministic fake persona
 engine and external HTTP prohibited. No real revel8 session, scoring contact
 or external model request was made. Tests use fictional people and .example domains.
@@ -87,3 +87,5 @@ See ARCHITECTURE.md, DECISIONS.md and PITCH_3_MIN.md. No human approval is added
 inside scoring runs. Active calls, uncertainty reconciliation and process-local
 story state still need the runner's resume policy; no crash-safe story guarantee
 or automatic model-performance improvement is claimed.
+
+Current PRs in order: #10, #13, #14, #15, #16. Refreshed after main merged recon and profile replay (1c68d1f). Event arrays are now keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact.

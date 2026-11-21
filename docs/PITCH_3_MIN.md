@@ -40,7 +40,7 @@ request. Do not invent a success result to fill this slot.
 
 [Insert Mavis's actual v1/v2/v3 results with version, source and denominator.]
 
-Our repeatable QA acceptance passed 33 tests, including the local bench and
+Our repeatable QA acceptance passed 37 tests, including the local bench and
 offline Chrome. Those tests demonstrate the integration boundary; they do not
 measure social-engineering effectiveness.
 
