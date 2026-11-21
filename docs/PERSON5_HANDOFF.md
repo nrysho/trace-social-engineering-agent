@@ -34,7 +34,7 @@ $env:PERSON5_BROWSER_TESTS='1'
 py -m unittest discover -s tests -v
 ```
 
-Verified: 185 tests pass with browser checks enabled, zero skips. These include
+Verified: 197 tests pass with browser checks enabled, zero skips. These include
 actual loopback HTTP against Neryss's bench, with a deterministic fake persona
 engine and external HTTP prohibited. No real revel8 session, scoring contact
 or external model request was made by that regression suite. Tests use fictional
@@ -97,3 +97,7 @@ story state together is not implemented; no crash-safe story guarantee or
 automatic model-performance improvement is claimed.
 
 Historical PRs #10, #13, #14, #15 and #16 are closed. The implementation incorporates main cb9b2e8. Event arrays are keyed by contact node, complete bundles take precedence over bare trees, and the existing Results/Progress implementation remains intact. Message/call replay records retain actual API receipt IDs and cumulative touches when returned.
+
+Current factual readiness policy and changed experiment denominator semantics
+are documented in PERSON5_RELEASE.md. Empty recon is now a hard pre-contact
+abort; source flags do not independently prove truth.

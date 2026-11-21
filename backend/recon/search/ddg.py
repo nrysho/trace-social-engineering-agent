@@ -36,6 +36,8 @@ def _real_url(href):
 def search(query, k=5, key=None):
     r = requests.get(ENDPOINT, params={"q": query}, headers=HEADERS, timeout=TIMEOUT)
     r.raise_for_status()
+    if r.status_code != 200 or any(marker in r.text.lower() for marker in ('challenge-form', 'anomaly.js', 'bots use duckduckgo')):
+        raise RuntimeError('DuckDuckGo returned a challenge/non-result response; configure TAVILY_API_KEY or SERPER_API_KEY for recon')
     links = LINK_RE.findall(r.text)  # [(href, title), ...]
     snippets = SNIPPET_RE.findall(r.text)  # [snip, ...], usually one per link
     out = []

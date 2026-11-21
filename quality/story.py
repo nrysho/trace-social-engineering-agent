@@ -49,6 +49,10 @@ def profile_claim_checks(text, facts):
     if not isinstance(text,str):
         report.errors.append('Body must be text')
         return report
+    if not isinstance(facts, list):
+        report.errors.append('Profile facts must be a list')
+        return report
+    report.errors.extend(operational_claim_checks(text, facts))
     text = normalized(re.sub(r'<[^>]*>', ' ', text)).casefold()
     for fact in facts:
         if not isinstance(fact, dict) or not isinstance(fact.get('value'), str):
@@ -67,3 +71,34 @@ def profile_claim_checks(text, facts):
     if re.search(r"\byou(?: are|'re| recently)|\byour company\b", text):
         report.warnings.append('Inspect target assertions against verified profile facts; automatic extraction is incomplete')
     return report
+
+
+def operational_claim_checks(text, facts):
+    """Conservative operational-claim patterns, not general semantic fact checking.
+
+    A matching assertion must reproduce a supplied verified/sourced claim.
+    Rephrasing it as a neutral question is also permitted. Unrelated evidence
+    cannot license a new claim about tools or systems. English/German coverage
+    is deliberately limited; the optional reviewed sidecar is the stronger layer.
+    """
+    from .research_gate import sourced_verified_facts
+    english = (r"\b(?:your (?:team|company|organisation|organization)|you(?:'re)?)\s+"
+               r"(?:(?:already|currently|recently|still|heavily|typically)\s+)*"
+               r"(?:(?:are|were|have|has)\s+)?"
+               r"(?:use[sd]?|using|rel(?:y|ies)|depend[sd]?|run|running|switched|migrated|adopted|implemented)\b[^.!?;\n]*")
+    german = r'\b(?:ihr (?:team|unternehmen)|sie)\s+(?:nutzen|nutzt|verwenden|verwendet|benutzen|benutzt|setzen|setzt)\b[^.!?;\n]*'
+    def canonical(value):
+        value = normalized(re.sub(r'<[^>]*>', ' ', value)).casefold().strip(' .!?;\n')
+        value = re.sub(r"^(?:your (?:team|company|organisation|organization)|you|the company|company|team|they|ihr team|ihr unternehmen|sie)\s+", 'target ', value)
+        return ' '.join(value.split())
+    supported = {canonical(f['value']) for f in sourced_verified_facts(facts)}
+    raw = re.sub(r'<(?:br\s*/?|/p|/div)>', '\n', text, flags=re.I)
+    raw = re.sub(r'<[^>]*>', ' ', raw)
+    for sentence in re.split(r'[.!?;\n]+', raw):
+        sentence = normalized(sentence).casefold()
+        if re.match(r'^\s*(?:do|does|did|could|can|would|which|what|how|whether|nutzen sie|verwenden sie|benutzen sie|k[oö]nnten sie)\b', sentence):
+            continue
+        for claim in re.findall(english, sentence) + re.findall(german, sentence):
+            if canonical(claim) not in supported:
+                return ['Unsupported operational assertion about the target; use an exact verified sourced fact or ask a neutral question']
+    return []

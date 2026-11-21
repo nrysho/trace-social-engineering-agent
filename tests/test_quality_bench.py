@@ -52,7 +52,9 @@ class BenchTests(unittest.TestCase):
         self.stack.enter_context(patch.object(runner,'RUNS',Path(self.temp.name)/'runs'))
         self.stack.enter_context(patch.object(runner,'TREE_DIR',Path(self.temp.name)/'trees'))
         person=self.bench.PERSONAS['mara']
-        profile={'name':person['name'],'domain':'company.example','facts':[],'target_id':'mara'}
+        profile={'name':person['name'],'domain':'company.example','target_id':'mara',
+                 'facts':[{'category':'role','value':'Finance lead at a fictional test company',
+                           'verified':True,'source_url':'https://company.example/team'}]}
         self.stack.enter_context(patch.object(runner,'load_profile',return_value=profile))
         approach={'pretext':'speaker_invite','channel':'email','hook':'Synthetic agenda','score':0.5,'story':'a synthetic meeting','incident_goal':'reply'}
         self.stack.enter_context(patch.object(runner.strategy,'rank_approaches',return_value=[approach]))

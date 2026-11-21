@@ -63,6 +63,12 @@ class ViewerQualityUI(unittest.TestCase):
                 page.locator('#tabResults').click()
                 page.get_by_text('1 checked; 1 blocked', exact=False).wait_for()
                 self.assertIn('6.0/8 local proxy', page.locator('#results').inner_text())
+                bundle['run_status']='aborted'
+                bundle['abort_reason']='No verified sourced research facts'
+                bundle['nodes'][0]['level']='target'
+                page.goto('http://person5.test/?run=synthetic-qa&node=n1')
+                page.get_by_text('Aborted - no message sent', exact=True).wait_for()
+                self.assertIn('No verified sourced research facts', page.locator('#inspector').inner_text())
                 self.assertEqual(errors, [])
             finally:
                 browser.close()

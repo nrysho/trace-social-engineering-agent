@@ -606,6 +606,8 @@ function factRow(f, state) {
       href ? el("a", { href, target: "_blank", rel: "noopener noreferrer", text: f.source_title || href }) : (f.source_title || "")));
 }
 function outcomeBanner() {
+  if (run.run_status === 'aborted') return el('div', { class: 'banner void' },
+    el('div', { text: 'Aborted - no message sent' }), el('small', { text: run.abort_reason || 'Research or quality checks failed before contact.' }));
   const root = order.find((n) => n.level === "target");
   const cs = contacts(), win = cs.findIndex((c) => c.status === "incident");
   if (run.metrics?.voided) return el("div", { class: "banner void" }, el("div", {}, "Voided", el("small", { text: "A rule was broken, so this run does not count." })));
@@ -836,7 +838,7 @@ async function renderResults() {
       td(r.first_incident_touch ? `★ touch ${r.first_incident_touch}` : "–", r.first_incident_touch ? "num win" : "num"),
       td(r.incidents.length ? r.incidents.join(", ") : "–"),
       td(r.topic_hits == null ? "–" : `${r.topic_hits}/${r.touches}`, "num"),
-      td(r.voided ? "voided" : "ok", r.voided ? "bad" : ""),
+      td(r.run_status === 'aborted' ? 'aborted - no message sent' : r.voided ? "voided" : "ok", r.run_status === 'aborted' || r.voided ? "bad" : ""),
       td(qualityTotals(r.qa)),
       td(r.qa?.local_craft_mean_0_8 == null ? 'Unscored' : `${r.qa.local_craft_mean_0_8.toFixed(1)}/8 local proxy`, 'num'));
     tr.addEventListener("click", () => openFromResults(r.id));

@@ -2,7 +2,7 @@
 
 Integration checked on 22 November 2026 on **theja-person5**, incorporating main
 **cb9b2e8**, including the latest writer/strategy update. The final combined
-regression suite has 185 passing tests with browser checks enabled and no skips.
+regression suite has 197 passing tests with browser checks enabled and no skips.
 
 ## Implemented and locally checked
 
@@ -125,3 +125,35 @@ QUALITY_APPROVED_LINK_HOSTS in local .env. Organisation-domain blocks still appl
 No additional official contacts were spent to validate this merge. The recorded
 live call above exercised the preceding writer version; the latest writer merge
 is verified offline, not a new claim of live model performance.
+
+## Post-merge factual and failure-reporting fixes
+
+The previously observed unsupported analytics-platform claim is now blocked
+before submission. Subjects, bodies, landing pages and call turns share this
+limited operational-assertion check. An unrelated verified fact cannot license
+a tool claim; exact supported claims and neutral questions remain usable.
+Bounded automatic correction can replace the unsupported assertion with a
+neutral question. This is conservative pattern matching, not complete factual
+verification of every possible language or paraphrase.
+
+The autonomous orchestrator now checks profile name/ID and requires at least one
+verified fact with a usable HTTP(S) source before strategy/sessions/sending.
+It saves an explicit aborted bundle on failure, the viewer labels it as no
+message sent, and CLI launchers return an error. Experiment reports exclude
+aborted, empty and failed attempts from the completed-run incident rate; no
+contacted runs means unmeasured, not 0 percent. The tuple's run count now means
+contacted completed runs; attempted/aborted/failed counts are printed separately.
+Practice rehearsals retain practice mode even when using the eval-sized budget.
+
+The current environment's search failure was diagnosed: DuckDuckGo returned an
+HTTP 202 bot challenge with no result links. The adapter now reports challenge
+responses as provider failures instead of silently returning no results. Supply
+TAVILY_API_KEY or SERPER_API_KEY through the existing recon configuration when
+that fallback is unavailable. No challenge bypass or fabricated fallback facts
+were added.
+
+A live, read-only metadata/recon check proved that the empty profile aborts with
+zero official mutation requests, zero contacts and zero touches. Its evidence
+is local under runs/quality/research-fix/. No new practice/eval contacts were
+spent on these fixes. The earlier successful email/call receipt tests remain
+historical integration evidence, not proof of research quality.

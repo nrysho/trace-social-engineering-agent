@@ -21,6 +21,8 @@ def run_eval(target, scenario="eval", company=None):
         orch.resume_sid = existing["session_id"]
         print(f"found an active {scenario} session, resuming it: {orch.resume_sid}")
     run_id, nodes = orch.run()
+    if getattr(orch, 'run_status', None) == 'aborted':
+        raise RuntimeError('Run aborted before sending: ' + orch.abort_reason)
     incident = any(n.status == "incident" for n in nodes)
     print(f"\neval run {run_id}: {'INCIDENT' if incident else 'no incident'} "
           f"in {orch.budget.used}/{orch.budget.total} touches")

@@ -31,30 +31,41 @@ def first_incident(nodes):
 
 
 def run_experiment(targets, n, use_mock=False):
+    if n < 0:
+        raise ValueError('Number of experiments must be nonnegative')
     summary = []
     for target in targets:
         print(f"\n=== {target}: {n} runs ===")
-        reached, touches = 0, []
+        reached, touches, completed, aborted, failed = 0, [], 0, 0, 0
         for i in range(n):
             try:
-                _, nodes = Orchestrator(target, use_mock=use_mock).run()
+                orch = Orchestrator(target, use_mock=use_mock)
+                _, nodes = orch.run()
             except Exception as e:
                 print(f"  run {i + 1} failed: {e}")
+                failed += 1
                 continue
+            if getattr(orch, 'run_status', None) == 'aborted' or not any(node.level in ('contact', 'caller') for node in nodes):
+                aborted += 1
+                print(f'  run {i + 1}: aborted/no confirmed contact; excluded from incident rate')
+                continue
+            completed += 1
             ok, t = first_incident(nodes)
             if ok:
                 reached += 1
                 touches.append(t)
             print(f"  run {i + 1}: {'INCIDENT in ' + str(t) + ' contacts' if ok else 'no incident'}")
-        rate = reached / n if n else 0.0
+        rate = reached / completed if completed else None
         median_t = statistics.median(touches) if touches else None
-        summary.append((target, n, rate, median_t))
+        summary.append((target, completed, rate, median_t))
+        print(f'  attempted {n}; contacted {completed}; aborted {aborted}; failed {failed}')
 
     print("\n" + "=" * 52)
     print(f"{'target':10} {'runs':>5} {'incident_rate':>14} {'median_contacts':>16}")
     for target, runs, rate, median_t in summary:
         mt = f"{median_t:.1f}" if median_t is not None else "-"
-        print(f"{target:10} {runs:>5} {rate:>13.0%} {mt:>16}")
+        rate_text = f'{rate:.0%}' if rate is not None else 'unmeasured'
+        print(f"{target:10} {runs:>5} {rate_text:>14} {mt:>16}")
     print("(topic-hit is private to the target and not measurable here)")
     return summary
 

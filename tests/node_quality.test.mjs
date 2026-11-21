@@ -58,6 +58,14 @@ test('practice proxy guards actual routes without external HTTP', async t => {
       assert.equal(r.status, 422); assert.equal(r.data.detail.qa.passed, false);
       assert.equal(mutations.length, before);
     });
+    await t.test('unsupported target assertions cannot pass through Node messages or pages', async () => {
+      const before = mutations.length;
+      assert.equal((await post('/api/sessions/s1/messages', { ...message,
+        body: 'We noticed your team relies heavily on an analytics platform.' })).status, 422);
+      assert.equal((await post('/api/sessions/s1/pages', {
+        url: 'https://eventcrew-muc.de/unsupported', title: 'Details', text: 'Your team uses Okta.', fields: [] })).status, 422);
+      assert.equal(mutations.length, before);
+    });
     await t.test('valid send keeps QA outside payload and reuses retry receipt', async () => {
       const before = mutations.length;
       const r = await post('/api/sessions/s1/messages', message, 'stable-message');

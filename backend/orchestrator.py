@@ -35,6 +35,7 @@ from .revel8 import Revel8Client
 from quality.guarded_client import GuardedClient
 from quality.integration import generate_checked, generate_checked_turn, as_shared_message, QualityBlocked
 from quality.checks import QualityReport
+from quality.research_gate import research_readiness
 
 
 def _json_from(text):
@@ -261,9 +262,22 @@ class Orchestrator:
         target = self._target_card()
         profile = load_profile(self.target_id, target["name"],
                                target.get("company", DEFAULT_COMPANY), use_mock=self.use_mock)
-        self.profile = profile
-        target_node = self.add_node("target", "recon", f"target {profile.get('name')}",
+        self.profile = profile if isinstance(profile, dict) else {}
+        target_node = self.add_node("target", "recon", f"target {target['name']}",
                                     target.get("role", ""), None, status="active")
+
+        readiness = research_readiness(profile, self.target_id, target['name'])
+        if not readiness.passed:
+            self.run_status = 'aborted'
+            self.abort_reason = '; '.join(readiness.errors)
+            target_node.status = 'failed'
+            target_node.outcome = 'No message sent: ' + self.abort_reason
+            attempt = self.add_node('attempt', 'quality', 'Research gate blocked; no contact',
+                                    self.abort_reason, target_node.id, status='failed')
+            self.qa_by_node[attempt.id] = readiness.to_dict()
+            self._save_tree()
+            print('  ABORTED - no session created, no message sent: ' + self.abort_reason)
+            return self.run_id, self.nodes
 
         ranked = strategy.rank_approaches(profile)        # message and live-call approaches both run
         approaches = _dedupe_by_pretext(ranked)[:self.max_approaches]   # one per pretext, capped: do not spam one session
@@ -731,7 +745,9 @@ class Orchestrator:
         nodes = [dict(n.to_dict(), **({'qa':self.qa_by_node[n.id]} if n.id in self.qa_by_node else {})) for n in self.nodes]
         bundle = {
             "run_id": self.run_id,
-            "mode": "eval" if self.eval_mode else "practice",
+            "run_status": getattr(self, 'run_status', 'recorded'),
+            "abort_reason": getattr(self, 'abort_reason', None),
+            "mode": self.scenario_id,
             "profile": self.profile,
             "nodes": nodes,
             "messages": self.messages,
@@ -759,7 +775,10 @@ def main():
     use_mock = "--mock" in args              # live recon by default; --mock for a fast cached profile
     targets = [a for a in args if not a.startswith("--")]
     target = targets[0] if targets else "julius"
-    Orchestrator(target, eval_mode=eval_mode, use_model=use_model, use_mock=use_mock).run()
+    orch = Orchestrator(target, eval_mode=eval_mode, use_model=use_model, use_mock=use_mock)
+    orch.run()
+    if getattr(orch, 'run_status', None) == 'aborted':
+        sys.exit('Aborted before sending: ' + orch.abort_reason)
 
 
 if __name__ == "__main__":

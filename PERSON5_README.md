@@ -11,6 +11,9 @@ The Python orchestrator uses GuardedClient for messages, attached pages and call
 lines. Eval selects its explicit scenario and cannot disable checks. Blocked
 drafts receive bounded correction; no sent contact is invented. Story heuristics,
 craft warnings, screenshots, QA statistics and replay metadata are preserved.
+Before autonomous contact, the research gate requires a matching target profile
+and at least one verified fact with a usable source URL. Empty research aborts
+before a session is created; it is not reported as an unsuccessful contact.
 
 The Node Strategy Lab now checks message/page/call submissions on the server
 through the same Python validator. Its policy comes from the repository playbook
@@ -49,3 +52,9 @@ The earlier standalone README is preserved in
 [LEGACY_PERSON5_README.md](docs/LEGACY_PERSON5_README.md); its branch names, test
 counts and integration status are historical. Final real-run selection, team
 review/merge, two spoken rehearsals and submission remain external tasks.
+
+Operational assertions about target tools are conservatively checked in subjects,
+messages, pages and call turns. An assertion must reproduce a supplied verified,
+sourced fact or be rewritten as a neutral question. This is limited pattern
+coverage, not general semantic truth verification. If DuckDuckGo presents a bot
+challenge, configure a working Tavily or Serper key; do not bypass the gate.

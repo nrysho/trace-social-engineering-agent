@@ -81,6 +81,10 @@ def inspect_artifact(artifact, context, *, sender=None):
 def prepare_page(page, context):
     data = plain(page)
     report = inspect_artifact({'kind': 'page', **data}, context)
+    from .story import profile_claim_checks
+    claims = profile_claim_checks('\n'.join(str(data.get(k, '')) for k in ('title','html','text')),
+                                  context.get('profile_facts', []))
+    report.errors.extend(claims.errors); report.warnings.extend(claims.warnings)
     if set(data) - {'url', 'title', 'fields', 'html', 'text'}:
         report.errors.append('Unknown landing-page fields')
     if not isinstance(data.get('fields', []), list) or any(not isinstance(f, str) for f in data.get('fields', [])):
@@ -103,7 +107,7 @@ def prepare_message(message, context):
     report = inspect_artifact(artifact, context, sender=sender or {})
     check_names(data, context, report)
     from .story import profile_claim_checks
-    claims = profile_claim_checks(data.get('body',''),context.get('profile_facts',[]))
+    claims = profile_claim_checks(str(data.get('subject',''))+'\n'+str(data.get('body','')),context.get('profile_facts',[]))
     report.errors.extend(claims.errors);report.warnings.extend(claims.warnings)
     if data.get('to') not in context.get('authorized_targets', []):
         report.errors.append('Unauthorized simulator target')

@@ -94,7 +94,8 @@ def metrics(bundle):
 def summary(run_id, bundle):
     m = metrics(bundle)
     return {"id": run_id, "target": (bundle.get("profile") or {}).get("name", ""), "mode": bundle.get("mode", ""),
-            "contacts": m["touches"], "incident": bool(m["first_incident_touch"]), "qa": quality_summary(bundle)}
+            "contacts": m["touches"], "incident": bool(m["first_incident_touch"]), "qa": quality_summary(bundle),
+            "run_status": bundle.get('run_status'), "abort_reason": bundle.get('abort_reason')}
 
 
 def when(row):
@@ -116,7 +117,8 @@ def results():
         except (OSError, ValueError, KeyError):
             continue
         if bundle:
-            rows.append({"id": run_id, "target": (bundle.get("profile") or {}).get("name", ""), **metrics(bundle), "qa": quality_summary(bundle)})
+            rows.append({"id": run_id, "target": (bundle.get("profile") or {}).get("name", ""), **metrics(bundle), "qa": quality_summary(bundle),
+                         "run_status": bundle.get('run_status'), "abort_reason": bundle.get('abort_reason')})
     totals = []
     for key in sorted({(r["source"], r["label"]) for r in rows}):
         group = [r for r in rows if (r["source"], r["label"]) == key and r["touches"]]
