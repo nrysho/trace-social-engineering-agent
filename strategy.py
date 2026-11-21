@@ -65,6 +65,16 @@ PRETEXTS: tuple[Pretext, ...] = (
 _PRETEXTS_BY_KEY = {p.key: p for p in PRETEXTS}
 _CALL_CHANNELS = {"phone_call", "video_call", "teams_call", "live_chat"}
 
+# Fallback playbook for a target whose role we have not determined. These lures
+# work on almost anyone regardless of job, so they seed a sensible opening set
+# when recon is thin; real hooks override them the moment facts arrive.
+GENERAL_HOOKS: tuple[dict[str, Any], ...] = (
+    {"topic": "Account or sign-in security notice", "probability": 0.45, "angle": "their_topic", "evidence": [], "rationale": "Everyone has accounts and sign-ins.", "pretext": "security_alert"},
+    {"topic": "A shared document to open", "probability": 0.40, "angle": "their_topic", "evidence": [], "rationale": "Anyone in an organisation opens shared files.", "pretext": "document_share"},
+    {"topic": "A quick favour from a colleague", "probability": 0.38, "angle": "their_topic", "evidence": [], "rationale": "Helpfulness and deference to authority are near-universal.", "pretext": "internal_favor"},
+    {"topic": "A change to a meeting", "probability": 0.30, "angle": "their_topic", "evidence": [], "rationale": "Most people keep a calendar.", "pretext": "meeting_reschedule"},
+)
+
 
 # ---------------------------------------------------------------------------
 # fact helpers
@@ -91,6 +101,29 @@ def _verified_fact_categories(profile: dict[str, Any]) -> set[str]:
         for f in _facts(profile)
         if f.get("verified") is True and f.get("source_url")
     }
+
+
+def _category_credit(profile: dict[str, Any]) -> dict[str, float]:
+    """Best evidence credit per fact category: 1.0 verified+sourced, 0.6 sourced.
+
+    Recon facts are usually single-source (unverified), so a verified-only gate
+    would throw away almost everything. Partial credit keeps the signal; the
+    writer, not the strategist, enforces verified-only in message text.
+    """
+    credit: dict[str, float] = {}
+    for f in _facts(profile):
+        if not f.get("source_url"):
+            continue
+        category = str(f.get("category", ""))
+        value = 1.0 if f.get("verified") is True else 0.6
+        credit[category] = max(credit.get(category, 0.0), value)
+    return credit
+
+
+def _coverage(credit: dict[str, float], required: tuple[str, ...]) -> float:
+    if not required:
+        return 1.0
+    return sum(credit.get(c, 0.0) for c in required) / len(required)
 
 
 def _fact_weight(fact: dict[str, Any]) -> float:
@@ -216,6 +249,9 @@ def _resolve_hooks(profile: dict[str, Any], hooks: list[dict[str, Any]] | None) 
             cur["angle"] = rh["angle"]
         by_pretext[family] = cur
     merged = list(by_pretext.values()) + extras
+    if not merged:
+        # Unprofiled target: fall back to the role-agnostic general playbook.
+        merged = [dict(h) for h in GENERAL_HOOKS]
     merged.sort(key=lambda h: -float(h.get("probability", 0.0)))
     return merged
 
@@ -239,29 +275,28 @@ def rank_approaches(
     """
     hooks = _resolve_hooks(profile, hooks)
     excluded = excluded_pretexts or set()
-    verified_categories = _verified_fact_categories(profile)
+    credit = _category_credit(profile)
     approaches: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
     for pretext in PRETEXTS:
+        # Only hooks that map to THIS pretext count; a pretext with no hook must not
+        # borrow another pretext's probability (that inflated unrelated approaches).
         matched = [h for h in hooks if h.get("pretext") == pretext.key]
-        pool = matched or hooks
-        hook = max(pool, key=lambda h: float(h.get("probability", 0.0))) if pool else None
+        hook = max(matched, key=lambda h: float(h.get("probability", 0.0))) if matched else None
         probability = float(hook.get("probability", 0.0)) if hook else 0.0
         hook_topic = str(hook.get("topic", "general")) if hook else "general"
         angle = str(hook.get("angle", "their_topic")) if hook else "their_topic"
         evidence = hook.get("evidence", []) if hook else []
 
         required = pretext.required_facts
-        missing = sorted(set(required) - verified_categories)
-        coverage = 1.0 - (len(missing) / len(required)) if required else 1.0
+        coverage = _coverage(credit, required)
+        missing = sorted(c for c in required if credit.get(c, 0.0) <= 0)
 
         if pretext.key in excluded:
             reason = "pretext explicitly excluded"
-        elif coverage <= 0:
-            reason = "no verified facts support this pretext: needs " + ", ".join(required)
-        elif probability <= 0:
-            reason = "no hook signal for this pretext"
+        elif probability <= 0 and coverage <= 0:
+            reason = "no hook signal and no supporting facts for this pretext"
         else:
             reason = ""
 
@@ -269,8 +304,10 @@ def rank_approaches(
             if reason:
                 rejected.append({"hook": hook_topic, "pretext": pretext.key, "channel": channel, "reason": reason})
                 continue
-            # Favour a plausible hook, then fact coverage, with a small own-angle bonus.
-            score = 0.65 * probability + 0.25 * coverage + (0.1 if angle == "own_angle" else 0.0)
+            # The recon hook probability is the expensive, high-quality judgment, so it
+            # dominates; coverage is a mild bonus (never a veto); own-angle gets a nudge
+            # toward the 4-point bonus without outranking a strong planted hook.
+            score = 0.85 * probability + 0.15 * coverage + (0.03 if angle == "own_angle" else 0.0)
             approaches.append({
                 "hook": hook_topic,
                 "pretext": pretext.key,

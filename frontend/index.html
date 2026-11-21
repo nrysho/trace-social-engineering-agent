@@ -95,6 +95,7 @@
   <section class="view" id="view-results">
     <div class="row between wrap" style="margin-bottom:15px"><div><div class="eyebrow">Pattern recognition</div><h2 style="margin:4px 0">Results & patterns</h2><div class="muted small">Reactions from actual practice API calls, grouped by approach. Notes and synthetic archetype labels stay in this browser.</div></div><div class="toolbar"><button class="btn" id="export-btn">Export experiment log</button><label class="btn" for="import-file">Import JSON</label><input type="file" id="import-file" accept="application/json" class="hidden"><button class="btn danger" id="clear-log-btn">Clear local log</button></div></div>
     <div class="metric-row" id="result-metrics"></div>
+    <div class="card" style="margin-top:16px"><h3>Performance by target <span class="muted small">(generalisation across twins)</span></h3><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>Target</th><th>Contacts</th><th>Reply rate</th><th>Engaged</th><th>Incidents</th><th>Median → incident</th></tr></thead><tbody id="target-rollup"></tbody></table></div></div>
     <div class="card" style="margin-top:16px"><div class="row between wrap"><div><h3>Strategy × text-type reply rate</h3><div class="muted small">Rows are approaches, columns are text types. Each cell is reply rate over contacts sent (n). Darker = higher. This is the fastest read on what strategy and writing style combination works.</div></div><select id="matrix-metric" style="max-width:180px"><option value="replied">Reply rate</option><option value="event">Any event rate</option><option value="incident">Incident rate</option></select></div><div class="table-wrap" style="margin-top:12px"><div id="matrix"></div></div></div>
     <div class="grid two" style="margin-top:16px">
       <div class="card"><h3>Response rate by approach</h3><div id="pretext-chart" class="bar-chart"></div></div>
@@ -139,6 +140,7 @@ const TEXT_TYPES = [
   {id:'casual_social',name:'Casual / social',style:'Casual, conversational, lower-case-friendly. Fits chat apps and DMs. Contractions, short lines, one emoji at most.'},
 ];
 const ARCHETYPES = [
+  {id:'general_person',name:'General — role unknown',description:'Fallback for a target we have not profiled yet. Universal lures that land on almost anyone regardless of job: an account/security notice, a shared document, a quick favour from a colleague, a meeting change. Narrow as soon as recon hands over real facts.',hooks:[['account or security notice',.45,'Everyone has accounts and sign-ins'],['shared document to open',.40,'Anyone in an organisation opens shared files'],['quick favour from a colleague',.38,'Helpfulness and deference to authority are near-universal'],['a change to a meeting',.30,'Most people keep a calendar']]},
   {id:'technical_founder',name:'Technical founder',description:'Synthetic pattern: time-constrained product builder; may respond to concrete technical relevance and trusted peer context.',hooks:[['shipping product',.62,'Recent product work is documented'],['security posture',.48,'Role includes technical responsibility'],['hiring engineers',.31,'Only if a current opening is verified']]},
   {id:'commercial_founder',name:'Commercial founder',description:'Synthetic pattern: external-facing operator; may respond to credible partnerships, customers, or public events.',hooks:[['partnerships',.58,'Current partner activity is documented'],['public speaking',.42,'A recent appearance is verified'],['customer growth',.54,'Product/customer context is sourced']]},
   {id:'security_lead',name:'Security lead',description:'Synthetic pattern: security professional; may prioritize incident clarity, vendor credibility, and concise evidence.',hooks:[['security operations',.64,'Security role is part of the archetype'],['vendor evaluation',.45,'Only if a tool or procurement need is evidenced'],['team workflow',.35,'Infer only from sourced team context']]},
@@ -185,7 +187,7 @@ function inferHooks(facts){
 }
 const DEFAULT_SENDER={name:'Lena Hofer',address:'lena.hofer@eventcrew-muc.de'};
 const STORAGE='revel8-strategy-lab-v1';
-let state={targets:[],sessions:[],activeSession:null,activeTarget:null,experiments:[],profiles:{},archetype:'technical_founder',filter:'all',currentFilter:'all',call:null};
+let state={targets:[],sessions:[],activeSession:null,activeTarget:null,experiments:[],profiles:{},archetype:'general_person',filter:'all',currentFilter:'all',call:null};
 let activeAngleFilter='all';
 const $=id=>document.getElementById(id);
 function load(){try{const saved=JSON.parse(localStorage.getItem(STORAGE)||'{}');state={...state,...saved};}catch{} }
@@ -214,18 +216,26 @@ function currentHooks(){
   const inferred=inferHooks(profile().facts||[]);if(inferred.length)return inferred;
   return ((ARCHETYPES.find(a=>a.id===state.archetype)||ARCHETYPES[3]).hooks||[]).map(h=>({topic:h[0],probability:h[1],evidence:h[2]}));
 }
+// mirror strategy.py: partial evidence credit (verified 1.0, sourced-unverified 0.6)
+function creditByCategory(facts){const c={};(facts||[]).forEach(f=>{if(!f||!f.source_url)return;const v=f.verified?1:0.6;c[f.category]=Math.max(c[f.category]||0,v);});return c;}
+function sigWords(t){const stop=new Set(['their','they','from','join','with','that','uses','use','about','real','your','known','relevant','into']);return new Set((String(t).toLowerCase().match(/[a-z]+/g)||[]).filter(w=>w.length>3&&!stop.has(w)));}
+function matchFamily(topic){const words=sigWords(topic);let best='',hits=0;(SIGNALS.families||[]).forEach(fam=>{const fw=sigWords((fam.topic||'')+' '+String(fam.pretext||'').replace(/_/g,' '));const h=[...words].filter(w=>fw.has(w)).length;if(h>hits){hits=h;best=fam.pretext;}});return best;}
 function calcApproaches(){
-  // One entry per pretext (not per channel). Relevance per pretext comes from the
-  // hooks inferred from this target's facts (signals.json), so the ranking is
-  // target-specific, not a flat archetype guess.
-  const facts=profile().facts||[];const categories=new Set(facts.filter(f=>f.verified&&f.source_url).map(f=>f.category));
-  const inferred=inferHooks(facts);const byPretext={};inferred.forEach(h=>{byPretext[h.pretext]=Math.max(byPretext[h.pretext]||0,h.probability);});
-  const hooks=currentHooks();const globalBest=hooks.reduce((best,h)=>Math.max(best,Number(h.probability||0)),0);
+  // Per pretext: relevance from the recon hooks (mapped to a family) and the hooks
+  // inferred from facts; a pretext with no hook gets 0 (never borrows another's).
+  // The hook probability dominates; coverage is a mild bonus, never a veto.
+  const facts=profile().facts||[];const credit=creditByCategory(facts);
+  const byPretext={},angleBy={};
+  inferHooks(facts).forEach(h=>{byPretext[h.pretext]=Math.max(byPretext[h.pretext]||0,h.probability);if(h.angle)angleBy[h.pretext]=h.angle;});
+  (profile().hooks||[]).forEach(h=>{const pk=h.pretext||matchFamily(h.topic||'');if(!pk)return;byPretext[pk]=Math.max(byPretext[pk]||0,Number(h.probability||0));if(h.angle)angleBy[pk]=h.angle;});
+  // Unprofiled target: fall back to the selected pattern lens (e.g. the general playbook).
+  if(!Object.keys(byPretext).length){(currentHooks()||[]).forEach(h=>{const pk=h.pretext||matchFamily(h.topic||'');if(!pk)return;byPretext[pk]=Math.max(byPretext[pk]||0,Number(h.probability||0));if(h.angle)angleBy[pk]=h.angle;});}
   return PRETEXTS.map(p=>{
-    const missing=p.facts.filter(f=>!categories.has(f));const coverage=p.facts.length?1-missing.length/p.facts.length:0;
-    const relevance=byPretext[p.id]!=null?byPretext[p.id]:globalBest;
-    const score=Math.round((.65*relevance+.35*coverage)*100);
-    return{...p,missing,coverage,relevance,score,hooks};
+    const missing=p.facts.filter(f=>!(credit[f]>0));
+    const coverage=p.facts.length?p.facts.reduce((s,f)=>s+(credit[f]||0),0)/p.facts.length:1;
+    const relevance=byPretext[p.id]||0;const angle=angleBy[p.id]||'their_topic';
+    const score=Math.round((.8*relevance+.2*coverage+(angle==='own_angle'?.03:0))*100);
+    return{...p,missing,coverage,relevance,angle,score,hooks:currentHooks()};
   }).sort((a,b)=>b.score-a.score);
 }
 function renderAngles(){
@@ -404,7 +414,20 @@ function medianContactsToIncident(list){
 }
 function renderResults(){const list=state.experiments;const replies=list.filter(e=>e.replied).length;const incidents=list.filter(isIncident).length;const engaged=list.filter(e=>e.state==='engaged').length;const replyRate=list.length?Math.round(100*replies/list.length):0;$('result-metrics').innerHTML=`<div class="metric"><span>Contacts</span><b>${list.length}</b></div><div class="metric"><span>Incidents</span><b>${incidents}</b></div><div class="metric"><span>Engaged</span><b>${engaged}</b></div><div class="metric"><span>Reply rate</span><b>${list.length?replyRate+'%':'—'}</b></div><div class="metric"><span>Median contacts to incident</span><b>${medianContactsToIncident(list)}</b></div>`;
   const pretextOpts=[...new Set(list.map(e=>e.pretext))];$('result-filter').innerHTML='<option value="all">All approaches</option>'+pretextOpts.map(id=>`<option value="${esc(id)}">${esc(PRETEXTS.find(p=>p.id===id)?.name||id)}</option>`).join('');$('result-filter').value=state.currentFilter||'all';const shown=list.filter(e=>state.currentFilter==='all'||e.pretext===state.currentFilter).slice().reverse();$('log-table').innerHTML=shown.map(e=>`<tr><td>${fmtTime(e.time)}</td><td><strong>${esc(e.targetName)}</strong><div class="muted">${esc(e.archetypeName)}</div></td><td>${esc(e.pretextName)}</td><td>${esc(e.textTypeName||'—')}</td><td>${esc(e.channel)}</td><td>${e.state?`<span class="chip ${STATE_CHIP[e.state]||''}">${esc(e.state)}</span>`:(e.replied?'<span class="chip good">reply</span>':e.events.length?`<span class="chip">${esc(e.events.join(', '))}</span>`:'<span class="chip warn">ignored</span>')}${e.followup?' <span class="chip">follow-up</span>':''}<div class="muted">${esc((e.reply||'').slice(0,100))}</div></td><td>${e.touchesUsed??'—'}</td><td class="session-id">${esc(e.sessionId)}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty">No contacts yet. Run an experiment in Live practice.</div></td></tr>';
+  renderTargetRollup(list);
   renderChart('pretext-chart','pretextName',list);renderChart('texttype-chart','textTypeName',list);renderChart('channel-chart','channel',list);renderMatrix(list);renderCombos(list);
+}
+function rollupRow(label,rows){
+  const n=rows.length,replied=rows.filter(e=>e.replied).length,eng=rows.filter(e=>e.state==='engaged').length,inc=rows.filter(isIncident).length;
+  const rr=n?Math.round(100*replied/n)+'%':'—';
+  return `<tr><td><strong>${esc(label)}</strong></td><td>${n}</td><td>${rr}</td><td>${eng}</td><td>${inc?`<span class="chip good">${inc}</span>`:'0'}</td><td>${medianContactsToIncident(rows)}</td></tr>`;
+}
+function renderTargetRollup(list){
+  const host=$('target-rollup');if(!host)return;
+  const targets=state.targets.length?state.targets:[...new Set(list.map(e=>e.targetId))].map(id=>({id,name:list.find(e=>e.targetId===id)?.targetName||id}));
+  let html=targets.map(t=>rollupRow(t.name,list.filter(e=>e.targetId===t.id))).join('');
+  html+=rollupRow('All targets',list);
+  host.innerHTML=html||'<tr><td colspan="6"><div class="empty">Run approaches against each twin to compare.</div></td></tr>';
 }
 function cellMetric(e,metric){if(metric==='replied')return e.replied?1:0;if(metric==='incident')return e.events.includes('page.submitted')?1:0;return e.events.length?1:0;}
 function rateColor(rate,n){if(!n)return 'transparent';const a=Math.min(1,0.12+rate/100*0.78);return `rgba(34,197,94,${a.toFixed(3)})`;}
