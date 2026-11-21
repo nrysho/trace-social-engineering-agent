@@ -2,7 +2,8 @@
 
 - our web search already surfaces a target's github url; enrich() pulls the
   structured profile (bio, company, languages, email, recent push) the rendered
-  page does not expose, after match.py confirms it is really the target
+  page does not expose, but only when the profile names the target's company
+  (usernames are unreliable, so a name match alone is never trusted)
 - facts() is a name-search fallback when no github url was found
 - useful mainly for technical targets; it simply adds nothing when unconfirmed
 """
@@ -36,8 +37,11 @@ def _from_login(login, anchor):
     if (p.get("type") or "User") != "User":  # skip organisations
         return []
     text = " ".join(str(p.get(k) or "") for k in ("name", "company", "bio", "blog", "location"))
-    ok, _, _ = match.judge(anchor, match.Candidate(p.get("name") or login, text), use_llm=False)
-    return _profile_facts(p, login) if ok else []
+    # github usernames and display names rarely match a real name, so the company is the
+    # only trusted signal: accept the profile only if it names the target's company
+    if not match._company_hit(anchor, text):
+        return []
+    return _profile_facts(p, login)
 
 
 def enrich(url, anchor):

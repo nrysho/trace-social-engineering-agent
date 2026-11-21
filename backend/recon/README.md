@@ -126,8 +126,9 @@ The `Profile` (root `schemas.py`, shared with the team) carries `facts` (each wi
 - A role listed on LinkedIn without an end date reads as current even if the person
   has left; the anchor company still wins the "current role" slot.
 - GitHub is wired as a gated enrichment source (`github.py`): it enriches a
-  github url search already found, but only when `match.py` confirms the profile,
-  so it adds data for a filled technical profile and simply nothing otherwise.
+  github url search already found, but only when the profile names
+  the target's company (usernames are unreliable, so name matches are not trusted),
+  so it adds data for a filled technical profile and nothing otherwise.
 - GDELT news, Wayback and Clearbit were evaluated and skipped as low-yield here
   (rate-limited / empty / fuzzy for small-company targets); news is already
   covered by the search queries.
