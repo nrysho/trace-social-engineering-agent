@@ -283,7 +283,50 @@ def _local_part(name: str) -> str:
     return slug or "contact"
 
 
-def build_sender(pretext: str, target_domain: str, colleague: str = "") -> dict[str, Any]:
+# Tools worth impersonating, by keyword found in the target's vendors_and_tools facts.
+# When recon shows the target uses one, we lookalike THAT brand instead of a generic
+# vendor — a DocuSign user gets a DocuSign-shaped lure. `kind` picks which pretexts it
+# fits: "identity" (sign-in/credentials), "docs" (file/signature shares), "billing".
+VENDOR_LOOKALIKES: tuple[dict[str, Any], ...] = (
+    {"match": ("docusign",), "brand": "DocuSign", "domain": "docusign-notifications.net", "kind": "docs"},
+    {"match": ("dropbox",), "brand": "Dropbox", "domain": "dropbox-share.net", "kind": "docs"},
+    {"match": ("google drive", "google workspace", "gmail", "google"), "brand": "Google Workspace", "domain": "workspace-notice.com", "kind": "identity"},
+    {"match": ("microsoft", "365", "outlook", "sharepoint"), "brand": "Microsoft 365", "domain": "m365-security.com", "kind": "identity"},
+    {"match": ("okta",), "brand": "Okta", "domain": "okta-verify.com", "kind": "identity"},
+    {"match": ("workday",), "brand": "Workday", "domain": "workday-login.com", "kind": "identity"},
+    {"match": ("github",), "brand": "GitHub", "domain": "github-security.net", "kind": "identity"},
+    {"match": ("aws", "amazon web"), "brand": "AWS", "domain": "aws-billing.net", "kind": "billing"},
+    {"match": ("salesforce",), "brand": "Salesforce", "domain": "salesforce-login.net", "kind": "identity"},
+    {"match": ("sap",), "brand": "SAP", "domain": "sap-portal.net", "kind": "billing"},
+    {"match": ("hubspot",), "brand": "HubSpot", "domain": "hubspot-billing.net", "kind": "billing"},
+    {"match": ("sendgrid",), "brand": "SendGrid", "domain": "sendgrid-mail.net", "kind": "billing"},
+    {"match": ("slack",), "brand": "Slack", "domain": "slack-alerts.com", "kind": "identity"},
+)
+
+# Which vendor kind each pretext should impersonate when a matching tool is known.
+_PRETEXT_VENDOR_KIND = {"security_alert": "identity", "document_share": "docs", "vendor_notice": "billing"}
+
+
+def _tool_vectors(profile_or_facts: Any) -> list[str]:
+    facts = profile_or_facts.get("facts", []) if isinstance(profile_or_facts, dict) else (profile_or_facts or [])
+    return [str(f.get("value", "")) for f in facts if isinstance(f, dict) and f.get("category") == "vendors_and_tools"]
+
+
+def detect_vendor(pretext: str, vendor_texts: list[str]) -> dict[str, Any] | None:
+    """Find a tool the target uses that fits this pretext, to impersonate directly."""
+    kind = _PRETEXT_VENDOR_KIND.get(pretext)
+    if not kind:
+        return None
+    blob = " ".join(vendor_texts).lower()
+    # prefer a tool of the matching kind; fall back to any known tool
+    for want_kind in (kind, None):
+        for v in VENDOR_LOOKALIKES:
+            if (want_kind is None or v["kind"] == want_kind) and any(m in blob for m in v["match"]):
+                return v
+    return None
+
+
+def build_sender(pretext: str, target_domain: str, colleague: str = "", vendors: list[str] | None = None) -> dict[str, Any]:
     """Pick a lookalike/invented sender for a pretext, derived from the target's brand.
 
     Domains are registrable lookalikes an attacker could own, never the target's own
@@ -297,22 +340,35 @@ def build_sender(pretext: str, target_domain: str, colleague: str = "") -> dict[
     if name == "{colleague}":
         name = colleague or "Robert Seilbeck"
     domain = _fill(entry.get("domain", "mail-relay-eu.com"), brand, tld)
+    technique = entry.get("technique", "invented_third_party")
+    # Vendor vector: if the target uses a tool that fits this pretext, impersonate it.
+    vendor = detect_vendor(pretext, vendors or [])
+    if vendor:
+        name = vendor["brand"]
+        domain = vendor["domain"]
+        technique = f"vendor_impersonation:{vendor['brand']}"
     return {
         "name": name,
         "address": f"{_local_part(name)}@{domain}",
         "domain": domain,
-        "technique": entry.get("technique", "invented_third_party"),
+        "technique": technique,
         "role": entry.get("role", ""),
     }
 
 
-def build_landing(pretext: str, target_domain: str) -> dict[str, Any] | None:
-    """Landing-page URL + fields for a pretext, on a technique-appropriate domain."""
+def build_landing(pretext: str, target_domain: str, vendors: list[str] | None = None) -> dict[str, Any] | None:
+    """Landing-page URL + fields for a pretext, on a technique-appropriate domain.
+
+    If the target uses a matching tool, the page sits on that tool's lookalike domain.
+    """
     brand, tld = _brand_tld(target_domain)
     page = (SENDERS.get("pretexts", {}).get(pretext) or {}).get("page")
     if not page:
         return None
     domain = _fill(page["domain"], brand, tld)
+    vendor = detect_vendor(pretext, vendors or [])
+    if vendor:
+        domain = vendor["domain"]
     return {
         "url": f"https://{domain}{page.get('path', '/')}",
         "title": page.get("title", "Details"),
@@ -339,3 +395,63 @@ def suggest_sender_domains(
         for tld in tlds
         if re.fullmatch(r"[a-z]{2,24}", tld)
     ]
+
+
+def _first_colleague(profile: dict[str, Any]) -> str:
+    for f in profile.get("facts", []):
+        if isinstance(f, dict) and f.get("category") == "network":
+            m = re.search(r"[A-Z][a-z]+ [A-Z][a-z]+", str(f.get("value", "")))
+            if m:
+                return m.group(0)
+    return ""
+
+
+def compose(profile: dict[str, Any], approach: dict[str, Any]) -> dict[str, Any]:
+    """Build a ready-to-send message for an approach WITHOUT calling the model.
+
+    Deterministic, dependency-light, always returns output — the easy entry point
+    for the backend to wire up and smoke-test. For a model-written body instead,
+    call ``generate_message`` with a ``ModelConfig``. Returns a dict the revel8
+    client can send: ``{channel, to, sender, subject, body, landing_page, attachment}``.
+    """
+    pretext = str(approach.get("pretext") or approach.get("key") or approach.get("id") or "")
+    channel = str(approach.get("channel") or (approach.get("channels") or ["email"])[0])
+    domain = str(profile.get("domain", ""))
+    vendors = _tool_vectors(profile)
+    sender = build_sender(pretext, domain, colleague=_first_colleague(profile), vendors=vendors)
+    landing = build_landing(pretext, domain, vendors=vendors)
+    first_name = str(profile.get("name", "there")).split()[0]
+    story = str(approach.get("story") or approach.get("incident_goal") or "I wanted to reach out")
+    subject = str(approach.get("story") or "Quick question")
+    body = f"Hi {first_name},\n\n{story}."
+    if landing:
+        body += f"\n\n{landing['title']}: {landing['url']}"
+    body += f"\n\nBest,\n{sender['name']}"
+    return {
+        "channel": channel,
+        "to": profile.get("target_id") or (profile.get("name", "").split()[0].lower() if profile.get("name") else ""),
+        "sender": {"name": sender["name"], "address": sender["address"]},
+        "sender_technique": sender["technique"],
+        "subject": subject if channel in ("email", "calendar_invite", "shared_document") else "",
+        "body": body,
+        "landing_page": landing,
+        "attachment": make_file_name(f"{pretext}-{first_name}") if pretext in ("document_share", "recruiting") else None,
+    }
+
+
+if __name__ == "__main__":  # python writer.py  -> sample output for backend wiring
+    import json
+    import pathlib
+
+    sample = pathlib.Path(__file__).with_name("mock") / "profile.json"
+    if sample.exists():
+        profile = json.loads(sample.read_text(encoding="utf-8"))
+    else:
+        profile = {"name": "Julius Muth", "domain": "revel8.ai",
+                   "facts": [{"category": "network", "value": "Co-founders Tom Mueller and Robert Seilbeck"},
+                             {"category": "vendors_and_tools", "value": "Company uses DocuSign and Okta SSO"}]}
+    print(f"# writer.compose() output for {profile.get('name')} ({profile.get('domain')})\n")
+    for pretext in ("speaker_invite", "security_alert", "document_share", "vendor_notice", "recruiting"):
+        msg = compose(profile, {"pretext": pretext, "channel": "email", "story": f"an {pretext.replace('_', ' ')}"})
+        print(json.dumps(msg, indent=2, ensure_ascii=False))
+        print()

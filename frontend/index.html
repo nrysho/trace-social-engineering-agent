@@ -193,8 +193,26 @@ function fillBrand(t,b,tld){return String(t).replace(/\{brand\}/g,b).replace(/\{
 function localPart(name){return String(name).toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'')||'contact';}
 function targetDomain(){const p=profile();if(p.domain)return p.domain;const d=(p.facts||[]).find(f=>f.category==='domain');if(d&&/[a-z0-9.-]+\.[a-z]{2,}/i.test(d.value)){const m=d.value.match(/[a-z0-9.-]+\.[a-z]{2,}/i);if(m)return m[0];}return 'revel8.ai';}
 function colleagueHint(){const n=(profile().facts||[]).find(f=>f.category==='network');const m=n&&String(n.value).match(/[A-Z][a-z]+ [A-Z][a-z]+/);return m?m[0]:'';}
-function buildSender(pretext){const [b,tld]=brandTld(targetDomain());const e=(SENDERS.pretexts||{})[pretext]||{technique:'invented_third_party',sender_name:'Alex Wagner',role:'contact',domain:'mail-relay-eu.com',page:null};let name=e.sender_name;if(name==='{colleague}')name=colleagueHint()||'Robert Seilbeck';const domain=fillBrand(e.domain,b,tld);return{name,address:`${localPart(name)}@${domain}`,domain,technique:e.technique,role:e.role};}
-function buildLanding(pretext){const [b,tld]=brandTld(targetDomain());const pg=((SENDERS.pretexts||{})[pretext]||{}).page;if(!pg)return null;const domain=fillBrand(pg.domain,b,tld);return{url:`https://${domain}${pg.path||'/'}`,title:pg.title||'Details',fields:pg.fields||[],linkText:pg.title||'Open',domain};}
+// Vendor vector: impersonate a tool the target actually uses (mirror of writer.VENDOR_LOOKALIKES).
+const VENDOR_LOOKALIKES=[
+ {match:['docusign'],brand:'DocuSign',domain:'docusign-notifications.net',kind:'docs'},
+ {match:['dropbox'],brand:'Dropbox',domain:'dropbox-share.net',kind:'docs'},
+ {match:['google drive','google workspace','gmail','google'],brand:'Google Workspace',domain:'workspace-notice.com',kind:'identity'},
+ {match:['microsoft','365','outlook','sharepoint'],brand:'Microsoft 365',domain:'m365-security.com',kind:'identity'},
+ {match:['okta'],brand:'Okta',domain:'okta-verify.com',kind:'identity'},
+ {match:['workday'],brand:'Workday',domain:'workday-login.com',kind:'identity'},
+ {match:['github'],brand:'GitHub',domain:'github-security.net',kind:'identity'},
+ {match:['aws','amazon web'],brand:'AWS',domain:'aws-billing.net',kind:'billing'},
+ {match:['salesforce'],brand:'Salesforce',domain:'salesforce-login.net',kind:'identity'},
+ {match:['sap'],brand:'SAP',domain:'sap-portal.net',kind:'billing'},
+ {match:['hubspot'],brand:'HubSpot',domain:'hubspot-billing.net',kind:'billing'},
+ {match:['sendgrid'],brand:'SendGrid',domain:'sendgrid-mail.net',kind:'billing'},
+ {match:['slack'],brand:'Slack',domain:'slack-alerts.com',kind:'identity'}];
+const PRETEXT_VENDOR_KIND={security_alert:'identity',document_share:'docs',vendor_notice:'billing'};
+function vendorTexts(){return (profile().facts||[]).filter(f=>f.category==='vendors_and_tools').map(f=>String(f.value||'')).join(' ').toLowerCase();}
+function detectVendor(pretext){const kind=PRETEXT_VENDOR_KIND[pretext];if(!kind)return null;const blob=vendorTexts();for(const wk of [kind,null]){for(const v of VENDOR_LOOKALIKES){if((wk===null||v.kind===wk)&&v.match.some(m=>blob.includes(m)))return v;}}return null;}
+function buildSender(pretext){const [b,tld]=brandTld(targetDomain());const e=(SENDERS.pretexts||{})[pretext]||{technique:'invented_third_party',sender_name:'Alex Wagner',role:'contact',domain:'mail-relay-eu.com',page:null};let name=e.sender_name;if(name==='{colleague}')name=colleagueHint()||'Robert Seilbeck';let domain=fillBrand(e.domain,b,tld);let technique=e.technique;const vendor=detectVendor(pretext);if(vendor){name=vendor.brand;domain=vendor.domain;technique='vendor_impersonation:'+vendor.brand;}return{name,address:`${localPart(name)}@${domain}`,domain,technique,role:e.role};}
+function buildLanding(pretext){const [b,tld]=brandTld(targetDomain());const pg=((SENDERS.pretexts||{})[pretext]||{}).page;if(!pg)return null;let domain=fillBrand(pg.domain,b,tld);const vendor=detectVendor(pretext);if(vendor)domain=vendor.domain;return{url:`https://${domain}${pg.path||'/'}`,title:pg.title||'Details',fields:pg.fields||[],linkText:pg.title||'Open',domain};}
 const DEFAULT_SENDER={name:'Lena Hofer',address:'lena.hofer@eventcrew-muc.de'};
 const STORAGE='revel8-strategy-lab-v1';
 let state={targets:[],sessions:[],activeSession:null,activeTarget:null,experiments:[],profiles:{},archetype:'general_person',filter:'all',currentFilter:'all',call:null};
