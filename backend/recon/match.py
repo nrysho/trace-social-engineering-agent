@@ -36,13 +36,27 @@ def name_overlap(anchor_name, candidate_name):
     return len(a & b) / len(a) if a and b else 0.0
 
 
+def _strip(s):
+    return re.sub(r"[^a-z0-9]", "", s.lower())  # drop spacing and punctuation to compare
+
+
+def _company_hit(anchor, text):
+    # match company ignoring spacing and punctuation: "Ramblr ai" == "Ramblr.ai"
+    blob = _strip(text)
+    if _strip(anchor.company) and _strip(anchor.company) in blob:
+        return True
+    if anchor.domain and _strip(anchor.domain) in blob:
+        return True
+    # a distinctive word from the company name (skip generic tokens like "ai", "inc")
+    return any(len(tok) >= 4 and _strip(tok) in blob for tok in anchor.company.split())
+
+
 def judge(anchor, candidate, use_llm=True):
     # return (accepted, confidence, reason)
     name_score = name_overlap(anchor.name, candidate.name)
     if name_score < 0.5:
         return False, name_score, "name does not match"
-    blob = f"{candidate.name} {candidate.text}".lower()
-    company_hit = anchor.company.lower() in blob or bool(anchor.domain and anchor.domain.lower() in blob)
+    company_hit = _company_hit(anchor, f"{candidate.name} {candidate.text}")
     if name_score >= 0.99 and company_hit:
         return True, 0.95, "name and company both match"  # the anchor rule
     if company_hit:
