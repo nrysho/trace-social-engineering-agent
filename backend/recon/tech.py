@@ -106,7 +106,7 @@ def _txt(domain):
 
 
 def _m365(domain):
-    # the realm endpoint reports Managed/Federated when a domain is on microsoft 365
+    # the realm endpoint reports Managed/Federated when a domain has an azure ad / entra tenant
     try:
         r = requests.get("https://login.microsoftonline.com/getuserrealm.srf",
                          params={"login": f"info@{domain}", "xml": "1"}, timeout=TIMEOUT)
@@ -141,7 +141,7 @@ def facts(domain):
 
     ns = _m365(domain)
     if ns:
-        found["Microsoft 365"] = (f"{domain} runs on Microsoft 365 ({ns} tenant)",
+        found["Microsoft 365 / Entra tenant"] = (f"{domain} has a Microsoft 365 / Entra ID tenant ({ns}); email provider shown separately by MX",
                                   f"https://login.microsoftonline.com/getuserrealm.srf?login=info@{domain}&xml=1")
 
     low = _html(domain).lower()
