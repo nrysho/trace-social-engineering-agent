@@ -32,7 +32,7 @@ def _log_refusal(provider, text):
         f.write(f"{stamp}\t{provider}\t{text[:300]!r}\n")
 
 
-def _one_call(provider, messages, response_format):
+def _one_call(provider, messages, response_format, temperature):
     body = {"model": provider.model, "messages": messages}
     if provider.is_reasoning:
         body["max_tokens"] = 3000  # reasoning models spend tokens thinking before the answer
@@ -41,6 +41,8 @@ def _one_call(provider, messages, response_format):
         body["max_tokens"] = 2000
     if response_format:
         body["response_format"] = response_format  # e.g. openai json_schema for structured output
+    if temperature is not None:
+        body["temperature"] = temperature  # 0 for reproducible structured output
     r = requests.post(
         f"{provider.base_url}/chat/completions",
         headers={"Authorization": f"Bearer {provider.api_key}"},
@@ -52,12 +54,12 @@ def _one_call(provider, messages, response_format):
     return content.lstrip("\n")  # qwen can emit leading newlines before the real answer
 
 
-def chat(messages, response_format=None):
+def chat(messages, response_format=None, temperature=None):
     # walk providers until one answers without refusing; raise if they all fail
     errors = []
     for provider in config.llm_providers():
         try:
-            text = _one_call(provider, messages, response_format)
+            text = _one_call(provider, messages, response_format, temperature)
         except requests.RequestException as e:
             errors.append(f"{provider.name}: {e}")
             continue
