@@ -45,7 +45,7 @@ def extract_facts(name, company, results):
         user = f"Person: {name} ({company}).\n\nResults:\n{block}"
         try:
             text = llm.chat([{"role": "system", "content": SYSTEM},
-                             {"role": "user", "content": user}], response_format=JSON_MODE)
+                             {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
             data = json.loads(_slice(text))
         except Exception as e:
             print(f"  extract chunk failed: {e}")

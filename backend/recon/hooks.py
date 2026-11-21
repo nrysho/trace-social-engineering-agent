@@ -27,7 +27,7 @@ def propose(name, company, facts, top=6):
     user = f"Person: {name} ({company}).\nFacts:\n" + "\n".join(lines)
     try:
         text = llm.chat([{"role": "system", "content": SYSTEM},
-                         {"role": "user", "content": user}], response_format=JSON_MODE)
+                         {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
         data = json.loads(re.search(r"\{.*\}", text, re.S).group(0))
     except Exception as e:
         print(f"  hooks failed: {e}")
