@@ -59,8 +59,33 @@ RELATIONSHIPS = Aspect(
     system=REL_SYSTEM,
 )
 
+# --- open roles: what the company is hiring for ------------------------------
+ROLE_SYSTEM = (
+    "You research ONE company and extract the specific OPEN ROLES it is currently "
+    "hiring for, for an authorised research exercise. Return JSON only: {\"facts\": "
+    "[{\"value\": ..., \"source_url\": ..., \"date\": ..., \"confidence\": 0-1}]}. value "
+    "is one open role in a short phrase: the exact job title, plus team or location when "
+    "stated, e.g. 'Hiring a Senior Backend Engineer (Berlin, Platform team)'. Extract "
+    "ONLY roles the company itself is currently hiring for, one fact per distinct role; "
+    "never invent a role, and never include filled positions, named employees, or roles "
+    "at other companies. source_url MUST be copied exactly from a result. date is the "
+    "posting date YYYY-MM when stated, else \"\". confidence (0-1) is how sure you are the "
+    "role is a real, current opening at this company."
+)
+OPEN_ROLES = Aspect(
+    category="hiring",
+    queries=[
+        '"{company}" careers OR jobs OR "open positions"',
+        '"{company}" hiring OR "we are hiring" OR "join our team"',
+        '"{company}" "apply now" OR vacancy OR vacancies',
+        '"{company}" jobs greenhouse OR lever OR ashby OR workday OR personio',
+    ],
+    seed_paths=("careers", "jobs", "join", "join-us", "careers/jobs"),
+    system=ROLE_SYSTEM,
+)
+
 # every aspect the collector runs; a new kind of company fact is a new entry here
-ASPECTS = [RELATIONSHIPS]
+ASPECTS = [RELATIONSHIPS, OPEN_ROLES]
 
 
 def _search_all(queries, company):
