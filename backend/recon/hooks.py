@@ -7,23 +7,51 @@ import json
 import re
 
 from backend import llm
+from backend.recon import recency
 from schemas import Hook
 
 SYSTEM = (
     "You are planning an authorised social-engineering awareness test. Given facts about a "
     "person, propose topics they are likely open to right now (a speaking invite, a vendor "
     "renewal, an investor intro, a press request, a recruiting lead, etc.). Return JSON only: "
-    "{\"hooks\": [{\"topic\": ..., \"probability\": 0-1, \"evidence\": [..], "
-    "\"rationale\": ..., \"angle\": \"their_topic\" or \"own_angle\"}]}. Prefer recent, "
-    "specific facts. their_topic = a likely planted interest; own_angle = a topic they were "
-    "not set up for."
+    "{\"hooks\": [{\"topic\": ..., \"probability\": 0-1, \"evidence\": [fact numbers], "
+    "\"rationale\": ..., \"angle\": \"their_topic\" or \"own_angle\"}]}. evidence is a list of the "
+    "integer NUMBERS of the facts the hook rests on, taken from the numbered facts list - numbers only, "
+    "never reworded text. Each fact is tagged with its date; prefer recent or current facts and never "
+    "base a hook on a fact marked stale. their_topic = a likely planted interest; own_angle = a topic "
+    "they were not set up for."
 )
 JSON_MODE = {"type": "json_object"}
 
 
+def _line(i, f):
+    # number each fact and tag its freshness, so the model can cite facts by number
+    w = recency.weight(f.date)
+    when = "current" if f.date.lower() == "present" else (f.date or "undated")
+    if w < 0.4:
+        when += ", stale"
+    return f"{i}. [{f.category}, {when}] {f.value}"
+
+
+def _resolve(evidence, strong):
+    # the model returns fact numbers; map each back to the exact fact text so the ui can
+    # match a hook's evidence to its facts character-for-character
+    out = []
+    for x in evidence:
+        s = str(x).strip()
+        if s.lstrip("-").isdigit() and 0 <= int(s) < len(strong):
+            out.append(strong[int(s)].value)
+        else:  # tolerate the model echoing the fact text instead of its number
+            match = next((f.value for f in strong if f.value == s), "")
+            if match:
+                out.append(match)
+    return out
+
+
 def propose(name, company, facts, top=6):
     strong = [f for f in facts if f.verified or f.confidence >= 0.6]
-    lines = [f"- [{f.category}] {f.value}" for f in strong] or [f"- works at {company}"]
+    strong.sort(key=lambda f: recency.weight(f.date), reverse=True)  # freshest first
+    lines = [_line(i, f) for i, f in enumerate(strong)] or [f"0. works at {company}"]
     user = f"Person: {name} ({company}).\nFacts:\n" + "\n".join(lines)
     try:
         text = llm.chat([{"role": "system", "content": SYSTEM},
@@ -38,7 +66,7 @@ def propose(name, company, facts, top=6):
             hooks.append(Hook(
                 topic=str(h["topic"]).strip(),
                 probability=float(h.get("probability", 0.5)),
-                evidence=[str(x) for x in h.get("evidence", [])],
+                evidence=_resolve(h.get("evidence", []), strong),
                 rationale=str(h.get("rationale", "")).strip(),
                 angle=h.get("angle", "their_topic"),
             ))

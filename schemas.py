@@ -33,6 +33,7 @@ class Fact:
     value: str
     source_url: str
     source_title: str = ""
+    date: str = ""  # YYYY-MM/YYYY of the activity, "present" if current, "" if timeless
     confidence: float = 0.0  # 0-1, the model's own confidence in the extraction
     verified: bool = False  # true when >=2 distinct domains carry it
     supporting_urls: list[str] = field(default_factory=list)  # the other domains

@@ -205,7 +205,6 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
             report.warnings.append('Inspect whether there is one clear ask')
         if channel == 'email' and not re.search(r'\b(?:unsubscribe|privacy|registered|address|company)\b', visible, re.I):
             report.warnings.append('Company footer not detected; inspect whether appropriate for this sender')
-    report.warnings.append('Tone, factual accuracy and visual craft require separate review; no craft score inferred')
     report.errors = list(dict.fromkeys(report.errors))
     return report
 

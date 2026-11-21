@@ -17,3 +17,7 @@ contract. These server additions do not overwrite her pending UI edits. Feed
 bundle-with-craft.json from the offline craft tool into the viewer to include
 its craft rows. Set an explicit agent_version on benchmark bundles; never infer
 one from model names or label bench numbers as official scoring.
+
+Updated for main 1c68d1f: existing /api/results rows also carry qa, recorded bench metrics.label supplies the version, and complete bundles take precedence over bare trees so QA overlays are retained. Existing Results/Progress calculations and UI are preserved.
+
+The universal tone/factual-review disclaimer is documentation, not a warning emitted on every draft; this keeps actionable warning rates meaningful. Passing still does not certify facts or aesthetic quality.

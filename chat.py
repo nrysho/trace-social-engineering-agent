@@ -25,7 +25,8 @@ try:
 except ImportError:
     readline = None  # Windows consoles have line editing built in
 
-API = "https://target-api.apps.01.cf.eu01.stackit.cloud/v1"
+# Set REVEL8_API_URL=http://127.0.0.1:8770/v1 to practise on the local bench personas instead.
+API = os.environ.get("REVEL8_API_URL", "https://target-api.apps.01.cf.eu01.stackit.cloud/v1")
 ROOT = pathlib.Path(__file__).resolve().parent
 LOG_DIR = ROOT / "runs" / "chat"
 SUBJECT_CHANNELS = {"email", "calendar_invite", "shared_document"}
@@ -516,7 +517,13 @@ class Chat:
 
 def main():
     api = Api(load_key())
-    chat = Chat(api)
+    try:
+        chat = Chat(api)
+    except ApiError as e:
+        hint = ""
+        if "Connection refused" in str(e) and "127.0.0.1" in API:
+            hint = "\n  The local bench is not running. Start it in another terminal: python3 -m bench.server"
+        sys.exit(red(f"  Cannot reach {API}: {e}") + hint)
     try:
         chat.run()
     except (EOFError, KeyboardInterrupt):
