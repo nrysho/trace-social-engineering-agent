@@ -15,6 +15,8 @@ incident detection follows the updated rule: a submitted form only counts when a
 field (password, one-time code) was entered; name/email alone is just a step.
 """
 import json
+import os
+from urllib.parse import urlsplit
 import re
 import sys
 import time
@@ -31,6 +33,9 @@ from . import config
 from . import llm
 from .budget import TouchBudget
 from .revel8 import Revel8Client
+from quality.guarded_client import GuardedClient
+from quality.integration import generate_checked, generate_checked_turn, as_shared_message, QualityBlocked
+from quality.checks import QualityReport
 
 
 def _json_from(text):
@@ -196,7 +201,12 @@ def load_profile(target_id, name, company, use_mock=False):
 
 class Orchestrator:
     def __init__(self, target_id, eval_mode=False, use_model=True, use_mock=False):
+        self.scenario_id = 'eval' if eval_mode else 'practice'
+        self.quality_enabled = os.environ.get('QUALITY_GATE', 'on').lower() != 'off'
+        if eval_mode and not self.quality_enabled:
+            raise ValueError('QUALITY_GATE=off is allowed in practice only')
         self.client = Revel8Client()
+        self.qa_by_node = {}
         self.target_id = target_id
         self.run_id = f"run_{target_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.budget = TouchBudget(EVAL_BUDGET if eval_mode else PRACTICE_BUDGET, PER_BRANCH)
@@ -239,6 +249,7 @@ class Orchestrator:
             print("  no viable approaches from strategy")
             self._save_tree()
             return self.run_id, self.nodes
+        self._configure_quality(approaches, target)
         chosen = approaches[0]
         hook_node = self.add_node(
             "hook", "strategist", f"lead with: {chosen.get('hook')}",
@@ -250,8 +261,9 @@ class Orchestrator:
         print("  approaches: " + ", ".join(
             f"{a.get('pretext')} {a.get('score')}" for a in approaches[:5]))
 
-        session = self.client.create_session()
+        session = self.client.create_session(self.scenario_id)
         sid = session["session_id"]
+        self.budget.total = min(self.budget.total, session["touch_budget"])
         self.budget.sync(session["touches_used"])
         print(f"  session {sid}  ·  budget {self.budget.remaining} touches\n")
 
@@ -264,11 +276,40 @@ class Orchestrator:
         return self.run_id, self.nodes
 
     def _target_card(self):
-        for s in self.client.scenarios():
-            for t in s.get("targets", []):
-                if t["id"] == self.target_id:
-                    return {"name": t["name"], "role": t.get("role", ""), "company": DEFAULT_COMPANY}
-        return {"name": self.target_id, "role": "", "company": DEFAULT_COMPANY}
+        scenarios = [s for s in self.client.scenarios() if s.get('id') == self.scenario_id]
+        if len(scenarios) != 1 or scenarios[0].get('open') is False:
+            raise ValueError('Selected scenario is missing or closed')
+        targets = [t for t in scenarios[0].get('targets', []) if t.get('id') == self.target_id]
+        if len(targets) != 1:
+            raise ValueError('Target is not uniquely listed in the selected scenario')
+        return dict(targets[0], company=targets[0].get('company', DEFAULT_COMPANY))
+
+    def _configure_quality(self, approaches, target):
+        # Domain approvals come from the deterministic playbook, never model prose.
+        senders, links = set(), set()
+        for approach in approaches:
+            comp = writer.compose(self.profile, approach)
+            senders.add(comp['sender']['address'].rsplit('@', 1)[-1].lower())
+            if comp.get('landing_page'):
+                links.add(urlsplit(comp['landing_page']['url']).hostname)
+        forbidden = {self.profile.get('domain', '').lower().rstrip('.')}
+        for fact in self.profile.get('facts', []):
+            if fact.get('source_url'):
+                forbidden.add((urlsplit(fact['source_url']).hostname or '').lower())
+        context = dict(simulation_only=True, scenario_id=self.scenario_id,
+                       authorized_targets=[self.target_id], target_names={self.target_id:target['name']},
+                       approved_sender_domains=sorted(senders), approved_link_hosts=sorted(links),
+                       known_organisation_domains=sorted(forbidden - {''}), approved_sender_addresses=[])
+        self.client = GuardedClient(self.client, context, enabled=self.quality_enabled)
+
+    def _draft_checked(self, approach, sid, node_id, history, include_link):
+        if not self.quality_enabled:
+            return self._draft(approach, sid, node_id, history, include_link)
+        prepared = generate_checked(
+            lambda feedback: self._draft(approach, sid, node_id, history, include_link, feedback=feedback),
+            self.client.context, max_attempts=3, validator=self.client.check_message,
+            audit=lambda entry:self.qa_by_node.__setitem__(node_id, entry['report']))
+        return as_shared_message(prepared)
 
     def _search(self, profile, sid, approaches, parent_id):
         for approach in approaches:
@@ -319,9 +360,11 @@ class Orchestrator:
                                     f"contact on {approach.get('pretext')} ({plan.get('intent', '')})",
                                     "", parent, status="active")
             try:
-                msg = self._draft(approach, sid, contact.id, history, include_link)
+                msg = self._draft_checked(approach, sid, contact.id, history, include_link)
             except Exception as e:
                 contact.status = "failed"
+                contact.level = "attempt"
+                self.qa_by_node.setdefault(contact.id, QualityReport(errors=["Writer failed before submission"]).to_dict())
                 contact.outcome = f"writer failed: {e}"
                 print(f"     writer failed: {e}")
                 return False
@@ -330,11 +373,22 @@ class Orchestrator:
             sent_at = (self.story_base + timedelta(days=self.contact_count - 1)).isoformat()
             print(f"     -> [{msg.channel}] {msg.subject or msg.body[:48]}")
 
-            result = self.client.send_message(msg, sent_at=sent_at)
+            try:
+                result = self.client.send_message(msg, sent_at=sent_at)
+                if not isinstance(result.get('message_id'), str) or not result['message_id'] or not isinstance(result.get('events'), list):
+                    raise ValueError('No valid send acknowledgement; reconcile original request')
+            except QualityBlocked as exc:
+                self.qa_by_node[contact.id] = exc.report.to_dict()
+                contact.level, contact.status, contact.outcome = 'attempt', 'failed', 'QA blocked before send; no contact'
+                return False
+            except Exception:
+                contact.level, contact.status, contact.outcome = 'attempt', 'failed', 'Delivery uncertain; reconcile original key before retrying'
+                raise
+            self.qa_by_node[contact.id] = self.client.last_report
             self.budget.sync(result.get("touches_used", self.budget.used))
             self.budget.branch_used += 1
             events = result.get("events", [])
-            self.messages.append(msg.to_dict())            # for the replay bundle
+            self.messages.append(dict(msg.to_dict(), qa=self.client.last_report))            # for the replay bundle
             self.events.extend(events)
             reply = next((e.get("body", "") for e in events if e.get("type") == "reply"), "")
             print(f"     <- {[e.get('type') for e in events] or ['ignored']}  "
@@ -384,12 +438,18 @@ class Orchestrator:
                                 evidence=list(approach.get("evidence", [])))
         try:
             conv = self.client.start_conversation(sid, self.target_id, approach["channel"],
-                                                  sender=sender, sent_at=sent_at)
+                                                  sender=sender, sent_at=sent_at, idem_key=str(uuid.uuid4()))
         except Exception as e:
+            contact.level = "attempt"
+            if isinstance(e, QualityBlocked):
+                self.qa_by_node[contact.id] = e.report.to_dict()
             contact.status = "failed"
             contact.outcome = f"call failed to start: {e}"
             print(f"     call failed to start: {e}")
+            if not isinstance(e, QualityBlocked):
+                raise
             return False
+        self.qa_by_node[contact.id] = self.client.last_report
         self.budget.sync(conv.get("touches_used", self.budget.used))
         self.budget.branch_used += 1
         cid = conv.get("conversation_id")
@@ -400,21 +460,31 @@ class Orchestrator:
         max_turns = 10
         for turn in range(1, max_turns + 1):
             try:
-                gen = _retry_model(lambda: writer.generate_call_line(
-                    self._cfg(), target=self._target_dict(), approach=approach,
-                    sender={"name": sender["name"]}, verified_facts=self.profile.get("facts", []),
-                    transcript=transcript, turn_number=turn, max_turns=max_turns))
-                line = (gen.get("content") or {}).get("body", "")
+                def draft_line(feedback):
+                    extra = [{'role':'quality-feedback','text':json.dumps(feedback)}] if feedback else []
+                    gen = _retry_model(lambda: writer.generate_call_line(
+                        self._cfg(), target=self._target_dict(), approach=approach,
+                        sender={'name':sender['name']}, verified_facts=self.profile.get('facts', []),
+                        transcript=transcript + extra, turn_number=turn, max_turns=max_turns))
+                    return {'say':(gen.get('content') or {}).get('body','')}
+                if self.quality_enabled:
+                    line = generate_checked_turn(draft_line, self.client.context, max_attempts=3,
+                        validator=lambda data:self.client.check_turn(cid,data['say'],sid=sid))['say']
+                else:
+                    line = draft_line(None)['say']
             except Exception as e:
-                print(f"     call-line failed: {e}")
+                self.qa_by_node[contact.id]['warnings'].append('Call line not submitted: ' + str(e))
+                print(f'     call-line failed: {e}')
                 break
             if not line:
                 break
             try:
-                turn_r = self.client.say(cid, line, sid=sid)
+                turn_r = self.client.say(cid, line, sid=sid, idem_key=str(uuid.uuid4()))
             except Exception as e:
+                contact.status = "failed"
+                contact.outcome = "Call-turn delivery uncertain; reconcile before another approach"
                 print(f"     say failed: {e}")
-                break
+                raise
             heard = turn_r.get("persona_says", "")
             events = turn_r.get("events", [])
             self.events.extend(events)
@@ -438,7 +508,7 @@ class Orchestrator:
                       incident_chance=1.0 if incident_type else 0.0)
         self.messages.append({
             "session_id": sid, "channel": approach["channel"], "to": self.target_id,
-            "sender": sender, "subject": "",
+            "sender": sender, "subject": "", "node_id": contact.id, "qa": self.qa_by_node.get(contact.id),
             "body": "\n".join(f"{t['role']}: {t['text']}" for t in transcript),
         })
         self._save_tree()
@@ -446,7 +516,7 @@ class Orchestrator:
             print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
         return bool(incident_type)
 
-    def _draft(self, approach, sid, node_id, history, include_link):
+    def _draft(self, approach, sid, node_id, history, include_link, feedback=None):
         """build the next message: a persuasive, adaptive body from the model writer, with
         writer.compose (deterministic, no model) as the fallback. the landing link is added
         and the page registered only when plan_next_move stages the ask (include_link)."""
@@ -455,7 +525,7 @@ class Orchestrator:
         model_ok = False
         if self.use_model:
             try:
-                content = _retry_model(lambda: self._model_body(approach, comp, history))
+                content = _retry_model(lambda: self._model_body(approach, comp, history, feedback=feedback))
                 comp["subject"] = content.get("subject") or comp.get("subject", "")
                 comp["body"] = content.get("body") or comp["body"]
                 model_ok = True
@@ -478,13 +548,15 @@ class Orchestrator:
     def _target_dict(self):
         return {k: self.profile.get(k) for k in ("name", "role", "company") if self.profile.get(k)}
 
-    def _model_body(self, approach, comp, history):
+    def _model_body(self, approach, comp, history, feedback=None):
         sender = {"name": comp["sender"]["name"], "email": comp["sender"]["address"]}
         conv = []
         for h in history:
             conv.append({"from": comp["sender"]["name"], "text": h.get("message", "")})
             if h.get("reply"):
                 conv.append({"from": self.profile.get("name", "them"), "text": h["reply"]})
+        if feedback:
+            conv.append({'from':'quality-feedback', 'text':json.dumps(feedback)})
         gen = writer.generate_message(
             self._cfg(), target=self._target_dict(), approach=approach, sender=sender,
             verified_facts=self.profile.get("facts", []), conversation_history=conv)
@@ -520,7 +592,7 @@ class Orchestrator:
     def _save_tree(self):
         """write the run bundle the replay viewer reads (runs/<run_id>.json), and keep the
         bare node list under runs/trees/ for anything that reads just the tree."""
-        nodes = [n.to_dict() for n in self.nodes]
+        nodes = [dict(n.to_dict(), **({'qa':self.qa_by_node[n.id]} if n.id in self.qa_by_node else {})) for n in self.nodes]
         bundle = {
             "run_id": self.run_id,
             "mode": "eval" if self.eval_mode else "practice",
