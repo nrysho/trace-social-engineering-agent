@@ -1,0 +1,104 @@
+{
+  "_comment": "Signal -> susceptibility feature catalogue. GENERIC, not target-specific: each family lists which recon signals (fact category + optional keywords in the fact value) make a pretext plausible for ANY target. No pretext is favoured a priori; favour emerges from the target's own facts (a-priori) and then from observed reactions (empirical). Weights sum per family; probability = 1 - exp(-1.1 * sum). Keywords are lowercase substrings matched in the fact value. Shared by strategy.py and the frontend via /api/signals.",
+  "lambda": 1.1,
+  "min_probability": 0.12,
+  "families": [
+    {
+      "pretext": "speaker_invite",
+      "topic": "Invitation to speak or join a panel",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "interests", "any": ["speak", "talk", "panel", "keynote", "conference", "podcast", "webinar", "summit"], "weight": 0.5},
+        {"category": "media", "any": ["speak", "talk", "panel", "keynote", "podcast", "webinar"], "weight": 0.4},
+        {"category": "upcoming_events", "weight": 0.3},
+        {"category": "role", "any": ["founder", "ceo", "cto", "chief", "head", "lead", "director", "vp", "president"], "weight": 0.15}
+      ]
+    },
+    {
+      "pretext": "press_request",
+      "topic": "Press or podcast interview request",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "media", "any": ["interview", "press", "podcast", "featured", "quoted", "article", "journalist"], "weight": 0.5},
+        {"category": "recent_activity", "any": ["funding", "raise", "launch", "announce", "award", "milestone", "round"], "weight": 0.3},
+        {"category": "role", "any": ["founder", "ceo", "chief", "head"], "weight": 0.12}
+      ]
+    },
+    {
+      "pretext": "recruiting",
+      "topic": "Strong candidate for an open role",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "hiring", "weight": 0.5},
+        {"category": "recent_activity", "any": ["hiring", "growing", "scal", "expand", "team", "join us"], "weight": 0.25},
+        {"category": "role", "any": ["founder", "ceo", "head of", "people", "talent", "hr", "recruit"], "weight": 0.15}
+      ]
+    },
+    {
+      "pretext": "security_alert",
+      "topic": "Account or sign-in security notice for a tool they use",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "vendors_and_tools", "any": ["workspace", "google", "microsoft", "365", "okta", "sso", "workday", "azure", "slack", "gmail", "mfa", "vpn", "duo", "auth", "sap", "salesforce", "dropbox", "notion"], "weight": 0.5},
+        {"category": "role", "any": ["it", "security", "ciso", "cto", "engineer", "admin", "ops", "finance"], "weight": 0.2}
+      ]
+    },
+    {
+      "pretext": "vendor_notice",
+      "topic": "Question or notice about a tool or vendor they use",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "vendors_and_tools", "weight": 0.45},
+        {"category": "role", "any": ["founder", "cto", "ops", "procure", "finance", "it"], "weight": 0.15}
+      ]
+    },
+    {
+      "pretext": "document_share",
+      "topic": "A colleague shared a relevant document",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "network", "weight": 0.35},
+        {"category": "recent_activity", "any": ["deal", "contract", "partnership", "project", "launch", "pilot", "customer"], "weight": 0.3}
+      ]
+    },
+    {
+      "pretext": "meeting_reschedule",
+      "topic": "A change to a real-looking meeting",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "upcoming_events", "weight": 0.3},
+        {"category": "network", "weight": 0.2},
+        {"category": "communication_style", "any": ["calendar", "assistant", "schedul"], "weight": 0.2}
+      ]
+    },
+    {
+      "pretext": "internal_favor",
+      "topic": "A quick favour from a colleague or co-founder",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "network", "any": ["co-found", "cofounder", "founder", "assistant", "team", "report", "colleague", "partner"], "weight": 0.4},
+        {"category": "communication_style", "any": ["direct", "warm", "informal", "brief", "casual", "short"], "weight": 0.2},
+        {"category": "role", "any": ["founder", "ceo", "chief"], "weight": 0.1}
+      ]
+    },
+    {
+      "pretext": "customer_question",
+      "topic": "A prospect or customer asks a product question",
+      "angle": "their_topic",
+      "signals": [
+        {"category": "role", "any": ["sales", "gtm", "go-to-market", "business", "founder", "ceo", "account", "success", "revenue", "growth"], "weight": 0.35},
+        {"category": "company", "weight": 0.12},
+        {"category": "recent_activity", "any": ["launch", "product", "customer", "feature"], "weight": 0.2}
+      ]
+    },
+    {
+      "pretext": "investor_intro",
+      "topic": "Warm intro to an investor or partner",
+      "angle": "own_angle",
+      "signals": [
+        {"category": "recent_activity", "any": ["funding", "raise", "seed", "series", "round", "investor", "fundrais", "vc", "capital"], "weight": 0.5},
+        {"category": "role", "any": ["founder", "ceo", "business", "gtm", "sales"], "weight": 0.2}
+      ]
+    }
+  ]
+}

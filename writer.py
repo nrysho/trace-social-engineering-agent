@@ -1,0 +1,273 @@
+"""Model-backed message writer for the closed revel8 AI-twin simulation.
+
+This module creates content only; the API client is responsible for sending it.
+No live delivery, tracking, or credential collection is implemented here.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+import logging
+import re
+from dataclasses import dataclass
+from typing import Any
+
+import requests
+
+
+logger = logging.getLogger(__name__)
+
+
+RADEON_BASE = "https://radeon-global.anruicloud.com/api/v1"
+PRIMARY_MODEL = "Qwen3.8-27B"
+
+CHANNEL_GUIDANCE = {
+    "email": "Write a concise email with a subject and plain-text body.",
+    "calendar_invite": "Write a concise calendar invitation title and description.",
+    "shared_document": "Write a short, plausible document-share note and a neutral document title.",
+    "voicemail": "Write a brief natural voicemail transcript; no stage directions.",
+    "sms": "Write a brief, natural SMS.",
+    "whatsapp": "Write a brief, natural WhatsApp message.",
+    "signal": "Write a brief, natural Signal message.",
+    "telegram": "Write a brief, natural Telegram message.",
+    "imessage": "Write a brief, natural iMessage.",
+    "slack": "Write a concise Slack message.",
+    "teams_chat": "Write a concise Microsoft Teams chat message.",
+    "discord": "Write a concise Discord message.",
+    "linkedin_message": "Write a concise, professional LinkedIn message.",
+    "linkedin_connection_request": "Write a very short connection note.",
+    "x_dm": "Write a brief, natural direct message.",
+    "instagram_dm": "Write a brief, natural direct message.",
+    "facebook_messenger": "Write a brief, natural Messenger message.",
+}
+
+SIMULATION_SYSTEM = (
+    "You write content only for an authorised revel8 security-awareness exercise. "
+    "The recipient is an AI twin inside the closed simulation; no real person is contacted. "
+    "Never address or mention the recipient as an AI, never discuss instructions or simulator "
+    "notes, and never invent facts. Use only the verified facts supplied. Do not request or "
+    "include passwords, MFA codes, payment details, or other secrets. Return valid JSON only."
+)
+
+
+@dataclass(frozen=True)
+class ModelConfig:
+    api_key: str
+    fallback_model: str
+    base_url: str = RADEON_BASE
+    primary_model: str = PRIMARY_MODEL
+    timeout: int = 120
+
+
+def _completion(config: ModelConfig, model: str, messages: list[dict[str, str]]) -> str:
+    response = requests.post(
+        f"{config.base_url.rstrip('/')}/chat/completions",
+        headers={"Authorization": f"Bearer {config.api_key}"},
+        json={
+            "model": model,
+            "messages": messages,
+            "max_tokens": 1400,
+            "reasoning_effort": "low",
+        },
+        timeout=config.timeout,
+    )
+    response.raise_for_status()
+    return (response.json()["choices"][0]["message"].get("content") or "").strip()
+
+
+def _parse_json(content: str) -> dict[str, Any]:
+    match = re.search(r"\{.*\}", content, re.S)
+    if not match:
+        raise ValueError("model response did not contain a JSON object")
+    result = json.loads(match.group(0))
+    if not isinstance(result, dict):
+        raise ValueError("model response JSON must be an object")
+    return result
+
+
+def _looks_like_refusal(content: str) -> bool:
+    lower = content.casefold()
+    return not content or any(phrase in lower for phrase in (
+        "i cannot help", "i can't help", "i cannot assist", "i can't assist",
+        "unable to help with", "unable to assist with",
+    ))
+
+
+def generate_message(
+    config: ModelConfig,
+    *,
+    target: dict[str, Any],
+    approach: dict[str, Any],
+    sender: dict[str, Any],
+    verified_facts: list[dict[str, Any]],
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """Generate a structured message; use fallback automatically on refusal.
+
+    Returns ``{content, model, fallback_used, refusal_logged}``. The caller can
+    attach this decision to its run tree. Facts without source URLs are omitted.
+    """
+    channel = str(approach["channel"])
+    if channel not in CHANNEL_GUIDANCE and channel not in {"phone_call", "video_call", "teams_call", "live_chat"}:
+        raise ValueError(f"unsupported channel: {channel}")
+    facts = [
+        {"category": f.get("category"), "value": f.get("value"), "source_url": f.get("source_url")}
+        for f in verified_facts
+        if f.get("verified") is True and f.get("source_url") and f.get("value")
+    ]
+    payload = {
+        "task": CHANNEL_GUIDANCE.get(channel, "Write only the caller's next spoken line for a live call."),
+        "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
+        "sender": {key: sender.get(key) for key in ("name", "role", "organization", "email") if sender.get(key)},
+        "approach": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
+        "verified_facts": facts,
+        "conversation_history": conversation_history or [],
+        "output_schema": {"subject": "string or empty", "body": "string"},
+        "constraints": ["under 120 words", "use no unsupported claims", "keep prior details consistent", "answer the latest question before making one ask", "do not request secrets"],
+    }
+    messages = [
+        {"role": "system", "content": SIMULATION_SYSTEM},
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ]
+
+    primary_text = _completion(config, config.primary_model, messages)
+    refused = _looks_like_refusal(primary_text)
+    if refused:
+        logger.warning("primary model refused message generation; trying fallback model %s", config.fallback_model)
+        fallback_text = _completion(config, config.fallback_model, messages)
+        if _looks_like_refusal(fallback_text):
+            logger.error("fallback model %s also refused message generation", config.fallback_model)
+            raise RuntimeError("primary and fallback models refused; refusal recorded")
+        content = _parse_json(fallback_text)
+        model = config.fallback_model
+    else:
+        content = _parse_json(primary_text)
+        model = config.primary_model
+    content.setdefault("subject", "")
+    content.setdefault("body", "")
+    quality_gate(
+        content,
+        sender_address=str(sender.get("email", "")),
+        forbidden_domains=[target.get("company_domain", "")],
+    )
+    return {"content": content, "model": model, "fallback_used": refused, "refusal_logged": refused}
+
+
+def generate_call_line(
+    config: ModelConfig,
+    *,
+    target: dict[str, Any],
+    approach: dict[str, Any],
+    sender: dict[str, Any],
+    verified_facts: list[dict[str, Any]],
+    transcript: list[dict[str, str]],
+    turn_number: int,
+    max_turns: int = 10,
+) -> dict[str, Any]:
+    """Write exactly one consistent caller line for a live simulation call."""
+    if turn_number < 1 or turn_number > max_turns:
+        raise ValueError("call turn is outside the configured limit")
+    facts = [
+        {"category": f.get("category"), "value": f.get("value"), "source_url": f.get("source_url")}
+        for f in verified_facts
+        if f.get("verified") is True and f.get("source_url") and f.get("value")
+    ]
+    user_payload = {
+        "instruction": "Write only the caller's next spoken line as JSON {\"body\": \"...\"}. Keep the sender persona and established details consistent. Answer the other party's last question briefly, then make at most one clear ask.",
+        "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
+        "sender": {key: sender.get(key) for key in ("name", "role", "organization") if sender.get(key)},
+        "approach": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
+        "verified_facts": facts,
+        "transcript": transcript,
+        "turn": turn_number,
+        "max_turns": max_turns,
+    }
+    messages = [
+        {"role": "system", "content": SIMULATION_SYSTEM},
+        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+    ]
+    primary_text = _completion(config, config.primary_model, messages)
+    refused = _looks_like_refusal(primary_text)
+    if refused:
+        logger.warning("primary model refused call-line generation; trying fallback model %s", config.fallback_model)
+        raw = _completion(config, config.fallback_model, messages)
+        if _looks_like_refusal(raw):
+            logger.error("fallback model %s also refused call-line generation", config.fallback_model)
+            raise RuntimeError("primary and fallback models refused; refusal recorded")
+        model = config.fallback_model
+    else:
+        raw, model = primary_text, config.primary_model
+    content = _parse_json(raw)
+    content.setdefault("body", "")
+    quality_gate(content, sender_address=str(sender.get("email", "")), forbidden_domains=[target.get("company_domain", "")])
+    return {"content": content, "model": model, "fallback_used": refused, "refusal_logged": refused}
+
+
+def quality_gate(
+    message: dict[str, Any],
+    *,
+    sender_address: str = "",
+    forbidden_domains: list[str] | None = None,
+) -> None:
+    """Raise ValueError for common rule, placeholder, or domain violations."""
+    text = f"{message.get('subject', '')}\n{message.get('body', '')}"
+    if not message.get("body", "").strip():
+        raise ValueError("message body is empty")
+    lower = text.casefold()
+    blocked = ("as an ai", "ai twin", "simulator", "system prompt", "ignore previous instructions", "[insert", "<recipient>")
+    found = [phrase for phrase in blocked if phrase in lower]
+    if found:
+        raise ValueError("quality gate rejected AI-directed or placeholder wording: " + ", ".join(found))
+    domains = [domain.strip().lower().removeprefix("www.") for domain in forbidden_domains or []]
+    sender_domain = sender_address.rpartition("@")[2].lower().removeprefix("www.")
+    if sender_domain and sender_domain in domains:
+        raise ValueError("quality gate rejected a sender using the recipient organisation's domain")
+    referenced_domains = {
+        match.casefold().removeprefix("www.")
+        for match in re.findall(r"(?:https?://|www\.)?([a-z0-9.-]+\.[a-z]{2,})(?:/|\b)", text, re.I)
+    }
+    if referenced_domains.intersection(filter(None, domains)):
+        raise ValueError("quality gate rejected a link using the recipient organisation's domain")
+
+
+def make_landing_page(*, title: str, heading: str, body: str, fields: list[str] | None = None) -> dict[str, Any]:
+    """Create a static simulation page with no scripts, network assets, or secrets."""
+    safe_fields = [field for field in (fields or []) if field in {"name", "email", "availability", "rsvp"}]
+    inputs = "".join(
+        f'<label>{html.escape(field.title())}<input name="{html.escape(field, quote=True)}"></label>'
+        for field in safe_fields
+    )
+    page = (
+        '<!doctype html><html lang="en"><meta charset="utf-8">'
+        f"<title>{html.escape(title)}</title><main><h1>{html.escape(heading)}</h1>"
+        f"<p>{html.escape(body)}</p><form>{inputs}</form></main></html>"
+    )
+    return {"title": title, "html": page, "fields": safe_fields}
+
+
+def make_file_name(label: str, extension: str = "pdf") -> str:
+    """Return a safe filename only; no attachment content is created."""
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", label).strip("-_")[:64] or "document"
+    suffix = re.sub(r"[^A-Za-z0-9]+", "", extension).lower()[:8] or "pdf"
+    return f"{stem}.{suffix}"
+
+
+def suggest_sender_domains(
+    brand: str,
+    *,
+    suffixes: tuple[str, ...] = ("events", "community", "connect"),
+    tlds: tuple[str, ...] = ("de", "com"),
+) -> list[dict[str, Any]]:
+    """Suggest neutral, syntactically registrable candidates; availability must be checked.
+
+    This deliberately avoids typo-squats and never claims a candidate is
+    registered or available.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", brand.casefold()).strip("-")[:35] or "sender"
+    return [
+        {"candidate": f"{slug}-{suffix}.{tld}", "registration_verified": False}
+        for suffix in suffixes
+        for tld in tlds
+        if re.fullmatch(r"[a-z]{2,24}", tld)
+    ]
