@@ -38,6 +38,41 @@ Then fill in `.env`:
 
 Both are read from `.env` at startup; nothing is committed (see `.gitignore`).
 
+## Practice chat
+
+`chat.py` lets you talk to the practice twins (Julius, Robert, Tom) by hand from the
+terminal. It needs only `REVEL8_API_KEY` in `.env` and the `requests` package.
+
+```bash
+pip install requests     # once, if it is missing
+python3 chat.py          # Windows: python chat.py
+```
+
+1. Pick a twin.
+2. Pick **New session** (they remember nothing) or continue an open one. The list shows
+   the whole team's open sessions with who was contacted and the last message.
+3. Confirm or change the sender name and address.
+4. Pick a channel.
+5. Type a message and press **Enter** to send. The twin's reaction (reply, opened link,
+   submitted page, opened file, or silence) appears below.
+
+| Command | What it does |
+|---|---|
+| `/edit` | Write a longer message in a text editor; it sends when you save and close |
+| `/to` | Switch twin |
+| `/channel` | Switch channel |
+| `/from` | Change sender name and address |
+| `/attach NAME` | Attach a file name to the next message |
+| `/page` | Register a landing page; put its exact URL in your message |
+| `/call` | Start a live call or chat, one line per turn; `/hangup` ends it |
+| `/history` | Show the whole session again |
+| `/new` | Start a fresh session |
+| `/quit` | Leave; the session stays open |
+
+Every message costs one touch (30 per practice session); a whole call costs one touch.
+Your side of each session is also saved in `runs/chat/<session>.jsonl`. Writing by hand
+is for practice only: scoring runs must be fully autonomous.
+
 ## Project structure
 
 ```
