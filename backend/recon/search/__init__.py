@@ -52,3 +52,8 @@ def _dedup(results):
         elif not by_url[key].content and r.content:
             by_url[key] = r  # upgrade to the richer copy
     return list(by_url.values())
+
+
+def dedup(results):
+    # public alias so other modules can merge result lists
+    return _dedup(results)
