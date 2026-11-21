@@ -28,7 +28,6 @@ import schemas
 import strategy
 import writer
 from . import config
-from . import llm
 from .budget import TouchBudget
 from .revel8 import Revel8Client
 
@@ -68,6 +67,11 @@ PER_BRANCH = 3                             # cap one approach before pivoting
 MAX_APPROACHES_EVAL = 3                    # with only 10 touches, go deep on a few, do not spray
 MAX_APPROACHES_PRACTICE = 6
 DEFAULT_COMPANY = "revel8"
+
+# model on the amd endpoint: DeepSeek-V4-Flash is ~6x faster than Qwen and does not time out,
+# Qwen is the fallback. both are reached with RADEON_API_KEY (same base url).
+PRIMARY_MODEL = "DeepSeek-V4-Flash"
+FALLBACK_MODEL = "Qwen3.8-27B"
 
 # live channels need the conversation api (start_conversation + call script), not send_message.
 # the message path below skips them for now; wiring calls is a follow-up.
@@ -195,15 +199,19 @@ def load_profile(target_id, name, company, use_mock=False):
 
 
 class Orchestrator:
-    def __init__(self, target_id, eval_mode=False, use_model=True, use_mock=False):
+    def __init__(self, target_id, eval_mode=False, use_model=True, use_mock=False,
+                 scenario="practice", company=None):
         self.client = Revel8Client()
         self.target_id = target_id
+        self.scenario = scenario             # "practice" or "eval"
+        self.company = company               # for live recon when the scenario gives no company
         self.run_id = f"run_{target_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.budget = TouchBudget(EVAL_BUDGET if eval_mode else PRACTICE_BUDGET, PER_BRANCH)
         self.eval_mode = eval_mode
         self.use_model = use_model           # model writer (persuasive, adaptive); compose is the fallback
         self.use_mock = use_mock             # use mock/profile.json instead of live recon (fast tests)
         self.max_approaches = MAX_APPROACHES_EVAL if eval_mode else MAX_APPROACHES_PRACTICE
+        self.resume_sid = None               # set to an active session id to continue it instead of opening a new one
         self.nodes = []
         self.profile = {}
         self.messages = []                   # sent messages, for the replay viewer bundle
@@ -250,10 +258,15 @@ class Orchestrator:
         print("  approaches: " + ", ".join(
             f"{a.get('pretext')} {a.get('score')}" for a in approaches[:5]))
 
-        session = self.client.create_session()
-        sid = session["session_id"]
-        self.budget.sync(session["touches_used"])
-        print(f"  session {sid}  ·  budget {self.budget.remaining} touches\n")
+        if self.resume_sid:                  # continue a session (crash resume), do not spend a new run
+            sid = self.resume_sid
+            self.budget.sync(self.client.get_session(sid).get("touches_used", 0))
+            print(f"  resuming session {sid}  ·  {self.budget.remaining} touches left\n")
+        else:
+            session = self.client.create_session(self.scenario)
+            sid = session["session_id"]
+            self.budget.sync(session["touches_used"])
+            print(f"  session {sid}  ·  budget {self.budget.remaining} touches\n")
 
         try:
             if not self._search(profile, sid, approaches, hook_node.id):
@@ -264,11 +277,15 @@ class Orchestrator:
         return self.run_id, self.nodes
 
     def _target_card(self):
-        for s in self.client.scenarios():
+        scenarios = self.client.scenarios()
+        # prefer the target in our scenario, then fall back to any scenario that lists it
+        ordered = sorted(scenarios, key=lambda s: 0 if s.get("id") == self.scenario else 1)
+        for s in ordered:
             for t in s.get("targets", []):
                 if t["id"] == self.target_id:
-                    return {"name": t["name"], "role": t.get("role", ""), "company": DEFAULT_COMPANY}
-        return {"name": self.target_id, "role": "", "company": DEFAULT_COMPANY}
+                    return {"name": t["name"], "role": t.get("role", ""),
+                            "company": self.company or t.get("company", DEFAULT_COMPANY)}
+        return {"name": self.target_id, "role": "", "company": self.company or DEFAULT_COMPANY}
 
     def _search(self, profile, sid, approaches, parent_id):
         for approach in approaches:
@@ -305,7 +322,11 @@ class Orchestrator:
         has_page = bool(writer.compose(self.profile, approach).get("landing_page"))
         turn = engaged = 0
         last_state, last_events = "", []
-        while self.budget.can_spend() and not self.budget.branch_exhausted():
+        while not self.budget.exhausted():               # the session's total budget is the hard limit
+            # pivot a cold branch after the per-branch cap, but stay on one that is engaging:
+            # keep answering and pushing the ask while the target keeps replying
+            if engaged == 0 and self.budget.branch_exhausted():
+                return False
             turn += 1
             plan = strategy.plan_next_move(turn=turn, last_state=last_state,
                                            last_events=last_events, engaged_count=engaged,
@@ -473,7 +494,7 @@ class Orchestrator:
         key = config.load_env().get("RADEON_API_KEY")
         if not key:
             raise RuntimeError("no RADEON_API_KEY")
-        return writer.ModelConfig(api_key=key, fallback_model=writer.PRIMARY_MODEL)
+        return writer.ModelConfig(api_key=key, primary_model=PRIMARY_MODEL, fallback_model=FALLBACK_MODEL)
 
     def _target_dict(self):
         return {k: self.profile.get(k) for k in ("name", "role", "company") if self.profile.get(k)}
@@ -508,9 +529,12 @@ class Orchestrator:
         )
         user = ("Already-public facts (repeating these is not disclosure):\n- "
                 + "\n- ".join(public) + "\n\nTheir message:\n" + text[:1500])
-        try:
-            out = _json_from(llm.chat([{"role": "system", "content": system},
-                                       {"role": "user", "content": user}]))
+        try:                               # the same amd model the writer uses; no OpenAI dependency
+            cfg = self._cfg()
+            raw = _retry_model(lambda: writer._completion(
+                cfg, cfg.primary_model,
+                [{"role": "system", "content": system}, {"role": "user", "content": user}]))
+            out = _json_from(raw)
         except Exception:
             return None, ""                # if the judge is unavailable, do not claim a win
         if out.get("disclosure") is True:
