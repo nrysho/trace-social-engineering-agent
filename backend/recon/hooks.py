@@ -19,7 +19,10 @@ SYSTEM = (
     "integer NUMBERS of the facts the hook rests on, taken from the numbered facts list - numbers only, "
     "never reworded text. Each fact is tagged with its date; prefer recent or current facts and never "
     "base a hook on a fact marked stale. their_topic = a likely planted interest; own_angle = a topic "
-    "they were not set up for."
+    "they were not set up for. A need the person stated publicly (asking for recommendations, looking "
+    "for a supplier, planning a purchase, replacing a tool, hiring) is the strongest hook: name it in "
+    "their own concrete terms (\"a venue for a 180-person summer party in Munich\"), never as a generic "
+    "label (\"vendor renewal\"), and rank it above interests inferred from their role."
 )
 JSON_MODE = {"type": "json_object"}
 

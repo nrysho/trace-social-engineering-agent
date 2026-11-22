@@ -54,7 +54,7 @@ PRETEXTS: tuple[Pretext, ...] = (
     Pretext("speaker_invite", "Invitation to speak or join a panel", ("interests", "upcoming_events"), ("email", "linkedin_message", "calendar_invite", "phone_call"), "get them to name the tools or processes their team uses (for the moderator's prep), or to read the attached briefing"),
     Pretext("press_request", "Journalist or host requests an interview", ("media", "recent_activity"), ("email", "linkedin_message", "phone_call"), "get them to describe internal tools, numbers or processes for the piece, or to log in to read the article"),
     Pretext("customer_question", "Prospective customer asks a product question", ("role", "company"), ("email", "linkedin_message", "teams_chat"), "get them to describe internal processes, tools, prices or plans that are not on their website"),
-    Pretext("recruiting", "Candidate asks about a real open role", ("hiring", "role"), ("email", "linkedin_message"), "get them to say who decides on the hire and which internal tools the team uses, or to read the candidate file"),
+    Pretext("recruiting", "Candidate asks about a real open role", ("hiring", "role"), ("email", "linkedin_message", "phone_call"), "get them to say who decides on the hire and which internal tools the team uses, or to read the candidate file"),
     Pretext("document_share", "Known collaborator shares a relevant document", ("network", "recent_activity"), ("email", "shared_document", "teams_chat"), "get the recipient to open a registered simulation page", "colleague"),
     Pretext("meeting_reschedule", "Known collaborator proposes a meeting change", ("network", "upcoming_events"), ("email", "calendar_invite", "teams_chat", "whatsapp", "teams_call"), "get them to accept the changed meeting or share an internal detail (attendees, internal dial-in, room)", "colleague"),
     Pretext("vendor_notice", "Question about a known vendor or tool", ("vendors_and_tools", "role"), ("email", "teams_chat"), "get them to log in to their account or name who manages the tool internally", "vendor"),
@@ -65,6 +65,9 @@ PRETEXTS: tuple[Pretext, ...] = (
     Pretext("hr_policy", "HR asks staff to acknowledge an updated policy or benefits form", ("company", "role"), ("email", "teams_chat"), "get the recipient to sign in on a registered HR page", "colleague"),
     Pretext("it_helpdesk", "IT support follows up on a ticket, device or VPN update", ("company", "vendors_and_tools"), ("phone_call", "teams_call", "teams_chat", "email"), "get the recipient to name their VPN client or sign in on a registered page", "colleague"),
     Pretext("exec_request", "A senior leader asks for a quick, discreet favour", ("network", "company"), ("whatsapp", "teams_chat", "sms", "email"), "get the recipient to act for them (open, forward, approve) or name who approves payments", "colleague"),
+    # answers a need the person stated publicly (asked for recommendations, is looking for, plans,
+    # replaces): the strongest "open to right now" signal there is, whatever their job
+    Pretext("solution_offer", "A provider answers a need the person stated publicly", ("recent_activity",), ("email", "linkedin_message", "phone_call"), "get them to share the internal details a real offer needs (budget, who decides, the current provider, internal requirements or dates), or to open the proposal"),
     Pretext("investor_intro", "Someone introduces an investor or partner", ("recent_activity", "network"), ("email", "linkedin_message"), "get them to share internal numbers (revenue, headcount, runway, pipeline) or log in to the data room"),
 )
 
@@ -302,6 +305,66 @@ def propose_hooks(profile: dict[str, Any]) -> list[dict[str, Any]]:
     return hooks
 
 
+
+# ---------------------------------------------------------------------------
+# stated needs: what the person is asking for, looking for or planning right now
+# ---------------------------------------------------------------------------
+
+_EXPLICIT_NEED = re.compile(
+    r"looking for|asking for (recommendations|suggestions|tips|advice)|recommendations? for|"
+    r"seeking|searching for|in the market for|happy to (talk|hear|speak)|open to (talks?|offers|suggestions|ideas)|"
+    r"anyone (know|recommend)|sucht|suchen|auf der suche|empfehlungen? für", re.I)
+_PLANNED_NEED = re.compile(
+    r"evaluating|replac(e|es|ing)\b|switch(es|ing)? (from|to|provider)|migrat(e|es|ing)\b|shortlist|tender|\brfp\b|"
+    r"request for proposals?|plans? to|planning|preparing|selecting|choosing a|new (provider|vendor|supplier|partner)|"
+    r"wechsel|ausschreibung|\bplant\b", re.I)
+_HIRING_NEED = re.compile(r"\bhiring\b|recruit|open (role|position)|vacanc|job (ad|post|opening)|engineers? to join|"
+                          r"grow (its|the|their|his|her) .{0,20}team|stellenanzeige|sucht .{0,30}(mitarbeiter|verstärkung)", re.I)
+_NEED_CATEGORIES = {"recent_activity", "hiring", "interests", "communication_style", "upcoming_events", "company"}
+
+
+def _fact_year(fact: dict[str, Any]) -> int | None:
+    m = re.search(r"(19|20)\d\d", str(fact.get("date", "")))
+    return int(m.group(0)) if m else None
+
+
+def stated_needs(profile: dict[str, Any], today: Any = None) -> list[dict[str, Any]]:
+    """Hooks for needs the person stated publicly and recently, in their own terms.
+
+    A planted "thing they are open to right now" shows up in public as a request or a plan:
+    asking for venue recommendations, "always happy to talk to teams struggling with X",
+    replacing a tool, hiring for a role. Such a fact is the hook itself, so the hook topic is
+    the fact (specific), not a catalogue label ("vendor renewal"). Stale facts (older than
+    last year) are skipped: a past need is no longer open."""
+    import datetime as _dt
+    year = (today or _dt.date.today()).year
+    hooks: list[dict[str, Any]] = []
+    for fact in _facts(profile):
+        if fact.get("category") not in _NEED_CATEGORIES:
+            continue
+        value = str(fact.get("value", ""))
+        fy = _fact_year(fact)
+        if fy is not None and fy < year - 1:
+            continue
+        explicit, planned = _EXPLICIT_NEED.search(value), _PLANNED_NEED.search(value)
+        hiring = bool(_HIRING_NEED.search(value)) or fact.get("category") == "hiring"
+        if not (explicit or planned or hiring):
+            continue
+        probability = 0.95 if explicit else 0.85
+        if fy is not None and fy < year:
+            probability -= 0.1                       # last year's plan may already be done
+        hooks.append({
+            "topic": value,
+            "probability": round(probability, 4),
+            "evidence": [value],
+            "rationale": "They stated this need publicly" + (" and recently" if fy in (None, year) else ""),
+            "angle": "their_topic",
+            "pretext": "recruiting" if hiring else "solution_offer",
+            "stated_need": True,
+        })
+    hooks.sort(key=lambda h: -h["probability"])
+    return hooks
+
 _MATCH_STOP = {"their", "they", "from", "join", "with", "that", "uses", "use", "about", "real", "your", "known", "relevant", "some", "into"}
 
 
@@ -359,6 +422,15 @@ def _resolve_hooks(profile: dict[str, Any], hooks: list[dict[str, Any]] | None) 
             cur["angle"] = rh["angle"]
         by_pretext[family] = cur
     merged = list(by_pretext.values()) + extras
+    for need in stated_needs(profile):
+        # a stated need replaces the inferred family hook for its pretext and keeps its own wording;
+        # needs arrive strongest first, so a second need never displaces the first
+        cur = by_pretext.get(need["pretext"])
+        if cur is not None and cur.get("stated_need"):
+            continue
+        merged = [h for h in merged if h is not cur]
+        by_pretext[need["pretext"]] = need
+        merged.append(need)
     if not merged:
         # Unprofiled target: fall back to the role-agnostic general playbook.
         merged = [dict(h) for h in GENERAL_HOOKS]
@@ -406,6 +478,7 @@ def rank_approaches(
         hook_topic = str(hook.get("topic", "general")) if hook else "general"
         angle = str(hook.get("angle", "their_topic")) if hook else "their_topic"
         evidence = hook.get("evidence", []) if hook else []
+        stated = bool(hook and hook.get("stated_need"))
 
         required = pretext.required_facts
         coverage = _coverage(credit, required)
@@ -442,7 +515,8 @@ def rank_approaches(
                   and pretext.key not in _STRANGER_COLLEAGUES):
                 insider_penalty = 0.2
             score = (0.85 * probability + 0.15 * coverage + (0.03 if angle == "own_angle" else 0.0)
-                     + 0.05 * fit - tool_penalty - insider_penalty)
+                     + 0.05 * fit - tool_penalty - insider_penalty
+                     + (0.1 if stated else 0.0))      # their own public request beats an inferred interest
             approaches.append({
                 "hook": hook_topic,
                 "pretext": pretext.key,
@@ -459,6 +533,7 @@ def rank_approaches(
                 "missing_facts": missing,
                 "expected_touches": 1 if channel in _CALL_CHANNELS else 2,
                 "evidence": evidence,
+                "stated_need": stated,
                 "rejected_alternatives": [],
             })
 

@@ -181,5 +181,54 @@ class CallBackTests(unittest.TestCase):
         self.assertIsNone(run.call_args.kwargs["seed"]["call_back"])
 
 
+class StatedNeedTests(unittest.TestCase):
+    """a need the person stated publicly is the hook itself, for any job, and it leads"""
+    import datetime as _dt
+    today = _dt.date(2026, 11, 22)
+
+    def needs(self, facts):
+        return strategy.stated_needs({"name": "X Y", "facts": facts}, today=self.today)
+
+    def test_a_request_for_recommendations_becomes_a_specific_offer_hook(self):
+        fact = {"category": "recent_activity", "source_url": "https://l.example",
+                "value": "Sofia Brandt posted asking for recommendations for a summer party venue in Munich for about 180 people"}
+        [hook] = self.needs([fact])
+        self.assertEqual(hook["pretext"], "solution_offer")
+        self.assertEqual(hook["topic"], fact["value"])          # their words, not a catalogue label
+        self.assertGreaterEqual(hook["probability"], 0.9)
+
+    def test_hiring_needs_go_to_the_recruiter(self):
+        [hook] = self.needs([{"category": "recent_activity", "value": "Robert is actively looking for engineers to join the team",
+                              "source_url": "https://l.example"}])
+        self.assertEqual(hook["pretext"], "recruiting")
+
+    def test_old_needs_are_closed(self):
+        self.assertEqual(self.needs([{"category": "recent_activity", "date": "2024", "source_url": "https://l.example",
+                                      "value": "She was looking for a new payroll provider"}]), [])
+
+    def test_last_years_plan_counts_less(self):
+        [old] = self.needs([{"category": "recent_activity", "date": "2025", "source_url": "https://l.example",
+                             "value": "The company plans to exhibit at more trade fairs"}])
+        [new] = self.needs([{"category": "recent_activity", "date": "2026-10", "source_url": "https://l.example",
+                             "value": "The company plans to exhibit at more trade fairs"}])
+        self.assertLess(old["probability"], new["probability"])
+
+    def test_plain_biography_is_not_a_need(self):
+        self.assertEqual(self.needs([{"category": "recent_activity", "value": "Mentors early-career account executives",
+                                      "source_url": "https://l.example"}]), [])
+
+    def test_a_stated_need_outranks_a_generic_speaker_invite(self):
+        profile = {"name": "Sofia Brandt", "role": "Office and People Operations Manager", "facts": [
+            {"category": "role", "value": "Office Manager at Kranich", "source_url": "https://k.example", "verified": True},
+            {"category": "upcoming_events", "value": "Panelist at People Ops Practice Day 2026", "source_url": "https://e.example"},
+            {"category": "recent_activity", "source_url": "https://l.example",
+             "value": "Asking for recommendations for a summer party venue in Munich"}],
+            "hooks": [{"topic": "Speaking invite on onboarding", "probability": 0.95, "evidence": []}]}
+        best = runner._dedupe_by_pretext(strategy.rank_approaches(profile))[0]
+        self.assertEqual(best["pretext"], "solution_offer")
+        self.assertTrue(best["stated_need"])
+        self.assertIn("summer party venue", best["hook"])
+
+
 if __name__ == "__main__":
     unittest.main()

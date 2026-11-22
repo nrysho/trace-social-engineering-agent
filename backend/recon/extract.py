@@ -23,7 +23,13 @@ SYSTEM = (
     "for it, and NEVER attribute another person's role, history or activity to the target. value "
     "is one short factual sentence. source_url MUST be copied exactly from the result. date is "
     "YYYY-MM (or YYYY) when it happened or ended, \"present\" if current, or \"\" if not stated; "
-    "never guess a date. confidence (0-1) is how sure you are the fact is about the target and true."
+    "never guess a date. confidence (0-1) is how sure you are the fact is about the target and true. "
+    "Most important: what the person or their team is asking for, looking for, planning, preparing, "
+    "replacing, buying, hiring for or is open to right now (a request for recommendations, a search "
+    "for a supplier or venue, 'happy to talk to teams that ...', a plan to exhibit or sponsor, a tool "
+    "being replaced, an open role). Keep each such need as its own fact in category recent_activity "
+    "(or hiring for roles), keep their own words in quotes where the text has them, and never drop "
+    "one because it sounds minor."
 )
 JSON_MODE = {"type": "json_object"}
 
