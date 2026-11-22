@@ -341,6 +341,14 @@ def clean_profile(prof):
     return prof
 
 
+def _on_bench():
+    """is the agent pointed at the local bench (REVEL8_API_URL=http://127.0.0.1:8770/v1)? there the
+    personas are fictional, so recon reads their bench pages instead of searching the web."""
+    from . import revel8
+    host = (urlsplit(revel8.BASE).hostname or "").lower()
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
 def load_profile(target_id, name, company, use_mock=False):
     """a cached recon profile if one exists, else live recon. mock only with use_mock,
     since a mock is target-specific and would be wrong for a hidden eval target.

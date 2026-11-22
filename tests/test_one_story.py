@@ -440,5 +440,24 @@ class JudgeEchoTests(unittest.TestCase):
         self.assertFalse(runner._echoes_sender("Mira Hansen decides on hires", sent))
 
 
+class LiveReconPathTests(unittest.TestCase):
+    """a target with no saved profile goes to live recon; that path once crashed on a missing helper."""
+    def test_a_new_target_runs_web_recon(self):
+        built = Mock(to_dict=lambda: {"name": "Jonas Richter", "facts": [{"category": "role", "value": "x", "source_url": "https://x"}]})
+        with patch.object(runner, "RUNS", runner.Path("/nonexistent")), \
+                patch.object(runner.profiler, "build", return_value=built) as build, \
+                patch.object(runner, "_write_profile", create=True):
+            prof = runner.load_profile("jonas", "Jonas Richter", "revel8")
+        self.assertEqual(prof["target_id"], "jonas")
+        self.assertIsNone(build.call_args.kwargs.get("bench_target"))     # the real API: search the web
+
+    def test_the_local_bench_reads_bench_pages(self):
+        from backend import revel8
+        with patch.object(revel8, "BASE", "http://127.0.0.1:8770/v1"):
+            self.assertTrue(runner._on_bench())
+        with patch.object(revel8, "BASE", "https://target-api.apps.01.cf.eu01.stackit.cloud/v1"):
+            self.assertFalse(runner._on_bench())
+
+
 if __name__ == "__main__":
     unittest.main()
