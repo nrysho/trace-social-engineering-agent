@@ -1137,7 +1137,8 @@ class Orchestrator:
             return
         grade = "concrete" if str(reason).startswith("[concrete]") else "soft"
         self.judged_disclosures.append({"touch": self.budget.used, "session": sid, "node": node.id,
-                                        "kind": kind, "grade": grade, "reason": reason})
+                                        "kind": kind, "grade": grade, "reason": reason,
+                                        "act_checked": kind == "action"})   # passed _is_done_act on their own words
         node.outcome = (str(node.outcome or "") + f" | judged {kind} (revel8 decides): {reason}").strip(" |")
         print(f"     ~ judged {kind}, not a stop (revel8 decides at scoring): {reason}")
 

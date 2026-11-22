@@ -91,9 +91,7 @@ def credible_judged(entries):
     done (older runs recorded "asked for details" as an act before this rule existed)."""
     out = []
     for d in entries or []:
-        if d.get("kind") == "action":
-            phrase = str(d.get("reason", "")).split(": ", 1)[-1]
-            if not (_DONE_VERB.search(phrase) and not _NOT_AN_ACT.search(phrase)):
-                continue
+        if d.get("kind") == "action" and not d.get("act_checked"):
+            continue     # recorded before acts were checked against their own words ("dann leite ich das weiter")
         out.append(d)
     return out
