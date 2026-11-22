@@ -101,3 +101,22 @@ reporting/control-flow corrections, not changes to raw historical events.
 
 Do not add major planner/model/state rewrites immediately before a scoring freeze.
 Finish evidence and presentation first; test small correctness fixes offline.
+
+## Architecture evidence panel in the existing replay
+
+Select a run's target/root node and expand "Architecture evidence - recorded
+decisions and gaps". The panel inventories receipt-backed contact records,
+source URLs, recorded follow-up ancestry, approach/reason and reaction decisions.
+Missing receipts, ambiguous message joins, missing reasoning, absent alternatives
+and broken/cyclic ancestry are flagged. It does not authenticate receipt IDs,
+judge usefulness of an adaptation or calculate any official points.
+
+Use it before the presentation to select a thread with an actual receipt and a
+clear sequence of reply -> next decision. Inspect the original message/reaction
+nodes as the evidence, rather than reading the inventory alone. Old runs may
+have legitimate gaps because the recorder did not capture those fields; do not
+fill them with invented decisions. The report is generated read-only on GET,
+so original bundle files, schemas, simulator payloads and send behaviour remain
+unchanged. Four regression cases cover joins, cycles, aborts and source immutability;
+the current full suite passes 219 tests with no skips. A real saved practice
+bundle was visually checked in Chrome. No official contacts were used.

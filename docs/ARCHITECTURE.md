@@ -89,3 +89,12 @@ identity review, critic and durable SQLite state need their inputs; the default
 runner does not silently activate them. Full used-session recovery and stronger
 semantic fact checking remain limitations. Source snapshots, assets and private
 runs are never committed as public evidence by this documentation.
+
+## Judge-facing evidence inventory
+
+The viewer's target/root inspector includes a collapsible architecture evidence
+panel, generated read-only from the saved bundle. It joins contact to receipt,
+ancestor approach and recorded reaction; it counts source URLs and linked
+follow-ups, and explicitly flags missing evidence. Parent links alone do not
+prove useful adaptation, and supplied receipt IDs are not authenticated by this
+inventory. Use the panel to navigate the original evidence, not as another score.

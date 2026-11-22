@@ -711,6 +711,23 @@ function alternatives(n, title = "Other options considered") {
   return [el("div", { class: "psec", text: title }),
     ...n.rejected.map((r) => el("div", { class: "rej" }, el("b", { text: r.option }), el("span", { text: r.reason })))];
 }
+function judgingPanel() {
+  const evidence=run.judging_evidence;
+  if (!evidence) return [];
+  const panel=el('details', {class:'judging-evidence'},
+    el('summary',{text:'Architecture evidence - recorded decisions and gaps'}),
+    el('p',{text:`${evidence.receipt_backed_contacts} receipt-backed contacts; ${evidence.recorded_followups} follow-ups linked in the tree; ${evidence.source_urls.length} source URLs.`}),
+    el('p',{class:'muted',text:evidence.limitation}));
+  for (const gap of evidence.gaps) panel.append(el('div',{class:'muted',text:`Evidence gap: ${gap}`}));
+  for (const step of evidence.steps) {
+    panel.append(el('div',{class:'psec',text:`${step.node_id}: ${step.decision || 'Contact'}`}),
+      el('p',{text:`Why: ${step.reason || 'Not recorded'}`}),
+      el('p',{text:`Approach: ${step.approach || 'Not recorded'}`}),
+      el('p',{text:`Receipt: ${step.receipt_id || 'Missing'} | Events: ${step.event_types === null ? 'Unknown' : step.event_types.join(', ') || 'None returned'}`}));
+    for (const reaction of step.reactions) panel.append(el('p',{text:`Recorded response decision: ${reaction.decision || ''}. ${reaction.reason || ''}`}));
+  }
+  return [panel];
+}
 function inspect(item, keepFocus = false) {
   const box = $("inspector");
   if (!keepFocus) focus = null;
@@ -727,7 +744,7 @@ function inspect(item, keepFocus = false) {
   const n = item, m = messageFor(n.id), events = run.events[n.id];
   const parts = [tools];
   if (n.level === "target") {
-    parts.push(outcomeBanner(), ...profilePanel());
+    parts.push(outcomeBanner(), ...judgingPanel(), ...profilePanel());
   } else if (n.level === "hook") {
     if (!keepFocus) focus = { title: "Why the agent tried this hook", explanation: n.reasoning, evidence: n.evidence };
     parts.push(...nodeHeader(n), ...alternatives(n, "Other hooks considered"), el("div", { class: "psec", text: "Target profile" }), ...profilePanel());

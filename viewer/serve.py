@@ -29,6 +29,7 @@ sys.path.insert(0,str(ROOT))
 from viewer import sessions
 from viewer.qa_metrics import quality_summary, by_version
 from backend.outcomes import classify_incident
+from viewer.judging_evidence import judging_evidence
 PERSONAS = ROOT / "bench" / "personas.json"
 DEMO_RUNS = {"sample", "mock"}  # replayable, but never counted as results
 
@@ -215,7 +216,7 @@ class Handler(SimpleHTTPRequestHandler):
                 bundle = loader()
             except (OSError, ValueError, KeyError) as e:
                 return self.send_json({"error": f"cannot read run: {e}"}, 500)
-            return self.send_json(bundle) if bundle else self.send_json({"error": "empty session"}, 404)
+            return self.send_json(dict(bundle,judging_evidence=judging_evidence(bundle))) if bundle else self.send_json({"error": "empty session"}, 404)
         if path in ("/", "/index.html"):
             return super().do_GET()
         self.send_error(404)

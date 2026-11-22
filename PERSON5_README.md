@@ -58,3 +58,7 @@ messages, pages and call turns. An assertion must reproduce a supplied verified,
 sourced fact or be rewritten as a neutral question. This is limited pattern
 coverage, not general semantic truth verification. If DuckDuckGo presents a bot
 challenge, configure a working Tavily or Serper key; do not bypass the gate.
+
+For judging, select the replay root/target and expand the Architecture evidence
+panel. It displays saved choices, receipt IDs, reactions and gaps without changing
+run files or sending anything. Read docs/RUBRIC_READINESS.md for presentation use.
