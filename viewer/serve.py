@@ -32,7 +32,7 @@ MOCK = ROOT / "mock"
 sys.path.insert(0,str(ROOT))
 from viewer import sessions
 from viewer.qa_metrics import quality_summary, by_version
-from backend.outcomes import classify_incident
+from backend.outcomes import classify_incident, credible_judged
 from viewer.judging_evidence import judging_evidence
 PERSONAS = ROOT / "bench" / "personas.json"
 DEMO_RUNS = {"sample", "mock"}  # replayable, but never counted as results
@@ -155,6 +155,8 @@ def summary(run_id, bundle):
     m = metrics(bundle)
     return {"id": run_id, "target": (bundle.get("profile") or {}).get("name", ""), "mode": bundle.get("mode", ""),
             "contacts": m["touches"], "incident": bool(m["first_incident_touch"]), "qa": quality_summary(bundle),
+            # disclosures or acts only our judge saw: shown apart from recorded objectives (revel8 decides them)
+            "judged": len(credible_judged(bundle.get("judged_disclosures"))),
             "run_status": bundle.get('run_status'), "abort_reason": bundle.get('abort_reason')}
 
 
@@ -278,6 +280,8 @@ class Handler(SimpleHTTPRequestHandler):
                 bundle = loader()
             except (OSError, ValueError, KeyError) as e:
                 return self.send_json({"error": f"cannot read run: {e}"}, 500)
+            if bundle:
+                bundle = dict(bundle, judged_disclosures=credible_judged(bundle.get("judged_disclosures")))
             return self.send_json(dict(bundle,judging_evidence=judging_evidence(bundle))) if bundle else self.send_json({"error": "empty session"}, 404)
         if path in ("/", "/index.html"):
             return super().do_GET()

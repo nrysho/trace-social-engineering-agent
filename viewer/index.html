@@ -271,7 +271,7 @@ async function loadRuns(prefer) {
     const groups = {};
     for (const r of runs) (groups[groupOf(r.id)] ||= []).push(r);
     const label = (r) => r.error ? `${r.id} (unreadable)`
-      : `${r.target || r.id} · ${r.contacts} touch${r.contacts === 1 ? "" : "es"}${r.incident ? " · ★ incident" : ""}${r.id === "sample" ? " · demo" : r.id === "mock" ? " · mock data" : ""}`;
+      : `${r.target || r.id} · ${r.contacts} touch${r.contacts === 1 ? "" : "es"}${r.incident ? " · ★ incident" : ""}${r.judged ? ` · ☆ ${r.judged} judged (revel8 decides)` : ""}${r.id === "sample" ? " · demo" : r.id === "mock" ? " · mock data" : ""}`;
     pick.replaceChildren(...["Agent runs", "Bench (fictional personas)", "revel8 practice (by hand)", "Examples"].filter((g) => groups[g])
       .map((g) => el("optgroup", { label: g }, ...groups[g].map((r) => el("option", { value: r.id, text: label(r) })))));
     // Open the most useful run first: an agent run, else the branching demo.
@@ -770,6 +770,10 @@ function inspect(item, keepFocus = false) {
     parts.push(...nodeHeader(n), ...alternatives(n, "Other hooks considered"), el("div", { class: "psec", text: "Target profile" }), ...profilePanel());
   } else {
     parts.push(...nodeHeader(n));
+    // what our judge saw on this contact: a disclosure or an act, not a recorded objective; revel8 decides at scoring
+    const judged = (run.judged_disclosures || []).filter((d) => d.node === n.id || (n.level === "reaction" && d.node === n.parent_id));
+    if (judged.length) parts.push(el("div", { class: "psec", text: "Judged by our agent (revel8 decides at scoring)" }),
+      ...judged.map((d) => el("div", { class: "factrow", text: `${d.kind || "disclosure"} · ${d.grade || ""} · ${d.reason}` })));
     if (n.level === 'contact' || n.level === 'attempt' || m) parts.push(qualityPanel(n, m));
     if (n.reasoning) parts.push(el("div", { class: "why" }, el("div", { class: "k", text: n.level === "reaction" ? "Reading of the reaction" : "Why" }), el("div", { text: n.reasoning })));
     if (n.level !== "contact" && (n.incident_chance || n.expected_contacts)) parts.push(el("div", { class: "row" },

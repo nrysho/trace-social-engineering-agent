@@ -32,7 +32,7 @@ import strategy
 import writer
 from . import config
 from .budget import TouchBudget
-from .outcomes import (classify_incident, steps as event_steps, SECRET_MARKER, CREDENTIAL_FIELDS,
+from .outcomes import (classify_incident, steps as event_steps, _ACT_DONE, _NOT_AN_ACT, _DONE_VERB, _is_done_act, SECRET_MARKER, CREDENTIAL_FIELDS,
                        DISCLOSURE_FIELDS, SECRET_HINTS, _filled, _is_secret)
 from .revel8 import Revel8Client
 from quality.guarded_client import GuardedClient
@@ -229,24 +229,6 @@ def _sentences(text):
 _WANTS_LINK = re.compile(r"\b(links?|urls?|page|website|webseite|seite|homepage|landing ?page)\b", re.I)
 
 
-# an act done for us must be in their own words, in a done form ("approved", "habe ... weitergeleitet");
-# the judge model alone called "asked for the documents" and "agreed to wait" an action
-_ACT_DONE = re.compile(
-    r"\b(approved|signed off|granted|have (forwarded|changed|updated|shared|booked|reserved|confirmed)|"
-    r"i('ve| have) (forwarded|changed|updated|shared|booked|reserved|confirmed)|access (is )?granted|"
-    r"freigegeben|genehmigt|gewährt|habe [^.?!]{0,40}(weitergeleitet|geändert|aktualisiert|freigegeben|geteilt|gebucht|reserviert|bestätigt)|"
-    r"ist (freigegeben|genehmigt|gebucht|reserviert)|hiermit (freigegeben|bestätigt|genehmigt))\b", re.I)
-_NOT_AN_ACT = re.compile(r"\b(asked|requested|agreed|declined|deferred|offered|will|would|wait|need|check|verify|pending|"
-                         r"bat|fragte|möchte|prüf\w*)\b", re.I)
-# the judge's own summary must start with the act ("Approved the quote", "Forwarded the invoice to finance")
-_DONE_VERB = re.compile(r"^(approved|forwarded|granted|shared|changed|updated|booked|reserved|confirmed|signed|"
-                        r"authori[sz]ed|accepted the (change|booking|quote|offer|invoice))\b", re.I)
-
-
-def _is_done_act(text, did):
-    """an act done for us: the judge names it as done, and their own words say it in a done form."""
-    did = str(did or "").strip()
-    return bool(did and _DONE_VERB.search(did) and _ACT_DONE.search(text or "") and not _NOT_AN_ACT.search(did))
 REPLAN_BAND = 0.25   # the model may reorder close options, never lift one the ranking scored far lower
 
 
@@ -914,7 +896,9 @@ class Orchestrator:
             pass
         state = "incident" if incident_type else "engaged"
         contact.status = state
-        contact.outcome = incident_reason or f"call ended, {len(transcript)} lines"
+        # keep any judged disclosure or act _note_judged wrote on this call; the line count goes after it
+        contact.outcome = incident_reason or "; ".join(x for x in (str(contact.outcome or "").strip(" |"),
+                                                                     f"call ended, {len(transcript)} lines") if x)
         self.add_node("reaction", "evaluator", f"call {state}",
                       incident_reason or "call ended", contact.id, status=state,
                       incident_chance=1.0 if incident_type else 0.0)

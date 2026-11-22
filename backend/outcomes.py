@@ -66,3 +66,34 @@ def steps(events):
     return out
 
 
+# an act done for us must be in their own words, in a done form ("approved", "habe ... weitergeleitet");
+# the judge model alone called "asked for the documents" and "agreed to wait" an action
+_ACT_DONE = re.compile(
+    r"\b(approved|signed off|granted|have (forwarded|changed|updated|shared|booked|reserved|confirmed)|"
+    r"i('ve| have) (forwarded|changed|updated|shared|booked|reserved|confirmed)|access (is )?granted|"
+    r"freigegeben|genehmigt|gewährt|habe [^.?!]{0,40}(weitergeleitet|geändert|aktualisiert|freigegeben|geteilt|gebucht|reserviert|bestätigt)|"
+    r"ist (freigegeben|genehmigt|gebucht|reserviert)|hiermit (freigegeben|bestätigt|genehmigt))\b", re.I)
+_NOT_AN_ACT = re.compile(r"\b(asked|requested|agreed|declined|deferred|offered|will|would|wait|need|check|verify|pending|"
+                         r"bat|fragte|möchte|prüf\w*)\b", re.I)
+# the judge's own summary must start with the act ("Approved the quote", "Forwarded the invoice to finance")
+_DONE_VERB = re.compile(r"^(approved|forwarded|granted|shared|changed|updated|booked|reserved|confirmed|signed|"
+                        r"authori[sz]ed|accepted the (change|booking|quote|offer|invoice))\b", re.I)
+
+
+def _is_done_act(text, did):
+    """an act done for us: the judge names it as done, and their own words say it in a done form."""
+    did = str(did or "").strip()
+    return bool(did and _DONE_VERB.search(did) and _ACT_DONE.search(text or "") and not _NOT_AN_ACT.search(did))
+
+
+def credible_judged(entries):
+    """judged results worth showing: every judged disclosure, and a judged act only when it is named as
+    done (older runs recorded "asked for details" as an act before this rule existed)."""
+    out = []
+    for d in entries or []:
+        if d.get("kind") == "action":
+            phrase = str(d.get("reason", "")).split(": ", 1)[-1]
+            if not (_DONE_VERB.search(phrase) and not _NOT_AN_ACT.search(phrase)):
+                continue
+        out.append(d)
+    return out
