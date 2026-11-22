@@ -61,7 +61,7 @@ SIMULATION_SYSTEM = (
 # What makes a message believable, from our practice runs: twins ignore vague, unsigned, generic
 # mail and check every detail, so be specific, sign as a real person and make one clear ask.
 WRITING_RULES = [
-    "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient as this sender would and keep one form of address (in German the formal Sie, unless they use du). Sign off using exactly you_are.name: a person adds role, organisation, a phone number from the fictional range +49 30 23125 0xx and the city; a company or team signs as the team.",
+    "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient as this sender would and keep one form of address (in German the formal Sie, unless they use du). Sign off using exactly you_are.name: a person adds role, organisation, exactly you_are.phone and the city; a company or team signs as the team.",
     "2. Do what this_message says, with at most one ask. Never ask for something your sender would already know.",
     "3. Keep details light until asked: say only what the recipient needs to decide (who you are, the topic, roughly when). Give names, numbers, references or agendas only when they ask, and then concretely: invented people of your own organisation with realistic full names and roles, real cities and venues, dates after today; a reference, once given, stays the same. Never name real outside companies or real people as participants, partners or references: the recipient can check those. If asked who someone is, give names; if asked how you found them, it is their public work (a talk, a post, the company site).",
     "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation.",
@@ -117,7 +117,8 @@ MOVE_GUIDANCE = {
     "introduce": "First contact. Introduce yourself and a concrete, relevant reason for writing that fits the recipient's verified facts. Ask only for interest or a quick reply (a yes, a time that suits); nothing internal, no link or file unless included_with_your_text has one.",
     "nudge": "They did not answer. A short, friendly follow-up that adds one new, concrete reason; no pressure and no repeat of the first message.",
     "answer_build": "They replied with some doubt. Answer their questions concretely, add one detail that makes you more credible, and keep the ask small.",
-    "reassure": "They are doubtful. Address the doubt directly and calmly with something they can check about you or your organisation (your role, the publication or event, an official next step); make no new ask. Never invent a past meeting, call or referral.",
+    "reassure": "They are doubtful. Address the doubt directly and calmly with something they can check about you or your organisation (your role, the publication or event, an official next step); make no new ask. Never invent a past meeting, call or referral, and never claim a link to their own talks, events, employer or contacts.",
+    "deliver": "This mail is the one you promised on the call. Deliver exactly what they asked for: what included_with_your_text really carries (the file, the link) plus your full details; give one concrete reason, tied to the need they spoke about, to open it now. Ask no internal question in this mail; at most one light question about their need itself (timing, size, what matters most). Never say a link or page is included when a_link_follows_your_text is false.",
     "make_ask": "They engaged. Now ask one direct question whose honest answer is an internal detail the plan needs (which tool or VPN client they use, who approves or decides, a number, an internal process), framed as something your story genuinely needs, so they can answer in one line of their reply. If a file is included, mention it in one sentence. Build on what they said.",
     "push_complete": "They opened the link but did not finish. Briefly help them complete it, as the sender would.",
 }
@@ -211,7 +212,8 @@ def generate_message(
     payload = {
         "task": CHANNEL_GUIDANCE.get(channel, "Write only the caller's next spoken line for a live call."),
         "recipient": {key: target.get(key) for key in ("name", "role", "company", "country") if target.get(key)},
-        "you_are": {key: sender.get(key) for key in ("name", "role", "organization", "email") if sender.get(key)},
+        "you_are": dict({key: sender.get(key) for key in ("name", "role", "organization", "email") if sender.get(key)},
+                        phone=sender.get("phone") or sender_phone(sender.get("email", ""))),
         # the agent's own plan: guides the message, but its wording must never appear in it
         "internal_plan_do_not_quote": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
         "verified_facts_about_recipient": facts,
@@ -292,11 +294,13 @@ def generate_call_line(
             "1. You are exactly the sender (name, role, organisation); keep every detail consistent, including one form of address (in German the formal Sie, unless they use du). "
             "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
             "3. Keep details light until asked; dates you mention lie after today. "
-            "4. Answer their question briefly, then ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need for your story. "
-            "5. If they want it in writing, agree, say what you will send today, and close politely. Never repeat a question they declined."
+            "4. Your first line (turn 1): who you are and why you call, tied to their public topic or need, then one open question about that topic or need itself (what they look for, when, how big); nothing internal yet, since a stranger who opens with internal questions sounds like fishing. "
+            "Later lines: answer their question briefly; once they have shown interest, ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need to make your offer fit. "
+            "5. If they want it in writing, agree, name exactly what they asked for (a link, a page, an agenda, your details) as what you will send today, and close politely. Never repeat a question they declined. "
+            "6. If you give a phone number, it is exactly sender.phone."
         ),
         "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
-        "sender": {key: sender.get(key) for key in ("name", "role", "organization") if sender.get(key)},
+        "sender": {key: sender.get(key) for key in ("name", "role", "organization", "phone") if sender.get(key)},
         "approach": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
         "verified_facts": facts,
         "transcript": transcript,
@@ -477,11 +481,19 @@ def _fill(template: str, brand: str, tld: str) -> str:
     return str(template).replace("{brand}", brand).replace("{tld}", tld)
 
 
+def sender_phone(address: str) -> str:
+    """one fixed number per sender, from the fictional Berlin range 030 23125 000-999: the recipient
+    remembers every sender in a session, and two strangers with one number give the game away."""
+    import zlib
+    return f"+49 30 23125 {zlib.crc32(str(address).casefold().encode()) % 1000:03d}"
+
+
 def _local_part(name: str) -> str:
     """'Dr. Tom Müller' -> 'tom.mueller': umlauts spelled out, titles dropped, ASCII only."""
     import unicodedata
     text = str(name).lower()
-    for k, v in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+    for k, v in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss"), ("ø", "o"), ("æ", "ae"), ("œ", "oe"),
+                 ("ł", "l"), ("đ", "d"), ("ð", "d"), ("þ", "th"), ("ı", "i")):
         text = text.replace(k, v)
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     text = re.sub(r"\b(dr|prof|mr|mrs|ms)\.?\s+", "", text)
@@ -530,8 +542,9 @@ def free_domain(domain: str) -> str:
     # closest lookalikes first: the same name on another ending, then a hyphen, then an added word.
     # No homoglyphs (Cyrillic 'е'): browsers show such domains as xn--… punycode, which looks worse.
     near = [f"{label}.{t}" for t in ("co", "io", "net", "de", "eu", "org", "com") if t != suffix]
-    near += [f"{label[:i]}-{label[i:]}.{suffix}" for i in range(3, len(label) - 2) if "-" not in label][:2]
-    near += [f"{label}-{extra}.{suffix}" for extra in ("notice", "mail", "portal", "service", "online", "secure-mail")]
+    # never a hyphen inside a word ('ins-ightflow.de'): it reads as a typo-squat, the first thing people check
+    near += [f"{label}{sep}{extra}.{suffix}" for extra in ("group", "team", "hq", "partners", "notice", "mail", "portal", "service", "online")
+             for sep in ("-", "")]
     for candidate in near:
         if domain_taken(candidate) is False:
             logger.info("domain %s is registered; using %s", base, candidate)
@@ -636,10 +649,10 @@ def build_sender(pretext: str, target_domain: str, colleague: str = "", vendors:
 # sender that fits its story; the fixed senders.json entry is only the offline/failure fallback.
 SENDER_KIND_RULES = {
     "outsider": [
-        "The sender works at an invented organisation that would naturally write about this topic (e.g. a monitoring vendor for a cloud-cost topic, an executive search firm for a hiring topic, an events agency for a speaking invitation).",
+        "The sender works at an invented organisation (never a real company, conference, event series or publication: the recipient can check those) that would naturally write about this topic (e.g. a monitoring vendor for a cloud-cost topic, an executive search firm for a hiring topic, an events agency for a speaking invitation).",
         "The role fits the question being asked (an engineer for technical questions, a partner for investors, a researcher or editor for press).",
         "The name is a realistic full name from the recipient's region; the first name differs from the recipient's.",
-        "The domain is a plausible, registrable domain for that invented organisation.",
+        "The domain is a plausible, registrable domain for that invented organisation, spelled exactly like its name (no hyphen inside a word, no misspelling).",
     ],
     "vendor": [
         "The sender writes for a tool, service or supplier the recipient's company uses (see impersonated_tool or the facts), or for the recipient's own IT team if none fits.",
@@ -651,7 +664,7 @@ SENDER_KIND_RULES = {
         "The sender is a colleague at the recipient's company. If known_colleague is given, use exactly that name; otherwise invent a realistic full name from the recipient's region whose first name differs from the recipient's.",
         "The role is one that would plausibly make this request of the recipient (finance for an invoice, operations for a document, an assistant for a meeting).",
         "The organisation is the recipient's company.",
-        "The domain is a lookalike of the company's own domain that an attacker could register (a small typo, an extra word, a different ending), never the real domain.",
+        "The domain is a lookalike of the company's own domain that an attacker could register (an extra word or a different ending), never the real domain and never a misspelling: a typo is the first thing people check.",
     ],
 }
 REAL_ORG_DOMAINS = ("google.com", "microsoft.com", "linkedin.com", "docusign.com", "okta.com", "apple.com",

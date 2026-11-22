@@ -230,5 +230,78 @@ class StatedNeedTests(unittest.TestCase):
         self.assertIn("summer party venue", best["hook"])
 
 
+class RefusalReadingTests(unittest.TestCase):
+    def test_a_formal_invitation_is_not_a_refused_form(self):
+        heard = ("I'm not sure which talk you mean, but I'm happy to review a formal invitation. "
+                 "Please email me the link to the official conference page.")
+        self.assertEqual(runner._refused(heard), set())
+
+    def test_refusals_are_read_per_clause(self):
+        self.assertEqual(runner._refused("Bitte keine Anhänge, schicken Sie mir einen Link."), {"files"})
+        self.assertEqual(runner._refused("Links klicke ich nicht an, PDFs öffne ich nicht."), {"files", "links"})
+        self.assertEqual(runner._refused("I don't open attachments or links from people I don't know."), {"files", "links"})
+
+    def test_asking_for_the_page_counts_as_asking_for_a_link(self):
+        self.assertTrue(runner._WANTS_LINK.search("Schicken Sie mir die Seite zur Veranstaltung"))
+        self.assertTrue(runner._WANTS_LINK.search("send me the event page and agenda"))
+
+
+class SenderIdentityTests(unittest.TestCase):
+    def test_a_taken_domain_never_gets_a_hyphen_inside_a_word(self):
+        import writer
+        taken = {"insightflow.de", "insightflow.co", "insightflow.io", "insightflow.net", "insightflow.eu",
+                 "insightflow.org", "insightflow.com"}
+        with patch.object(writer, "domain_taken", side_effect=lambda d: d in taken):
+            out = writer.free_domain("insightflow.de")
+        self.assertTrue(out.startswith("insightflow"), out)
+        self.assertNotIn("ins-ight", out)
+
+    def test_nordic_letters_survive_in_the_address(self):
+        import writer
+        self.assertEqual(writer._local_part("Elin Søderberg"), "elin.soderberg")
+
+    def test_each_sender_has_its_own_fixed_number(self):
+        import writer
+        a, b = writer.sender_phone("lena@k8s-reliability.de"), writer.sender_phone("katrin@cn-talent.de")
+        self.assertEqual(a, writer.sender_phone("LENA@k8s-reliability.de"))
+        self.assertNotEqual(a, b)
+        self.assertRegex(a, r"^\+49 30 23125 \d{3}$")
+
+    def test_the_writer_is_given_that_number(self):
+        import json, writer
+        seen = {}
+        def fake(config, model, messages):
+            seen["payload"] = json.loads(messages[1]["content"])
+            return json.dumps({"subject": "Hallo", "body": "Hallo"})
+        cfg = writer.ModelConfig(api_key="x", fallback_model="f")
+        with patch.object(writer, "_completion", side_effect=fake), patch.object(writer, "quality_gate"):
+            writer.generate_message(cfg, target={"name": "Anna Berg"}, approach={"channel": "email", "pretext": "solution_offer"},
+                                    sender={"name": "Miriam Kolb", "email": "miriam.kolb@kolb-partners.de"}, verified_facts=[])
+        self.assertEqual(seen["payload"]["you_are"]["phone"], writer.sender_phone("miriam.kolb@kolb-partners.de"))
+
+
+class DeliverAfterCallTests(unittest.TestCase):
+    def test_the_mail_a_call_promised_delivers_before_it_asks(self):
+        agent = agent_for("tom")
+        agent.client = Mock()
+        agent.budget = runner.TouchBudget(10, 6)
+        seed = {"history": [{"message": "(phone call) hallo", "events": [], "reply": "Schicken Sie mir das Angebot per Mail."}],
+                "scepticism": 2, "call_back": None}
+        steps = []
+        def draft(step, sid, node, history, include_link):
+            steps.append(step)
+            raise RuntimeError("stop after the first draft")
+        approach = dict(pretext="solution_offer", channel="email", incident_goal="x", attachment="Proposal_and_Options.pdf")
+        with patch.object(agent, "_draft_checked", side_effect=draft):
+            agent._run_messages("s1", approach, Mock(id="n_1"), seed=seed)
+        self.assertEqual(steps[0]["next_move"], "deliver")
+        self.assertEqual(steps[0]["attachment"], "Proposal_and_Options.pdf")
+
+    def test_the_writer_knows_the_deliver_move(self):
+        import writer
+        self.assertIn("deliver", writer.MOVE_GUIDANCE)
+        self.assertIn("No internal question".lower(), writer.MOVE_GUIDANCE["deliver"].lower().replace("ask no internal question", "no internal question"))
+
+
 if __name__ == "__main__":
     unittest.main()

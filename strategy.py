@@ -642,7 +642,7 @@ def assess_scepticism(reply_text: str, judge: Callable[[str], dict] | None = Non
 
 
 # message stages for a persistent thread; the drafter has matching guidance.
-INTENTS = ("introduce", "answer_build", "make_ask", "push_complete", "reassure", "nudge")
+INTENTS = ("introduce", "answer_build", "make_ask", "push_complete", "reassure", "nudge", "deliver")
 
 
 def plan_next_move(

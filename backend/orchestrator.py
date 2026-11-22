@@ -191,7 +191,9 @@ SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for 
 
 _NEGATION = re.compile(r"\b(not|don'?t|do not|won'?t|will not|never|no|nicht|keine?n?|kein|zu)\b|vorerst nicht|lasse ich", re.I)
 _FILE_WORDS = re.compile(r"\b(attachments?|pdfs?|files?|briefing|anh[äa]nge?n?|dateien?)\b", re.I)
-_LINK_WORDS = re.compile(r"\b(links?|forms?|formulare?s?|rsvp|click|klick|sign[ -]?in|anmelden)\w*", re.I)
+_LINK_WORDS = re.compile(r"\b(links?|forms?|formulare?s?|rsvp|click\w*|klick\w*|sign[ -]?in|anmelde\w*)\b", re.I)
+# a refusal is judged per clause: "not sure who you are, but email me the link" asks for the link
+_CLAUSE = re.compile(r",\s*|;\s*|\s+(?:but|aber|however|jedoch|and then|und dann)\s+", re.I)
 _DECLINE = re.compile(r"(public|öffentlich|website|not (on|over) the phone|won'?t (share|discuss|go through|give)|"
                       r"don'?t (share|discuss|give)|keine (details|angaben)|brauchen wir nicht|gebe .{0,25}nicht|"
                       r"nicht (am telefon|weiter)|no need|not going to|nicht nötig)", re.I)
@@ -223,11 +225,14 @@ def _sentences(text):
     return [x.strip() for x in re.split(r"(?<=[.!?])\s+|\n+", text or "") if x.strip()]
 
 
+_WANTS_LINK = re.compile(r"\b(links?|urls?|page|website|webseite|seite|homepage|landing ?page)\b", re.I)
+
+
 def _refused(text):
     """what the target said they will not do in this thread, judged per sentence so it works in any
     word order ("I don't open attachments", "Die Anhänge öffne ich vorerst nicht")."""
     out = set()
-    for sentence in _sentences(text):
+    for sentence in (c for x in _sentences(text) for c in _CLAUSE.split(x) if c and c.strip()):
         if not _NEGATION.search(sentence):
             continue
         if _FILE_WORDS.search(sentence):
@@ -630,6 +635,10 @@ class Orchestrator:
             if plan.get("stop"):
                 print(f"     stop branch: {plan.get('reason', '')}")
                 return False
+            if seed and len(history) == len(seed["history"]) and plan.get("intent") in ("make_ask", "answer_build", "reassure"):
+                # the mail a call promised delivers what they asked for; the internal ask waits for
+                # their reply (asking for internal details in it read as fishing to every bench twin)
+                plan = dict(plan, intent="deliver", reason="the mail the call promised: deliver first, ask later")
             if plan.get("intent") == "reassure":
                 reassured += 1
             if plan.get("intent") == "nudge" and seed and seed.get("call_back") in LIVE_CHANNELS \
@@ -642,14 +651,14 @@ class Orchestrator:
             # link is the lure; a relationship pretext stages it until the target engages
             include_link = (bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
                             or (plan.get("intent") == "reassure" and has_page)   # doubt is met with something to check
-                            or bool(history and has_page and re.search(r"\blinks?\b|\burl\b|\bpage\b", history[-1].get("reply", ""), re.I)))
+                            or bool(history and has_page and _WANTS_LINK.search(history[-1].get("reply", ""))))
             contact = self.add_node("contact", "writer",
                                     f"contact on {approach.get('pretext')} ({plan.get('intent', '')})",
                                     plan.get("reason", ""), parent, status="active")
             try:
                 story_day = _business_day(self.story_base, self.contact_count).date().isoformat()
                 step = dict(approach, next_move=plan.get("intent", ""), story_date=story_day)
-                if plan.get("intent") == "make_ask" and approach.get("channel") == "email":
+                if plan.get("intent") in ("make_ask", "deliver") and approach.get("channel") == "email":
                     # the ask also carries the pretext's file: opening it is a one-click win (action)
                     step["attachment"] = step.get("attachment") or FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext"))
                 if history and _asks_for_material(history[-1].get("reply", "")):
@@ -755,6 +764,7 @@ class Orchestrator:
         self._apply_persona(approach, comp)          # the caller is the same generated persona as on mail
         sender = {"name": comp["sender"]["name"], "address": comp["sender"]["address"]}
         caller = {k: comp["sender"][k] for k in ("name", "role", "organization") if comp["sender"].get(k)}
+        caller["phone"] = writer.sender_phone(comp["sender"].get("address", ""))   # the number its mail will carry
         self.contact_count += 1
         sent_at = _business_day(self.story_base, self.contact_count - 1).isoformat()
         contact = self.add_node("contact", "caller", f"call on {approach.get('pretext')}",
