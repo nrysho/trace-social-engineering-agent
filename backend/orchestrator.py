@@ -534,6 +534,9 @@ class Orchestrator:
             try:
                 story_day = (self.story_base + timedelta(days=self.contact_count)).date().isoformat()
                 step = dict(approach, next_move=plan.get("intent", ""), story_date=story_day)
+                if plan.get("intent") == "make_ask" and approach.get("channel") == "email":
+                    # the ask also carries the pretext's file: opening it is a one-click win (action)
+                    step["attachment"] = step.get("attachment") or FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext"))
                 if history and _asks_for_material(history[-1].get("reply", "")):
                     # they asked for the agenda, articles, deck...: send it; opening it is the action incident
                     step["attachment"] = step.get("attachment") or _material_name(history[-1]["reply"], approach.get("pretext"))
