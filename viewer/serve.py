@@ -38,6 +38,22 @@ def load(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def normalise(bundle):
+    """events grouped by contact node, the shape the viewer reads. Runs saved before the per-contact
+    format kept one flat list: regroup it by message id; events that match no contact are dropped
+    from the per-contact view rather than breaking the whole run list."""
+    events = bundle.get("events")
+    if isinstance(events, list):
+        node_of = {m.get("message_id"): m.get("node_id") for m in bundle.get("messages", []) if m.get("message_id")}
+        grouped = {}
+        for e in events:
+            node = node_of.get(e.get("message_id")) or node_of.get(e.get("in_reply_to"))
+            if node:
+                grouped.setdefault(node, []).append(e)
+        bundle["events"] = grouped
+    return bundle
+
+
 def mock_bundle():
     nodes = load(MOCK / "tree.json")
     message = load(MOCK / "message.json")
@@ -60,7 +76,7 @@ def bundles():
     found = {}
     if RUNS.exists():
         for path in by_mtime(RUNS.glob("*.json")):
-            found[path.stem] = lambda p=path: load(p)
+            found[path.stem] = lambda p=path: normalise(load(p))
     for path in by_mtime((RUNS / "trees").glob("*.json")) if (RUNS / "trees").exists() else []:
         found.setdefault(path.stem, lambda p=path: sessions.from_agent_tree(p, RUNS))  # the orchestrator's runs
     personas = sessions.load_personas(PERSONAS)
