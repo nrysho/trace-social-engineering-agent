@@ -13,8 +13,12 @@ Serves viewer/index.html and lists runs:
 /api/results summarises all of them for the results table.
 Only GET requests exist. Nothing here can contact a target.
 """
+import hashlib
 import json
 import pathlib
+import re
+import threading
+from urllib.parse import parse_qs, urlsplit
 import statistics
 import sys
 from datetime import datetime, timezone
@@ -52,6 +56,42 @@ def normalise(bundle):
                 grouped.setdefault(node, []).append(e)
         bundle["events"] = grouped
     return bundle
+
+
+TRANSLATIONS = RUNS / "translations.json"
+_GERMAN = re.compile(r"\b(ich|nicht|und|der|die|das|bitte|danke|schicken|gerne|gern|ist|wir|sie|mir|mit|auf|ihr|ihnen|für|wenn|aber)\b", re.I)
+_LOCK = threading.Lock()
+
+
+def translate(text):
+    """an English translation of a German message, reply or call (None if it is already English).
+    Uses the team's model once per text and caches the result in runs/translations.json; the
+    viewer stays read-only towards targets: this calls the model, never the revel8 API."""
+    text = str(text or "").strip()
+    words = len(text.split())
+    if words < 3 or len(_GERMAN.findall(text)) < max(2, words // 15):
+        return None
+    key = hashlib.sha1(text.encode()).hexdigest()
+    with _LOCK:
+        try:
+            cache = json.loads(TRANSLATIONS.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            cache = {}
+    if key in cache:
+        return cache[key]
+    sys.path.insert(0, str(ROOT))
+    from backend import llm            # imported lazily: the viewer works without model keys
+    out = llm.chat([{"role": "system", "content": "Translate the user's text into natural English. Keep names, line breaks "
+                     "and speaker labels like 'them:' or 'us:'. Reply with the translation only."},
+                    {"role": "user", "content": text[:6000]}]).strip()
+    with _LOCK:
+        try:
+            cache = json.loads(TRANSLATIONS.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            cache = {}
+        cache[key] = out
+        TRANSLATIONS.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+    return out
 
 
 def mock_bundle():
@@ -224,6 +264,12 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(results())
         if path == "/api/progress":
             return self.send_json(progress())
+        if path == "/api/translate":
+            text = (parse_qs(urlsplit(self.path).query).get("text") or [""])[0]
+            try:
+                return self.send_json({"translation": translate(text)})
+            except Exception as e:     # no model key or the model is down: the page just shows no translation
+                return self.send_json({"translation": None, "error": str(e)[:200]})
         if path.startswith("/api/runs/"):
             loader = bundles().get(path[len("/api/runs/"):])
             if not loader:

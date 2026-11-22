@@ -569,6 +569,22 @@ function pagePreview(p) {
     scaledFrame(sandboxDoc(inner), 1200, 760),
   ];
 }
+function plainText(body) {
+  const s = String(body || "");
+  return /<[a-z][\s\S]*>/i.test(s) ? (new DOMParser().parseFromString(s, "text/html").body.textContent || "") : s;
+}
+const translations = new Map();
+function translation(body) {
+  const text = plainText(body).trim();
+  const box = el("div", { class: "translation", style: "display:none;margin:6px 0 10px;padding:8px 10px;border-left:3px solid var(--accent);background:rgba(127,127,127,.08);white-space:pre-wrap;font-size:14px" });
+  if (text.split(/\s+/).length < 3) return box;
+  const show = (t) => { if (t) { box.replaceChildren(el("div", { class: "meta", text: "English translation" }), t); box.style.display = "block"; } };
+  if (translations.has(text)) { show(translations.get(text)); return box; }
+  fetch("/api/translate?text=" + encodeURIComponent(text.slice(0, 6000))).then((r) => r.json()).then((d) => {
+    translations.set(text, d.translation || null); show(d.translation);
+  }).catch(() => {});
+  return box;
+}
 function transcript(body, who) {
   return el("div", { class: "card transcript" }, ...String(body).split("\n").filter(Boolean).map((line) => {
     const m = line.match(/^([^:]{1,40}):\s*(.*)$/);
@@ -577,8 +593,10 @@ function transcript(body, who) {
   }));
 }
 function eventView(e, who) {
-  if (e.type === "reply") return el("div", { class: "bubble them" },
-    el("div", { class: "meta", text: `${who} replied · ${String(e.channel || "").replace(/_/g, " ")}${e.subject ? " · " + e.subject : ""}` }), e.body || "");
+  if (e.type === "reply") return el("div", {},
+    el("div", { class: "bubble them" },
+      el("div", { class: "meta", text: `${who} replied · ${String(e.channel || "").replace(/_/g, " ")}${e.subject ? " · " + e.subject : ""}` }), e.body || ""),
+    translation(e.body));
   if (e.type === "link.opened") return el("div", { class: "event link", text: `● ${who} opened ${e.url || "the link"}` });
   if (e.type === "page.submitted") return el("div", { class: "event win", text: `★ ${who} submitted the page: ${(e.fields || []).join(", ")}` });
   if (e.type === "attachment.opened") return el("div", { class: "event win", text: `★ ${who} opened ${e.filename || "the attachment"}` });
@@ -758,10 +776,10 @@ function inspect(item, keepFocus = false) {
       el("div", { class: "metric" }, el("div", { class: "muted", text: "Expected touches" }), el("div", { class: "num", text: n.expected_contacts || "–" }))));
     if (n.outcome && !events) parts.push(el("div", { class: "psec", text: "Outcome" }), el("div", { class: "factrow", text: n.outcome }));
     if (m) {
-      if (LIVE_CHANNELS.has(m.channel)) parts.push(el("div", { class: "psec", text: `${m.channel.replace(/_/g, " ")} · ${m.sender?.name || ""} ${m.sender?.address || ""}` }), transcript(m.body, who));
-      else if (["email", "calendar_invite", "shared_document"].includes(m.channel)) parts.push(el("div", { class: "psec", text: "The message as the target sees it" }), ...mailPreview(m));
+      if (LIVE_CHANNELS.has(m.channel)) parts.push(el("div", { class: "psec", text: `${m.channel.replace(/_/g, " ")} · ${m.sender?.name || ""} ${m.sender?.address || ""}` }), transcript(m.body, who), translation(m.body));
+      else if (["email", "calendar_invite", "shared_document"].includes(m.channel)) parts.push(el("div", { class: "psec", text: "The message as the target sees it" }), ...mailPreview(m), translation((m.subject ? m.subject + "\n\n" : "") + plainText(m.body)));
       else parts.push(el("div", { class: "psec", text: `Message · ${m.channel.replace(/_/g, " ")}` }), el("div", { class: "bubble" },
-        el("div", { class: "meta", text: `${m.sender?.name || ""} · ${m.sender?.address || ""}` }), m.body));
+        el("div", { class: "meta", text: `${m.sender?.name || ""} · ${m.sender?.address || ""}` }), m.body), translation(m.body));
       if (m.landing_page) parts.push(el("div", { class: "psec", text: "Landing page behind the link" }), ...pagePreview(m.landing_page));
     }
     if (events) parts.push(el("div", { class: "psec", text: "Reaction" }), ...(events.length ? events.map((e) => eventView(e, who)) : [el("div", { class: "event none", text: `${who} did not react.` })]));
