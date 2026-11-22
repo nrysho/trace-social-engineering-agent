@@ -963,6 +963,28 @@ class Orchestrator:
                 continue
         raise RuntimeError("scepticism judge unavailable")
 
+    def _publicly_findable(self, detail):
+        """search the claimed detail with the target's company; True if a top result contains its key
+        words (a name, a tool) so it is public. On no search key or an error: not provably public."""
+        words = [w for w in re.findall(r"[A-Za-zÄÖÜäöüß0-9][\w.+-]{2,}", detail) if w[0].isupper() or any(c.isdigit() for c in w)]
+        if not words:
+            return False
+        company = str(self.profile.get("company") or "")
+        try:
+            from backend.recon.search import serper
+            key = config.load_env().get("SERPER_API_KEY")
+            if not key:
+                return False
+            hits = serper.search(" ".join(words[:4]) + (f" {company}" if company else ""), 5, key)
+        except Exception:
+            return False
+        for h in hits:
+            text = f"{h.title} {getattr(h, 'snippet', '') or ''} {h.url}".casefold()
+            # the same page must tie the detail to this company, else "Cisco AnyConnect" is public everywhere
+            if all(w.casefold() in text for w in words[:3]) and (not company or company.casefold() in text):
+                return True
+        return False
+
     def _judge_disclosure(self, text, sent=""):
         """an llm judge: does this reply reveal INTERNAL, non-public information (a disclosure
         win)? strict, since the jury confirms every win and a false claim scores nothing. it
@@ -1001,6 +1023,12 @@ class Orchestrator:
             return None, ""                # if the judge is unavailable, do not claim a win
         details = [str(d).strip() for d in out.get("details") or [] if str(d).strip()]
         if out.get("disclosure") is True and details:
+            # a detail anyone can find on the web is not a disclosure (a colleague's role on LinkedIn).
+            # Calling it a win would end the session early and waste the remaining touches.
+            details = [d for d in details if not self._publicly_findable(d)]
+            if not details:
+                print("     judge: the details are publicly findable; not a disclosure, the run continues")
+                return None, ""
             summary = f"{who} revealed internal details: " + "; ".join(details)
             if out.get("why"):
                 summary += f". {str(out['why']).strip()}"

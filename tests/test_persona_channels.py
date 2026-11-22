@@ -203,6 +203,17 @@ class LiveThreadTests(unittest.TestCase):
         for line in ("Hallo Frau Weber, danke für die Anfrage, das klingt spannend.", "Which conference is it, and who is speaking?"):
             self.assertFalse(runner._wants_out(line), line)
 
+    def test_a_publicly_findable_detail_is_not_a_disclosure(self):
+        with patch.object(runner, "Revel8Client", return_value=Mock()):
+            agent = runner.Orchestrator("julius", use_model=False)
+        agent.profile = {"company": "revel8"}
+        hit = Mock(title="Mira Hansen – Building People & Culture @revel8", snippet="", url="https://linkedin.example/in/mira")
+        other = Mock(title="Cisco AnyConnect download", snippet="VPN client", url="https://cisco.example")
+        with patch.object(runner.config, "load_env", return_value={"SERPER_API_KEY": "k"}), \
+                patch("backend.recon.search.serper.search", return_value=[hit, other]):
+            self.assertTrue(agent._publicly_findable("Mira Hansen is the People & Culture contact"))
+            self.assertFalse(agent._publicly_findable("Their VPN client is Cisco AnyConnect"))
+
     def test_what_they_refuse_is_not_sent_again(self):
         self.assertEqual(runner._refused("I also don't open attachments or fill in forms from people I don't know."), {"files", "links"})
         self.assertEqual(runner._refused("Ich öffne keine Anhänge von Unbekannten."), {"files"})
