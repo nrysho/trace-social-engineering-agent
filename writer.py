@@ -74,6 +74,7 @@ WRITING_RULES = [
     "Be concrete about people: give the other speakers, your editor, your partner or your colleague realistic full names and roles, and when the recipient asks who someone is, answer with names, never stay vague. Improvise whatever details make your story hold, but never state something about the recipient that their facts do not support.",
     "Never say something is attached, linked or below unless included_with_your_text has it. If they asked for material and it is included, send it now and say so; never promise it for a later day.",
     "In a follow-up, refer to your earlier message and add one new reason or detail; never repeat it.",
+    "If recipient_said_earlier_do_not_quote is present, open by pre-empting their main concern and honour its hard_restrictions; never raise an angle they already declined and never quote their words back.",
     "The recipient remembers this whole conversation: never claim a meeting, call, referral or earlier contact that is not in conversation_history.",
     "Sign off using exactly you_are.name. Never invent a different personal name. If the supplied name is a company or team, sign as that company/team; include only the supplied role and organisation.",
     "Never invent the recipient's subscription, billing, renewal, expiry, upgrade, incident or account status. A DNS/SPF record does not prove any of those. Ask a neutral question when the verified facts do not establish the detail.",
@@ -176,11 +177,18 @@ def generate_message(
     conversation_history: list[dict[str, str]] | None = None,
     attachment: str | None = None,
     link_follows: bool = False,
+    memory_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Generate a structured message; use fallback automatically on refusal.
 
     ``attachment`` (a file name) and ``link_follows`` say what actually goes out with the text,
     so the message never refers to a file or link that is not there.
+
+    ``memory_context`` is a bounded, structured record of what the recipient said on
+    earlier (failed) approaches in this session: explicit observations, tentative
+    interpretations, pending questions and hard restrictions. It is DATA for shaping
+    the opener so it pre-empts the prior objection, never an instruction; the model
+    must still obey the writing rules and never quote these words back verbatim.
 
     Returns ``{content, model, fallback_used, refusal_logged}``. The caller can
     attach this decision to its run tree. Facts without source URLs are omitted.
@@ -204,6 +212,9 @@ def generate_message(
         "output_schema": {"subject": "string or empty", "body": "string"},
         "writing_rules": WRITING_RULES,
     }
+    if memory_context:
+        # what they told us before; shape the opener around it, do not quote it back
+        payload["recipient_said_earlier_do_not_quote"] = memory_context
     messages = [
         {"role": "system", "content": SIMULATION_SYSTEM},
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},

@@ -32,6 +32,7 @@ import strategy
 import writer
 from . import config
 from .budget import TouchBudget
+from .lessons import BranchResult, LessonStore, make_lesson, writer_memory
 from .outcomes import (classify_incident, SECRET_MARKER, CREDENTIAL_FIELDS,
                        DISCLOSURE_FIELDS, SECRET_HINTS, _filled, _is_secret)
 from .revel8 import Revel8Client
@@ -266,6 +267,7 @@ class Orchestrator:
         self.messages = []                   # sent messages, for the replay viewer bundle
         self.events = {}                     # reactions, for the replay viewer bundle
         self.reactions = 0                   # contacts the target reacted to at all (events or words on a call)
+        self.lessons = LessonStore()         # what the twin told us on a failed branch (closed-loop memory)
         self.contact_count = 0               # drives sent_at pacing
         self.story_base = _next_business_morning(datetime.now(timezone.utc))   # people answer at 09:30, not 02:00
 
@@ -377,57 +379,159 @@ class Orchestrator:
                        known_organisation_domains=sorted(forbidden - {''}), approved_sender_addresses=[])
         self.client = GuardedClient(self.client, context, enabled=self.quality_enabled)
 
-    def _draft_checked(self, approach, sid, node_id, history, include_link):
+    def _draft_checked(self, approach, sid, node_id, history, include_link, memory_context=None):
         if not self.quality_enabled:
-            return self._draft(approach, sid, node_id, history, include_link)
+            return self._draft(approach, sid, node_id, history, include_link, memory_context=memory_context)
         prepared = generate_checked(
-            lambda feedback: self._draft(approach, sid, node_id, history, include_link, feedback=feedback),
+            lambda feedback: self._draft(approach, sid, node_id, history, include_link,
+                                         feedback=feedback, memory_context=memory_context),
             self.client.context, max_attempts=3, validator=self.client.check_message,
             audit=lambda entry:self.qa_by_node.__setitem__(node_id, entry['report']))
         return as_shared_message(prepared)
 
     def _search(self, profile, sid, approaches, parent_id, ranked=()):
+        """run approaches in turn, but consult the lesson memory before each one: stop
+        the whole session on an explicit "stop contacting me", skip a pretext family the
+        twin explicitly declined (zero touches), down-weight a channel or hook that softly
+        stalled, and hand the next writer what the twin said so the opener pre-empts it.
+        channel switching on a silent channel (ranked/silent) is kept. every exit closes
+        with a typed reason."""
         silent = set()                       # channels a whole branch got no reaction on
-        for approach in approaches:
+        remaining = list(approaches)
+        while remaining:
             if self.budget.exhausted():
-                return False
+                return self._close_search(parent_id, "budget_exhausted", "touch budget exhausted")
+            stop = self.lessons.session_stop(sid, self.target_id)
+            if stop:
+                return self._close_search(parent_id, "contact_stop_requested",
+                    f"session stopped: twin said “{stop.get('excerpt','')}”; no further contact")
+            excluded = self.lessons.excluded_pretexts(sid, self.target_id)
+            remaining = self._reprioritise(sid, remaining)
+            approach = remaining.pop(0)
+            if approach.get("pretext") in excluded:
+                # a burned pretext: record the decision, spend nothing, move on
+                self._close_search(parent_id, "no_permitted_approaches",
+                    self._pivot_note(sid, approach, skipped=True), skipped=True, approach=approach)
+                continue
             approach = _switch_channel(approach, ranked, silent)
             seen = self.reactions
             self.budget.new_branch()
             node = self.add_node(
                 "approach", "strategist",
                 f"run approach: {approach.get('pretext')} -> {approach.get('incident_goal')}",
+                self._pivot_note(sid, approach) or
                 f"score {approach.get('score')}, angle {approach.get('angle')}", parent_id,
                 incident_chance=float(approach.get("score", 0.0)), status="active",
                 evidence=list(approach.get("evidence", [])))   # which facts this approach rests on
             print(f"  >> approach: {approach.get('pretext')} via {approach.get('channel')} "
                   f"({approach.get('channel_reason', 'no channel reason')}; goal {approach.get('incident_goal')})")
-            if self._run_branch(sid, approach, node):
-                return True
+            memory = writer_memory(self.lessons, sid, self.target_id)   # bounded context for the writer
+            try:
+                result = self._run_branch(sid, approach, node, memory_context=memory)
+            except Exception:
+                # an uncertain delivery (or any branch exception): mark the node and stop,
+                # never pivot under a fresh idempotency key
+                if node.status == "active":
+                    node.status, node.level = "failed", "attempt"
+                    node.outcome = node.outcome or "branch failed; reconcile before another approach"
+                raise
+            if result.incident:
+                return result
             if self.reactions == seen:
                 silent.add(approach.get("channel"))
-            print(f"  -- branch '{approach.get('pretext')}' stalled; pivoting\n")
-        return False
+            if remaining and not self.lessons.session_stop(sid, self.target_id):
+                print(f"  -- branch '{approach.get('pretext')}' closed ({result.close_reason}); pivoting\n")
+        return BranchResult("no_permitted_approaches")
 
-    def _run_branch(self, sid, approach, approach_node):
+    def _reprioritise(self, sid, remaining):
+        """reorder the not-yet-run approaches so a channel or hook that SOFTLY stalled
+        drops down the list. a tentative stall down-weights, it never bans (an explicit
+        decline is handled separately by excluding the pretext)."""
+        tentative = [l for l in self.lessons.for_session(sid, self.target_id)
+                     if l["certainty"] == "tentative" and (l["channel"] or l["hook"])]
+        if not tentative or len(remaining) < 2:
+            return remaining
+        soft_channels = {l["channel"] for l in tentative if l["channel"]}
+        soft_hooks = {l["hook"] for l in tentative if l["hook"]}
+        def penalty(a):
+            return (0.1 if a.get("channel") in soft_channels else 0.0) + \
+                   (0.05 if a.get("hook") in soft_hooks else 0.0)
+        return sorted(remaining, key=lambda a: (penalty(a), -float(a.get("score", 0.0))))
+
+    def _pivot_note(self, sid, approach, skipped=False):
+        """plain-words reasoning that cites the lesson(s) behind this choice, for replay."""
+        prior = [l for l in self.lessons.for_session(sid, self.target_id)
+                 if l["certainty"] == "explicit" and l.get("excerpt")]
+        if not prior:
+            return ""
+        last = prior[-1]
+        gist = f"twin said “{last['excerpt']}” on {last['pretext']}"
+        if skipped:
+            return f"skipped {approach.get('pretext')}: {gist}; this family was explicitly declined"
+        return f"pivoted from {last['pretext']} ({gist}); chose {approach.get('pretext')}"
+
+    def _close_search(self, parent_id, close_reason, note, *, skipped=False, approach=None):
+        """record a search-level decision node (stop or skip) and return the typed result.
+        a skipped branch costs zero touches: it is a decision record, not a sent contact."""
+        decision = (f"skip {approach.get('pretext')}" if skipped and approach
+                    else f"session closed: {close_reason}")
+        self.add_node("approach", "strategist", decision, note or close_reason, parent_id,
+                      status="failed", evidence=list((approach or {}).get("evidence", [])))
+        if note:
+            print(f"  -- {note}\n")
+        return BranchResult(close_reason)
+
+    def _branch_close_reason(self, state, cls, scepticism, remaining):
+        """map the last reaction onto the typed close reason for a message branch."""
+        if cls.get("kind") == "session_stop" and cls.get("certainty") == "explicit":
+            return "contact_stop_requested"
+        if state == "declined" or (cls.get("kind") == "approach_decline" and cls.get("certainty") == "explicit"):
+            return "approach_declined"
+        if scepticism is not None and scepticism >= strategy.SCEPTICISM_REASSURE_MIN:
+            return "persistent_doubt"
+        if remaining <= 0:
+            return "budget_exhausted"
+        return "silence_limit"
+
+    def _close_branch(self, sid, approach, node, close_reason, *, reply="",
+                      scepticism=None, observation=None, incident=False):
+        """record one append-only lesson for a finished branch and return the typed
+        result. keeps the twin's own words (the excerpt) so the next branch can
+        pre-empt the objection. never touches budget, permissions or retries."""
+        if observation is None and reply:
+            observation = strategy.classify_reply(reply)
+        lesson = make_lesson(session_id=sid, target_id=self.target_id, approach=approach,
+                             close_reason=close_reason, observation=observation, scepticism=scepticism)
+        self.lessons.add(lesson)
+        if node is not None:
+            gist = f"branch closed: {close_reason}"
+            if lesson.get("excerpt"):
+                gist += f" - twin said: “{lesson['excerpt']}”"
+            node.outcome = node.outcome or gist
+            if node.status in ("active", "proposed"):
+                node.status = "incident" if incident else ("exhausted" if close_reason == "budget_exhausted" else "failed")
+        return BranchResult(close_reason, incident=incident)
+
+    def _run_branch(self, sid, approach, approach_node, memory_context=None):
         """run one approach: a live-call channel goes through the conversation api,
         any other channel through the message path."""
         self.client.story_scope = approach.get('story_id') or approach.get('pretext') or 'session'
         if approach.get("channel") in LIVE_CHANNELS:
             return self._run_call(sid, approach, approach_node)
-        return self._run_messages(sid, approach, approach_node)
+        return self._run_messages(sid, approach, approach_node, memory_context=memory_context)
 
-    def _run_messages(self, sid, approach, approach_node, seed=None):
+    def _run_messages(self, sid, approach, approach_node, seed=None, memory_context=None):
         """messages on one approach until an incident, a stop, or the per-branch cap.
         plan_next_move stages the thread (introduce, build trust, then ask with the link),
         so a first cold contact has no login link. with the model writer each contact
         adapts to the reply; with compose a branch is one contact, since a repeat is the
-        same message the api would dedup."""
+        same message the api would dedup. ``memory_context`` is what the twin said on
+        earlier approaches, handed to the writer to pre-empt the prior objection."""
         history = []
         parent = approach_node.id
         has_page = bool(writer.compose(self.profile, approach).get("landing_page"))
         turn = engaged = reassured = 0
-        last_state, last_events, scepticism = "", [], None
+        last_state, last_events, scepticism, last_cls, reply = "", [], None, {}, ""
         if seed:                                       # continuing a thread, e.g. the mail promised on a call
             history = list(seed["history"])
             turn, engaged, last_state, scepticism = 1, 1, "engaged", seed.get("scepticism")
@@ -435,7 +539,8 @@ class Orchestrator:
             # pivot a cold branch after the per-branch cap, but stay on one that is engaging:
             # keep answering and pushing the ask while the target keeps replying
             if engaged == 0 and self.budget.branch_exhausted():
-                return False
+                reason = self._branch_close_reason(last_state, last_cls, scepticism, self.budget.total - self.budget.used)
+                return self._close_branch(sid, approach, approach_node, reason, scepticism=scepticism, observation=last_cls or None)
             turn += 1
             plan = strategy.plan_next_move(turn=turn, last_state=last_state,
                                            last_events=last_events, engaged_count=engaged,
@@ -443,7 +548,8 @@ class Orchestrator:
                                            reassured=reassured)
             if plan.get("stop"):
                 print(f"     stop branch: {plan.get('reason', '')}")
-                return False
+                reason = self._branch_close_reason(last_state, last_cls, scepticism, self.budget.total - self.budget.used)
+                return self._close_branch(sid, approach, approach_node, reason, scepticism=scepticism, observation=last_cls or None)
             if plan.get("intent") == "reassure":
                 reassured += 1
             # a page-based pretext (sign-in, document) carries its link from the start, since the
@@ -459,20 +565,22 @@ class Orchestrator:
                 if history and _asks_for_material(history[-1].get("reply", "")):
                     # they asked for the agenda, articles, deck...: send it; opening it is the action incident
                     step["attachment"] = step.get("attachment") or _material_name(history[-1]["reply"], approach.get("pretext"))
-                msg = self._draft_checked(step, sid, contact.id, history, include_link)
+                msg = self._draft_checked(step, sid, contact.id, history, include_link,
+                                          memory_context=memory_context)
             except Exception as e:
                 contact.status = "failed"
                 contact.level = "attempt"
                 self.qa_by_node.setdefault(contact.id, QualityReport(errors=["Writer failed before submission"]).to_dict())
                 contact.outcome = f"writer failed: {e}"
                 print(f"     writer failed: {e}")
-                return False
+                return self._close_branch(sid, approach, approach_node, "internal_failure", scepticism=scepticism)
 
             if history and _plain(msg.body) == history[-1]["message"]:
                 # the api treats a word-for-word repeat as the same message: it would not count
                 contact.status, contact.outcome = "failed", "draft repeats the last message word for word"
                 print("     stop branch: draft repeats the last message")
-                return False
+                reason = self._branch_close_reason(last_state, last_cls, scepticism, self.budget.total - self.budget.used)
+                return self._close_branch(sid, approach, approach_node, reason, scepticism=scepticism, observation=last_cls or None)
             self.contact_count += 1
             sent_at = (self.story_base + timedelta(days=self.contact_count - 1)).isoformat()
             print(f"     -> [{msg.channel}] {msg.subject or msg.body[:48]}")
@@ -485,9 +593,12 @@ class Orchestrator:
             except QualityBlocked as exc:
                 self.qa_by_node[contact.id] = exc.report.to_dict()
                 contact.level, contact.status, contact.outcome = 'attempt', 'failed', 'QA blocked before send; no contact'
-                return False
+                return self._close_branch(sid, approach, approach_node, "quality_blocked", scepticism=scepticism)
             except Exception:
                 contact.level, contact.status, contact.outcome = 'attempt', 'failed', 'Delivery uncertain; reconcile original key before retrying'
+                # record why the branch ended, then re-raise: an uncertain delivery must stop
+                # and reconcile, never pivot under a fresh idempotency key
+                self._close_branch(sid, approach, approach_node, "delivery_uncertain", scepticism=scepticism)
                 raise
             self.qa_by_node[contact.id] = self.client.last_report
             self.budget.sync(result.get("touches_used", self.budget.used))
@@ -517,6 +628,12 @@ class Orchestrator:
                 reason = (reason.rstrip(". ") + ". " if reason else "") + f"Scepticism {scepticism}/10: {sc['reason']}"
                 if scepticism >= strategy.SCEPTICISM_REASSURE_MIN and state == "engaged":
                     state = "suspicious"   # a polite but doubtful reply is not a green light
+            # what the twin explicitly said, independent of the events. an explicit "stop
+            # contacting me" ends everything even if the same reply also opened a link.
+            last_cls = strategy.classify_reply(reply)
+            if not incident_type and last_cls.get("kind") == "session_stop" and last_cls.get("certainty") == "explicit":
+                state = "declined"
+                reason = (reason.rstrip(". ") + ". " if reason else "") + "Explicit request to stop all contact."
             contact.status = state
             contact.outcome = reason
             self.add_node("reaction", "evaluator", f"{state}: {verdict.get('recommended_action')}",
@@ -532,18 +649,29 @@ class Orchestrator:
 
             if incident_type:
                 print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
-                return True
+                return self._close_branch(sid, approach, approach_node, "candidate_incident",
+                                          reply=reply, scepticism=scepticism, observation=last_cls, incident=True)
+            remaining = self.budget.total - self.budget.used
+            if last_cls.get("kind") == "session_stop" and last_cls.get("certainty") == "explicit":
+                return self._close_branch(sid, approach, approach_node, "contact_stop_requested",
+                                          reply=reply, scepticism=scepticism, observation=last_cls)
             if verdict.get("recommended_action") == "stop":
-                return False
+                return self._close_branch(sid, approach, approach_node,
+                                          self._branch_close_reason(state, last_cls, scepticism, remaining),
+                                          reply=reply, scepticism=scepticism, observation=last_cls)
             if not self.use_model:
-                return False                   # compose cannot vary a follow-up; pivot
-        return False
+                # compose cannot vary a follow-up; pivot, recording what this one contact drew
+                return self._close_branch(sid, approach, approach_node,
+                                          self._branch_close_reason(state, last_cls, scepticism, remaining),
+                                          reply=reply, scepticism=scepticism, observation=last_cls)
+        return self._close_branch(sid, approach, approach_node, "budget_exhausted",
+                                  reply=reply, scepticism=scepticism, observation=last_cls or None)
 
     def _run_call(self, sid, approach, approach_node):
         """a live call: one touch for the whole call, up to 10 turns. cheap and fast, and
         well suited to a disclosure ask. writer.generate_call_line writes one line per turn."""
         if not self.budget.can_spend():
-            return False
+            return self._close_branch(sid, approach, approach_node, "budget_exhausted")
         comp = writer.compose(self.profile, approach)
         self._apply_persona(approach, comp)          # the caller is the same generated persona as on mail
         sender = {"name": comp["sender"]["name"], "address": comp["sender"]["address"]}
@@ -565,8 +693,9 @@ class Orchestrator:
             contact.outcome = f"call failed to start: {e}"
             print(f"     call failed to start: {e}")
             if not isinstance(e, QualityBlocked):
+                self._close_branch(sid, approach, approach_node, "delivery_uncertain")
                 raise
-            return False
+            return self._close_branch(sid, approach, approach_node, "quality_blocked")
         self.qa_by_node[contact.id] = self.client.last_report
         self.budget.sync(conv.get("touches_used", self.budget.used))
         self.budget.branch_used += 1
@@ -614,6 +743,7 @@ class Orchestrator:
                 contact.status = "failed"
                 contact.outcome = "Call-turn delivery uncertain; reconcile before another approach"
                 print(f"     say failed: {e}")
+                self._close_branch(sid, approach, approach_node, "delivery_uncertain")
                 raise
             heard = turn_r.get("persona_says", "")
             events = turn_r.get("events", [])
@@ -641,12 +771,17 @@ class Orchestrator:
         self._save_tree()
         if incident_type:
             print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
-            return True
+            return self._close_branch(sid, approach, approach_node, "candidate_incident",
+                                      reply=heard, observation=strategy.classify_reply(heard), incident=True)
         said = [t["text"] for t in transcript[1:] if t["role"] == "them" and t["text"]]
         if said and not self.budget.exhausted():
             # they talked to us: send the material the call promised, in the same thread, instead of pivoting
             return self._follow_up_call(sid, approach, contact, transcript)
-        return False
+        cls = strategy.classify_reply(heard)
+        scepticism = strategy.assess_scepticism(heard)["score"]
+        close_reason = self._branch_close_reason(state, cls, scepticism, self.budget.total - self.budget.used)
+        return self._close_branch(sid, approach, approach_node, close_reason,
+                                  reply=heard, scepticism=scepticism, observation=cls)
 
     def _follow_up_call(self, sid, approach, contact, transcript):
         """the email a call ends with ("send it by mail"): same sender, the call as history,
@@ -665,10 +800,11 @@ class Orchestrator:
         if type(used) is not int or used <= self.budget.used:
             raise ValueError('Missing or non-increasing API touch count; delivery may have occurred, reconcile before another send')
 
-    def _draft(self, approach, sid, node_id, history, include_link, feedback=None):
+    def _draft(self, approach, sid, node_id, history, include_link, feedback=None, memory_context=None):
         """build the next message: a persuasive, adaptive body from the model writer, with
         writer.compose (deterministic, no model) as the fallback. the landing link is added
-        and the page registered only when plan_next_move stages the ask (include_link)."""
+        and the page registered only when plan_next_move stages the ask (include_link).
+        ``memory_context`` lets the opener pre-empt what the twin objected to earlier."""
         comp = writer.compose(self.profile, approach)
         self._apply_persona(approach, comp)
         landing = comp.get("landing_page")
@@ -676,7 +812,8 @@ class Orchestrator:
         if self.use_model:
             try:
                 content = _retry_model(lambda: self._model_body(approach, comp, history,
-                    feedback=feedback, link_follows=bool(include_link and landing)))
+                    feedback=feedback, link_follows=bool(include_link and landing),
+                    memory_context=memory_context))
                 comp["subject"] = content.get("subject") or comp.get("subject", "")
                 comp["body"] = content.get("body") or comp["body"]
                 model_ok = True
@@ -778,7 +915,7 @@ class Orchestrator:
     def _target_dict(self):
         return {k: self.profile.get(k) for k in ("name", "role", "company", "country") if self.profile.get(k)}
 
-    def _model_body(self, approach, comp, history, feedback=None, link_follows=False):
+    def _model_body(self, approach, comp, history, feedback=None, link_follows=False, memory_context=None):
         sender = {"name": comp["sender"]["name"], "email": comp["sender"]["address"],
                   "role": comp["sender"].get("role", ""), "organization": comp["sender"].get("organization", "")}
         conv = []
@@ -791,7 +928,7 @@ class Orchestrator:
         gen = writer.generate_message(
             self._cfg(), target=self._target_dict(), approach=approach, sender=sender,
             verified_facts=self.profile.get("facts", []), conversation_history=conv,
-            attachment=comp.get("attachment"), link_follows=link_follows)
+            attachment=comp.get("attachment"), link_follows=link_follows, memory_context=memory_context)
         return gen.get("content", {})
 
     def _judge_scepticism(self, text):
@@ -874,6 +1011,7 @@ class Orchestrator:
             "nodes": nodes,
             "messages": self.messages,
             "events": self.events,
+            "lessons": self.lessons.list(),   # closed-loop memory: why branches ended, append-only
         }
         RUNS.mkdir(parents=True, exist_ok=True)
         (RUNS / f"{self.run_id}.json").write_text(json.dumps(bundle, indent=2))
