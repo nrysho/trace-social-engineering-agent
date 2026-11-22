@@ -229,6 +229,14 @@ def _sentences(text):
 _WANTS_LINK = re.compile(r"\b(links?|urls?|page|website|webseite|seite|homepage|landing ?page)\b", re.I)
 
 
+# an act done for us must be in their own words, in a done form ("approved", "habe ... weitergeleitet");
+# the judge model alone called "asked for the documents" and "agreed to wait" an action
+_ACT_DONE = re.compile(
+    r"\b(approved|signed off|granted|have (forwarded|changed|updated|shared|booked|reserved|confirmed)|"
+    r"i('ve| have) (forwarded|changed|updated|shared|booked|reserved|confirmed)|access (is )?granted|"
+    r"freigegeben|genehmigt|gewährt|habe [^.?!]{0,40}(weitergeleitet|geändert|aktualisiert|freigegeben|geteilt|gebucht|reserviert|bestätigt)|"
+    r"ist (freigegeben|genehmigt|gebucht|reserviert)|hiermit (freigegeben|bestätigt|genehmigt))\b", re.I)
+_NOT_AN_ACT = re.compile(r"\b(asked|requested|agreed to (receive|wait)|declined|will|would|wait|bat|fragte|möchte)\b", re.I)
 REPLAN_BAND = 0.25   # the model may reorder close options, never lift one the ranking scored far lower
 
 
@@ -1187,7 +1195,7 @@ class Orchestrator:
         except Exception:
             return None, ""                # if the judge is unavailable, do not claim a win
         did = str(out.get("action_done") or "").strip()
-        if out.get("action") is True and did:
+        if out.get("action") is True and did and _ACT_DONE.search(text) and not _NOT_AN_ACT.search(did):
             return "action", f"[concrete] {who} acted for the sender: {did}"[:400]
         details = [str(d).strip() for d in out.get("details") or [] if str(d).strip()]
         if out.get("disclosure") is True and details:
