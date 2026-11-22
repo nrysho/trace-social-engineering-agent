@@ -546,6 +546,7 @@ class Orchestrator:
         well suited to a disclosure ask. writer.generate_call_line writes one line per turn."""
         if not self.budget.can_spend():
             return False
+        approach = dict(approach, story_date=(self.story_base + timedelta(days=self.contact_count)).date().isoformat())
         comp = writer.compose(self.profile, approach)
         self._apply_persona(approach, comp)          # the caller is the same generated persona as on mail
         sender = {"name": comp["sender"]["name"], "address": comp["sender"]["address"]}
@@ -627,7 +628,9 @@ class Orchestrator:
             print(f"     you: {line[:48]} | persona: {heard[:48]}")
             incident_type, incident_reason = classify_incident(events)
             if not incident_type and heard:            # the persona may disclose internal info on the call
-                incident_type, incident_reason = self._judge_disclosure(heard)
+                incident_type, incident_reason = self._judge_disclosure(heard, sent=(
+                    f"Caller: {sender['name']} <{sender['address']}>\n"
+                    + "\n".join(t["text"] for t in transcript if t["role"] == "us")))
             if incident_type or turn_r.get("ended"):
                 break
         try:
@@ -654,7 +657,11 @@ class Orchestrator:
         """the email a call ends with ("send it by mail"): same sender, the call as history,
         engaged state, and the promised material attached so opening it is the action."""
         print("     call engaged; sending the follow-up mail the call agreed on")
-        follow = dict(approach, channel="email", attachment=FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext")))
+        # an outsider follows up by email; a colleague, IT or vendor by SMS, which shows a name and number
+        # rather than a lookalike domain a careful target checks ("our systems run on our own domain")
+        insider = approach.get("sender_kind") in ("colleague", "vendor")
+        follow = dict(approach, channel="sms" if insider else "email",
+                      attachment=None if insider else FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext")))
         ours = " ".join(t["text"] for t in transcript if t["role"] == "us")
         theirs = " ".join(t["text"] for t in transcript if t["role"] == "them")
         last = next((t["text"] for t in reversed(transcript) if t["role"] == "them" and t["text"]), "")
@@ -851,7 +858,8 @@ class Orchestrator:
             'phrase>"], "why": "<one sentence: why these are not public>"}.'
         )
         user = ("Public facts (repeating these is not disclosure):\n- " + "\n- ".join(public)
-                + "\n\nWhat the sender already told them:\n" + (sent or "(nothing)")[:1500]
+                + "\n\nWhat the sender already told them (including the sender's own name, organisation and "
+                  "email domain, which are never the target's internal information):\n" + (sent or "(nothing)")[:1500]
                 + "\n\nTheir reply:\n" + text[:1500])
         try:                               # the same amd model the writer uses; no OpenAI dependency
             cfg = self._cfg()

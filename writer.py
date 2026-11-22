@@ -83,6 +83,18 @@ WRITING_RULES = [
 ]
 
 
+_GERMAN = re.compile(r"\b(ich|nicht|und|der|die|das|bitte|danke|schicken|gerne|gern|ist|wir|sie|mir|mit|auf)\b", re.I)
+
+
+def _reply_language(history: list[dict[str, Any]] | None) -> str | None:
+    """the language the recipient last used, so the next message does not switch language."""
+    theirs = [h.get("text", "") for h in (history or []) if h.get("from") not in (None, "quality-feedback")][-1:]
+    if not theirs or len(theirs[0].split()) < 4:
+        return None
+    words = len(theirs[0].split())
+    return "German" if len(_GERMAN.findall(theirs[0])) >= max(2, words // 12) else "English"
+
+
 def _sourced_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Every sourced recon fact, flagged confirmed or not. Recon confirms mostly DNS tool records;
     the events, open roles, interests and activity that make a hook are single-source. The writer
@@ -198,6 +210,7 @@ def generate_message(
         "verified_facts_about_recipient": facts,
         "conversation_history": conversation_history or [],
         # what THIS message must do (plan_next_move): a first contact only opens the conversation
+        "write_in": _reply_language(conversation_history),
         "this_message": MOVE_GUIDANCE.get(str(approach.get("next_move") or ""), MOVE_GUIDANCE["make_ask"]),
         "today": str(approach.get("story_date") or date.today().isoformat()),   # the date in the story, as the recipient lives it
         "included_with_your_text": {"attachment": attachment, "a_link_follows_your_text": bool(link_follows)},
@@ -266,7 +279,8 @@ def generate_call_line(
     user_payload = {
         "instruction": (
             "Write only the caller's next spoken line as JSON {\"body\": \"...\"}. Speak the language the other party speaks. "
-            "Introduce yourself exactly as the sender (name, role, organisation) and keep established details consistent. Answer the other party's last question briefly, then make at most one clear ask. "
+            "Introduce yourself exactly as the sender (name, role, organisation) and keep established details consistent. "
+            "Any date you mention lies after today. Never claim a referral, a mutual contact or an earlier meeting. Answer the other party's last question briefly, then make at most one clear ask. "
             "Calls are short: by your second line, move to the concrete next step that serves the goal, and never let the call end without one. "
             "The natural next step is that you email the material right after the call (name what you will send, e.g. the programme, the questions, the profile); "
             "get their agreement and ask one specific question that the email will build on. If they say to send it by mail, agree warmly, "
@@ -279,6 +293,7 @@ def generate_call_line(
         "transcript": transcript,
         "turn": turn_number,
         "max_turns": max_turns,
+        "today": str(approach.get("story_date") or date.today().isoformat()),
     }
     messages = [
         {"role": "system", "content": SIMULATION_SYSTEM},

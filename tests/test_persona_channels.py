@@ -92,6 +92,20 @@ class CallFollowUpTests(unittest.TestCase):
             agent._follow_up_call("s1", dict(pretext="speaker_invite", channel="phone_call"), Mock(), transcript)
         self.assertLessEqual(run.call_args.kwargs["seed"]["scepticism"], runner.strategy.SCEPTICISM_ASK_MAX)
 
+    def test_an_insiders_call_follows_up_by_sms_an_outsiders_by_email(self):
+        with patch.object(runner, "Revel8Client", return_value=Mock()):
+            agent = runner.Orchestrator("tom", use_model=False)
+        transcript = [{"role": "them", "text": "Müller."}, {"role": "us", "text": "Hallo."},
+                      {"role": "them", "text": "Schicken Sie mir die Ticketnummer per Mail."}]
+        for kind, channel in (("colleague", "sms"), ("vendor", "sms"), ("outsider", "email")):
+            with patch.object(agent, "_run_messages", return_value=False) as run:
+                agent._follow_up_call("s1", dict(pretext="it_helpdesk", channel="phone_call", sender_kind=kind), Mock(), transcript)
+            self.assertEqual(run.call_args.args[1]["channel"], channel, kind)
+
+    def test_the_next_message_keeps_the_language_of_the_reply(self):
+        self.assertEqual(writer._reply_language([{"from": "Tom", "text": "Ja, schicken Sie mir das bitte per Mail, danke."}]), "German")
+        self.assertEqual(writer._reply_language([{"from": "Tom", "text": "Please send me a short note with your fund size first."}]), "English")
+
 
 class GuardLinkTests(unittest.TestCase):
     def test_uploaded_logo_is_not_an_unregistered_link(self):
