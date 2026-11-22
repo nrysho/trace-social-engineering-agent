@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from backend import llm
 from backend.recon import search, fetch
-from backend.recon.extract import _chunks, _slice, CHUNK, CONTENT_CHARS, MIN_CONF
+from backend.recon.extract import _chunks, _slice, CHUNK, CONTENT_CHARS, MIN_CONF, _LLM_GATE
 from backend.recon.search.result import SearchResult
 from schemas import Fact
 
@@ -196,8 +196,9 @@ def _extract_chunk(company, batch, urls, titles, system, category):
     )
     user = f"Company: {company}.\n\nResults:\n{block}"
     try:
-        text = llm.chat([{"role": "system", "content": system},
-                         {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
+        with _LLM_GATE:  # same global cap as the person extractor, since both run concurrently
+            text = llm.chat([{"role": "system", "content": system},
+                             {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
         data = json.loads(_slice(text))
     except Exception as e:
         print(f"  company extract chunk failed: {e}")
@@ -218,9 +219,13 @@ def _extract_chunk(company, batch, urls, titles, system, category):
 def _extract_pool(company, pool, system, category):
     urls = {r.url for r in pool}
     titles = {r.url: r.title for r in pool}
+    batches = list(_chunks(pool, CHUNK))  # chunks run concurrently, bounded by _LLM_GATE
+    if not batches:
+        return []
     out = []
-    for batch in _chunks(pool, CHUNK):  # sequential: concurrent openai calls get rate-limited
-        out += _extract_chunk(company, batch, urls, titles, system, category)
+    with ThreadPoolExecutor(max_workers=len(batches)) as ex:
+        for part in ex.map(lambda b: _extract_chunk(company, b, urls, titles, system, category), batches):
+            out += part
     return out
 
 
@@ -230,11 +235,15 @@ def collect(company, domain):
         return []
     # run every aspect, minus any whose `when` gate says it does not apply to this company
     aspects = [a for a in ASPECTS if a.when is None or a.when(company, domain)]
-    # gather each aspect's pages in parallel (http), then extract sequentially (bounded llm)
+    # gather each aspect's pages in parallel (http), then extract every aspect concurrently.
+    # the aspects were the serial chain that dominated recon; _LLM_GATE caps the fan-out so
+    # this cuts the company phase from ~20s to ~7-8s without tripping the rate limit.
     with ThreadPoolExecutor(max_workers=len(aspects)) as ex:
         pools = list(ex.map(lambda a: _gather(company, domain, a.queries, a.seed_paths), aspects))
     out = []
-    for aspect, pool in zip(aspects, pools):
-        out += _extract_pool(company, pool, aspect.system, aspect.category)
+    with ThreadPoolExecutor(max_workers=len(aspects)) as ex:
+        for part in ex.map(lambda ap: _extract_pool(company, ap[0], ap[1].system, ap[1].category),
+                           [(pool, aspect) for aspect, pool in zip(aspects, pools)]):
+            out += part
     print(f"  {len(out)} company facts")
     return out

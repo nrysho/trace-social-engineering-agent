@@ -5,6 +5,8 @@
 """
 import json
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from backend import llm
 from schemas import Fact, FACT_CATEGORIES
@@ -12,6 +14,13 @@ from schemas import Fact, FACT_CATEGORIES
 CHUNK = 6             # results per llm call, to bound the prompt
 CONTENT_CHARS = 1500  # how much page text per result we show the model
 MIN_CONF = 0.5        # drop facts the model is not reasonably sure are about the target
+
+# extract chunks and company aspects run concurrently; this caps how many of those
+# llm calls are in flight at once. measured: openai served ~13 concurrent recon calls
+# with no 429 and no qwen fallback, so 8 leaves headroom while staying well clear of
+# the rate limit on a busier key. shared with company.py so the whole recon extraction
+# stage respects one global cap. llm.chat still retries 429 and falls back on its own.
+_LLM_GATE = threading.Semaphore(8)
 
 SYSTEM = (
     "You research ONE specific person and extract facts about THEM only, for an authorised "
@@ -45,8 +54,9 @@ def _extract_chunk(who, batch, urls, titles):
     )
     user = f"Target person: {who}.\n\nResults:\n{block}"
     try:
-        text = llm.chat([{"role": "system", "content": SYSTEM},
-                         {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
+        with _LLM_GATE:  # bound concurrent extraction calls across the whole recon stage
+            text = llm.chat([{"role": "system", "content": SYSTEM},
+                             {"role": "user", "content": user}], response_format=JSON_MODE, temperature=0)
         data = json.loads(_slice(text))
     except Exception as e:
         print(f"  extract chunk failed: {e}")
@@ -66,11 +76,17 @@ def _extract_chunk(who, batch, urls, titles):
 
 
 def extract_facts(name, company, results, role=""):
-    # chunks stay sequential: concurrent openai calls get rate-limited and fall back to slow qwen
+    # chunks run concurrently, bounded by _LLM_GATE. measured: this stays on openai (no
+    # qwen fallback) and cuts the extract phase from ~16-22s to ~5-6s. ex.map keeps input
+    # order, so the merged fact list is stable run to run (aside from the model's own noise).
     urls = {r.url for r in results}
     titles = {r.url: r.title for r in results}
     who = f"{name}, {role} at {company}" if role else f"{name} at {company}"
+    batches = list(_chunks(results, CHUNK))
+    if not batches:
+        return []
     facts = []
-    for batch in _chunks(results, CHUNK):
-        facts += _extract_chunk(who, batch, urls, titles)
+    with ThreadPoolExecutor(max_workers=len(batches)) as ex:
+        for part in ex.map(lambda b: _extract_chunk(who, b, urls, titles), batches):
+            facts += part
     return facts
