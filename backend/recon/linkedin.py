@@ -14,7 +14,7 @@ from schemas import Fact
 
 DATASET = "gd_l1viktl72bvl7bjuj0"  # bright data's linkedin people-profile dataset
 SCRAPE = "https://api.brightdata.com/datasets/v3/scrape"
-TIMEOUT = 120  # scraping a live profile can take a while
+TIMEOUT = 40  # Bright Data can hang; a missing LinkedIn record must not stall recon for minutes
 
 
 def _first_record(text):
