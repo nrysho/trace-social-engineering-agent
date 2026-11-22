@@ -531,6 +531,7 @@ def plan_next_move(
     has_page: bool = False,
     scepticism: int | None = None,
     reassured: int = 0,
+    nudged: int = 0,
 ) -> dict[str, Any]:
     """Decide the next conversational move: ask as soon as they seem to trust us.
 
@@ -555,8 +556,9 @@ def plan_next_move(
             return {"stop": True, "reason": f"still doubtful after reassuring {reassured} times (scepticism {scepticism}); pivot"}
         return {"intent": "reassure", "include_link": False, "reason": f"doubtful reply (scepticism {scepticism}); reassure before asking"}
     if last_state == "silent":
-        if turn <= 2:
-            return {"intent": "nudge", "include_link": False, "reason": "no reaction; one follow-up"}
+        # a cold branch gets one follow-up; a thread they already engaged in gets two before we let it go
+        if nudged < (2 if engaged_count else 1):
+            return {"intent": "nudge", "include_link": False, "reason": "no reaction; follow up" + (" on a live thread" if engaged_count else "")}
         return {"stop": True, "reason": "still silent; pivot"}
     if last_state == "engaged":
         trusting = scepticism is None or scepticism <= SCEPTICISM_ASK_MAX

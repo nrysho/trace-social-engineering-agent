@@ -177,6 +177,22 @@ def _next_business_morning(now):
 SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for an implausible one
 
 
+_REFUSE_FILES = re.compile(r"(don'?t|do not|won'?t|will not|never|nicht|keine)\W+(?:\w+\W+){0,4}(open|öffne|öffnen)\W+(?:\w+\W+){0,4}"
+                           r"(attachments?|pdfs?|files?|anh[äa]nge?|dateien?)|(keine|no)\s+(anh[äa]nge|attachments|pdfs?)", re.I)
+_REFUSE_LINKS = re.compile(r"(don'?t|do not|won'?t|will not|never|nicht|keine)\W+(?:\w+\W+){0,4}(click|fill|klicke|füll|ausfüll)\w*"
+                           r"|(no|keine)\s+(links|forms|formulare)|(don'?t|do not)\s+(?:\w+\s+){0,3}(forms|links)", re.I)
+
+
+def _refused(text):
+    """what the target said they will not do in this thread: open files, click links or fill in forms."""
+    out = set()
+    if _REFUSE_FILES.search(text or ""):
+        out.add("files")
+    if _REFUSE_LINKS.search(text or ""):
+        out.add("links")
+    return out
+
+
 def _read_order(raw, n):
     """the option order from a model answer: proper JSON, or the integers inside its "order" list
     when the model wrote it loosely ([option 2, option 0])."""
@@ -503,7 +519,7 @@ class Orchestrator:
         history = []
         parent = approach_node.id
         has_page = bool(writer.compose(self.profile, approach).get("landing_page"))
-        turn = engaged = reassured = 0
+        turn = engaged = reassured = nudged = 0
         last_state, last_events, scepticism = "", [], None
         if seed:                                       # continuing a thread, e.g. the mail promised on a call
             history = list(seed["history"])
@@ -517,12 +533,14 @@ class Orchestrator:
             plan = strategy.plan_next_move(turn=turn, last_state=last_state,
                                            last_events=last_events, engaged_count=engaged,
                                            has_page=has_page, scepticism=scepticism,
-                                           reassured=reassured)
+                                           reassured=reassured, nudged=nudged)
             if plan.get("stop"):
                 print(f"     stop branch: {plan.get('reason', '')}")
                 return False
             if plan.get("intent") == "reassure":
                 reassured += 1
+            if plan.get("intent") == "nudge":
+                nudged += 1
             # a page-based pretext (sign-in, document) carries its link from the start, since the
             # link is the lure; a relationship pretext stages it until the target engages
             include_link = (bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
@@ -540,6 +558,12 @@ class Orchestrator:
                 if history and _asks_for_material(history[-1].get("reply", "")):
                     # they asked for the agenda, articles, deck...: send it; opening it is the action incident
                     step["attachment"] = step.get("attachment") or _material_name(history[-1]["reply"], approach.get("pretext"))
+                # what they refused in this thread is never sent again ("I don't open attachments")
+                refused = _refused(" ".join(h.get("reply", "") for h in history))
+                if "files" in refused:
+                    step["attachment"] = None
+                if "links" in refused:
+                    include_link = False
                 msg = self._draft_checked(step, sid, contact.id, history, include_link)
             except Exception as e:
                 contact.status = "failed"

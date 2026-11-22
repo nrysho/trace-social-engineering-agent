@@ -189,6 +189,19 @@ class SessionMemoryTests(unittest.TestCase):
             self.assertEqual(agent._replan(remaining, Mock(id="n1")), remaining)
 
 
+class LiveThreadTests(unittest.TestCase):
+    def test_a_live_thread_survives_a_silence_a_cold_one_does_not(self):
+        live = strategy.plan_next_move(turn=4, last_state="silent", engaged_count=2, nudged=0)
+        self.assertEqual(live.get("intent"), "nudge")
+        self.assertTrue(strategy.plan_next_move(turn=5, last_state="silent", engaged_count=2, nudged=2).get("stop"))
+        self.assertTrue(strategy.plan_next_move(turn=3, last_state="silent", engaged_count=0, nudged=1).get("stop"))
+
+    def test_what_they_refuse_is_not_sent_again(self):
+        self.assertEqual(runner._refused("I also don't open attachments or fill in forms from people I don't know."), {"files", "links"})
+        self.assertEqual(runner._refused("Ich öffne keine Anhänge von Unbekannten."), {"files"})
+        self.assertEqual(runner._refused("Please send the agenda by mail."), set())
+
+
 class MaterialTests(unittest.TestCase):
     def test_a_request_for_material_gets_a_matching_file(self):
         reply = "Could you send the names of the two founders and the professor, plus a short programme or agenda?"
