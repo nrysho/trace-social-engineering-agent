@@ -11,7 +11,8 @@ from pathlib import Path
 
 from backend import config
 from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, github, match,
-                           extract, verify, hooks, exposure, render, recency, bench_osint)
+                           extract, verify, hooks, exposure, render, recency, bench_osint, geo, channel)
+from backend.recon import company as company_osint  # aliased: `company` is a param name in build()
 from schemas import Profile
 
 OUT = Path(__file__).resolve().parents[2] / "runs" / "profiles"
@@ -150,12 +151,13 @@ def build(name, company, role="", bench_target=None):
 
         # 2. extract and each structured collector are independent, so run them together
         facts = []
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        with ThreadPoolExecutor(max_workers=5) as ex:
             jobs = [
                 ex.submit(_extract, name, company, results, role),
                 ex.submit(_dns_tech, domain),
                 ex.submit(_linkedin_anchor, name, company, role, domain, results, env),
                 ex.submit(_github, name, company, role, domain, results),
+                ex.submit(company_osint.collect, company, domain),  # company facts: relationships etc.
             ]
             for j in jobs:
                 facts += j.result()
@@ -168,8 +170,11 @@ def build(name, company, role="", bench_target=None):
 
     facts.sort(key=lambda f: recency.weight(f.date), reverse=True)  # freshest first for the profile
     role = _current_role(facts, company, domain)
+    country = geo.resolve(company, domain, facts)  # for choosing a lookalike domain tld
+    pref = channel.infer(facts)  # best-guess contact channel, the evaluator refines it
     profile = Profile(
-        name=name, role=role, company=company, domain=domain,
+        name=name, role=role, company=company, domain=domain, country=country,
+        preferred_channel=pref,
         facts=facts, hooks=ranked, exposure_score=sc, exposure_breakdown=breakdown,
         sources=sorted({f.source_url for f in facts if f.source_url}),
     )

@@ -54,6 +54,8 @@ class Profile:
     role: str = ""
     company: str = ""
     domain: str = ""
+    country: str = ""  # company's likely country, for choosing a lookalike domain tld
+    preferred_channel: str = ""  # best-guess contact channel from public signals; evaluator refines it
     facts: list[Fact] = field(default_factory=list)
     hooks: list[Hook] = field(default_factory=list)  # ranked, highest probability first
     exposure_score: float = 0.0  # 0-100 heuristic, see recon/exposure.py
