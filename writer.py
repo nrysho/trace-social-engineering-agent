@@ -61,26 +61,15 @@ SIMULATION_SYSTEM = (
 # What makes a message believable, from our practice runs: twins ignore vague, unsigned, generic
 # mail and check every detail, so be specific, sign as a real person and make one clear ask.
 WRITING_RULES = [
-    "Write in the recipient's language: match the language of their last reply; for a first contact, use the language their verified facts and company suggest (German for someone working in Germany who posts in German), else English. Keep the sender's own name and organisation as they are.",
-    "Write as the person in you_are, in their organisation's normal tone for this channel.",
-    "Address the recipient by first name. Never greet the sender.",
-    "Be specific: name a concrete product, plan, event, date, document or person. Use facts about the recipient only from verified_facts_about_recipient.",
-    "State only facts with confirmed_by_two_sources true. An unconfirmed fact may set the topic, but never quote it or state its details (names, numbers, dates, titles) as certain: the recipient notices every wrong fact about them.",
-    "Never use the wording of internal_plan_do_not_quote, and never write words like pretext, hook, target, 'known vendor' or 'known tool'.",
-    "The subject must read like a real subject line from this sender, not a description of the message.",
-    "Do exactly what this_message says, with one clear ask at most. Mention a file or a link only if included_with_your_text has it. A link is appended after your text automatically: refer to it naturally ('the link below') but never write a URL, a placeholder, or a note that a link was added.",
-    "Real-world timing is fine (the RSVP list closes Friday, the renewal date, the issue goes to print next week). No alarm words or threats: no 'urgent', 'action required', audits or account suspension, which security-aware people recognise instantly.",
-    "Never ask for something the sender would already know (a vendor knows the account's seats and contacts) or for internal names, tools or numbers before the recipient has replied.",
-    "Be concrete about people: give the other speakers, your editor, your partner or your colleague realistic full names and roles, and when the recipient asks who someone is, answer with names, never stay vague. Improvise whatever details make your story hold, but never state something about the recipient that their facts do not support.",
-    "Never say something is attached, linked or below unless included_with_your_text has it. If they asked for material and it is included, send it now and say so; never promise it for a later day.",
-    "In a follow-up, refer to your earlier message and add one new reason or detail; never repeat it.",
-    "The recipient remembers this whole conversation: never claim a meeting, call, referral or earlier contact that is not in conversation_history.",
-    "Sign off using exactly you_are.name. Never invent a different personal name. If the supplied name is a company or team, sign as that company/team; include only the supplied role and organisation.",
-    "Never invent the recipient's subscription, billing, renewal, expiry, upgrade, incident or account status. A DNS/SPF record does not prove any of those. Ask a neutral question when the verified facts do not establish the detail.",
-    "A person adds a phone number from the fictional range +49 30 23125 0xx and the organisation's city under the signature.",
-    "Any date you mention lies after today. Plain text, under 130 words, no markdown, no placeholders.",
-    "learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention or hint at those contacts. Use what they reveal: their language, what they refuse (attachments, phone details, unknown domains), what they ask for (links, official sites, specifics), their tools and who handles what.",
-    "Reply with the JSON object only.",
+    "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient by first name. Sign off using exactly you_are.name: a person adds role, organisation, a phone number from the fictional range +49 30 23125 0xx and the city; a company or team signs as the team.",
+    "2. Do what this_message says, with at most one ask. Never ask for something your sender would already know.",
+    "3. Be concrete: realistic full names and roles for the people in your story, real-sounding places, dates after today. If asked who someone is, give names; if asked how you found them, it is their public work (a talk, a post, the company site).",
+    "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation.",
+    "5. Mention a file or link only if included_with_your_text has it; if they asked for it and it is included, send it now. A link is appended after your text: refer to it naturally, never write a URL or a placeholder.",
+    "6. Stay calm and believable: real-world timing is fine (an RSVP closes Friday), no alarm words, threats, audits or suspensions.",
+    "7. In a follow-up, refer to your earlier message and add one new reason; never repeat it.",
+    "8. learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention those contacts, but use what they reveal (language, what they refuse, what they ask for, their tools, who handles what).",
+    "9. Never quote internal_plan_do_not_quote or words like pretext, hook or target. The subject reads like a real one from this sender. Plain text, under 130 words, no markdown. Reply with the JSON object only.",
 ]
 
 
