@@ -1,0 +1,15 @@
+sources -> profile: 
+profile -> plan: sourced profile
+plan -> writer: 
+writer -> qa: 
+qa -> client: pass
+qa -> writer: correct (max 2)
+client -> twin: contact
+twin -> events: API response
+events -> evaluate: receipt + reaction
+evaluate -> memory: close + learn
+memory -> plan: next approach
+evaluate -> writer: continue / answer
+memory -> store: save decisions + lessons
+client -> store: save receipts + events
+store -> view: 
