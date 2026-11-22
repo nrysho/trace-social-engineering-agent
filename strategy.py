@@ -69,6 +69,9 @@ PRETEXTS: tuple[Pretext, ...] = (
 )
 
 _PRETEXTS_BY_KEY = {p.key: p for p in PRETEXTS}
+_STRANGER_COLLEAGUES = {"it_helpdesk", "hr_policy"}   # internal roles nobody expects to know personally
+_SENIOR = re.compile(r"founder|\bceo\b|\bcto\b|\bcoo\b|\bcfo\b|chief|managing director|geschäftsführ|"
+                     r"\bpresident\b|\bpartner\b|vorstand", re.I)
 _CALL_CHANNELS = {"phone_call", "video_call", "teams_call", "live_chat"}
 
 
@@ -136,6 +139,39 @@ def channel_fit(profile: dict[str, Any], pretext: Pretext, channel: str) -> tupl
             return 0.5, "their calendar is part of the story"
         return 0.35, "an unexpected invite without context"
     return 0.3, "no evidence for this channel"
+
+_COLLEAGUE_CUE = re.compile(r"co-?founder|colleague|alongside|together with|works? with|reports? to|"
+                            r"assistant|\b(ceo|cto|coo|cfo|cpo|head of|vp)\b|kollege|mitgründer", re.I)
+_NOT_A_COLLEAGUE = re.compile(r"\b(customers?|clients?|partners?|investors?|kunden?|lists)\b", re.I)
+_ORG_SUFFIX = re.compile(r"^\s*(gmbh|ag|se|kg|inc|ltd|llc|group|ingelheim|bank|&)\b", re.I)
+
+
+def first_colleague(profile: dict[str, Any]) -> str:
+    """A named coworker from recon's network facts, never the target themself
+    ("Julius Muth's co-founder is Tom Müller" -> "Tom Müller" for Julius).
+
+    Only facts that describe a working relationship count, and a customer or partner list is never
+    one: "Lists Boehringer Ingelheim as a customer" once produced a sender called "Lists Boehringer".
+    A candidate followed by a company suffix is an organisation, not a person."""
+    own = str(profile.get("name", "")).casefold()
+    for f in profile.get("facts", []):
+        if not (isinstance(f, dict) and f.get("category") == "network"):
+            continue
+        value = str(f.get("value", ""))
+        if not _COLLEAGUE_CUE.search(value) or _NOT_A_COLLEAGUE.search(value):
+            continue
+        for m in re.finditer(r"\b([A-ZÄÖÜ][a-zäöüß]+) ([A-ZÄÖÜ][a-zäöüß]+)\b", value):
+            first = m.group(1).casefold()
+            if m.group(0).casefold() == own or first in own.split() or _ORG_SUFFIX.match(value[m.end():]):
+                continue
+            if m.start() == 0 and first in _SENTENCE_STARTS:
+                continue
+            return m.group(0)
+    return ""
+
+
+_SENTENCE_STARTS = {"lists", "works", "partners", "collaborates", "the", "our", "his", "her", "their", "team"}
+
 
 # Fallback playbook for a target whose role we have not determined. These lures
 # work on almost anyone regardless of job, so they seed a sensible opening set
@@ -352,6 +388,11 @@ def rank_approaches(
     credit = _category_credit(profile)
     approaches: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    # a colleague's voice needs a real, named colleague from recon: an invented insider is
+    # caught at once by anyone who knows their own team. IT and HR staff are routinely strangers.
+    named_colleague = bool(first_colleague(profile))
+    role_line = str(profile.get("role", ""))
+    senior = bool(_SENIOR.search(role_line)) and not re.search(r"assistant|assistenz|\bto the\b", role_line, re.I)
     personal_hook = any(float(h.get("probability", 0)) >= 0.4 and
                         _PRETEXTS_BY_KEY.get(h.get("pretext", ""), PRETEXTS[0]).sender == "outsider"
                         and h.get("pretext") in _PRETEXTS_BY_KEY for h in hooks)
@@ -393,8 +434,15 @@ def rank_approaches(
             # their topic scores points and tool notices kept being ignored: when recon found a
             # personal hook (event, press, hiring, investors), it leads and vendor notices follow
             tool_penalty = 0.25 if (pretext.sender == "vendor" and personal_hook) else 0.0
+            # a founder or executive knows every colleague and is the senior leader themself
+            insider_penalty = 0.0
+            if senior and pretext.key == "exec_request":
+                insider_penalty = 0.3
+            elif (senior and pretext.sender == "colleague" and not named_colleague
+                  and pretext.key not in _STRANGER_COLLEAGUES):
+                insider_penalty = 0.2
             score = (0.85 * probability + 0.15 * coverage + (0.03 if angle == "own_angle" else 0.0)
-                     + 0.05 * fit - tool_penalty)
+                     + 0.05 * fit - tool_penalty - insider_penalty)
             approaches.append({
                 "hook": hook_topic,
                 "pretext": pretext.key,

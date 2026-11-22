@@ -1013,16 +1013,7 @@ def suggest_sender_domains(
     ]
 
 
-def _first_colleague(profile: dict[str, Any]) -> str:
-    """A named coworker from recon's network facts, never the target themself
-    ("Julius Muth's co-founder is Tom Müller" -> "Tom Müller" for Julius)."""
-    own = str(profile.get("name", "")).casefold()
-    for f in profile.get("facts", []):
-        if isinstance(f, dict) and f.get("category") == "network":
-            for m in re.finditer(r"\b([A-ZÄÖÜ][a-zäöüß]+) ([A-ZÄÖÜ][a-zäöüß]+)\b", str(f.get("value", ""))):
-                if m.group(0).casefold() != own and m.group(1).casefold() not in own.split():
-                    return m.group(0)
-    return ""
+from strategy import first_colleague as _first_colleague  # noqa: E402  (shared with the strategist)
 
 
 # Natural subject and opening per pretext for compose(), the no-model fallback. Never the internal

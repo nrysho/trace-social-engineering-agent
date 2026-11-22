@@ -209,6 +209,16 @@ def _wants_out(heard):
     return bool(_WANTS_OUT.search(heard or ""))
 
 
+def call_should_close(heard, asked_for_writing):
+    """close a call (one polite closing line, then hang up) when the person turned something down,
+    or asked for writing a second time, or asked for writing without a question left to answer."""
+    if _declined(heard) or _refused(heard):
+        return True
+    if asked_for_writing >= 2:
+        return True
+    return asked_for_writing == 1 and "?" not in (heard or "")
+
+
 def _sentences(text):
     return [x.strip() for x in re.split(r"(?<=[.!?])\s+|\n+", text or "") if x.strip()]
 
@@ -291,6 +301,16 @@ def _company_from_role(role):
     return tail.split("(")[0].strip() if sep else ""
 
 
+def clean_profile(prof):
+    """drop contested claims from a profile (older recon annotated them as "... [disputed: ...]"
+    instead of dropping them, and the annotation leaked into the role line and into messages)."""
+    prof = dict(prof)
+    prof["facts"] = [f for f in prof.get("facts", []) if "[disputed" not in str(f.get("value", ""))]
+    if "[disputed" in str(prof.get("role", "")):
+        prof["role"] = str(prof["role"]).split("[disputed", 1)[0].strip()
+    return prof
+
+
 def load_profile(target_id, name, company, use_mock=False):
     """a cached recon profile if one exists, else live recon. mock only with use_mock,
     since a mock is target-specific and would be wrong for a hidden eval target.
@@ -304,7 +324,7 @@ def load_profile(target_id, name, company, use_mock=False):
                 print(f"  cached profile {cached.name} has no facts; running recon again")
                 break
             prof.setdefault("target_id", target_id)
-            return prof
+            return clean_profile(prof)
     if use_mock:
         mock = ROOT / "mock" / "profile.json"
         if mock.exists():
@@ -317,12 +337,12 @@ def load_profile(target_id, name, company, use_mock=False):
     bench = target_id if _on_bench() else None
     prof = profiler.build(name, "" if bench else company, bench_target=bench).to_dict()
     prof["target_id"] = target_id
-    return prof
+    return clean_profile(prof)
 
 
 class Orchestrator:
     def __init__(self, target_id, eval_mode=False, use_model=True, use_mock=False,
-                 scenario=None, company=None):
+                 scenario=None, company=None, fresh_sessions=True):
         self.scenario_id = scenario or ('eval' if eval_mode else 'practice')
         if self.scenario_id not in {'practice','eval'}:
             raise ValueError('Explicit practice or eval scenario required')
@@ -336,7 +356,12 @@ class Orchestrator:
         self.scenario = self.scenario_id             # "practice" or "eval"
         self.company = company               # for live recon when the scenario gives no company
         self.run_id = f"run_{target_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        self.budget = TouchBudget(EVAL_BUDGET if eval_mode else PRACTICE_BUDGET, PER_BRANCH)
+        # practice rehearses eval: one approach per session, each with the eval budget, unless the
+        # caller asks for the old one-long-session behaviour (fresh_sessions=False)
+        self.fresh_sessions = (not eval_mode) and fresh_sessions
+        self.session_budget = EVAL_BUDGET if (eval_mode or self.fresh_sessions) else PRACTICE_BUDGET
+        self.sessions_opened = []
+        self.budget = TouchBudget(self.session_budget, PER_BRANCH)
         self.eval_mode = eval_mode
         self._personas = {}                  # generated sender identity per approach
         self.use_model = use_model           # model writer (persuasive, adaptive); compose is the fallback
@@ -372,6 +397,9 @@ class Orchestrator:
         profile = load_profile(self.target_id, target["name"],
                                target.get("company", DEFAULT_COMPANY), use_mock=self.use_mock)
         self.profile = profile if isinstance(profile, dict) else {}
+        if target.get("role"):
+            # the scenario's role line is authoritative; recon's own guess can be stale or wrong
+            self.profile["role"] = target["role"]
         target_node = self.add_node("target", "recon", f"target {target['name']}",
                                     target.get("role", ""), None, status="active")
 
@@ -413,6 +441,7 @@ class Orchestrator:
         else:
             session = self.client.create_session(self.scenario_id)
             sid = session['session_id']
+        self.sessions_opened.append(sid)
         self.budget.total = min(self.budget.total,session['touch_budget'])
         self.budget.sync(session['touches_used'])
 
@@ -473,13 +502,21 @@ class Orchestrator:
     def _search(self, profile, sid, approaches, parent_id, ranked=()):
         silent = set()                       # channels a whole branch got no reaction on
         remaining = list(approaches)
+        first = True
         while remaining:
             approach = remaining.pop(0)
+            if not first and self.fresh_sessions:
+                # practice: every approach gets its own clean session, so a pivot is not read as a
+                # second, unrelated stranger writing to the same person (the twin remembers every
+                # contact in a session) and each approach is a faithful rehearsal of one eval run
+                sid = self._fresh_session()
+            first = False
             if self.budget.exhausted():
                 return False
             approach = _switch_channel(approach, ranked, silent)
-            # everything learned earlier in this session travels with the next approach
-            approach = dict(approach, session_lessons=list(self.lessons))
+            # what was learned earlier travels with the next approach; in a fresh session the person
+            # remembers none of it, so the writer gets it as background, never as shared history
+            approach = dict(approach, session_lessons=[] if self.fresh_sessions else list(self.lessons))
             seen, self._said = self.reactions, []
             self.budget.new_branch()
             node = self.add_node(
@@ -498,6 +535,18 @@ class Orchestrator:
             print(f"  -- branch '{approach.get('pretext')}' stalled; pivoting\n")
             remaining = self._replan(remaining, node)
         return False
+
+    def _fresh_session(self):
+        """open a new practice session with the eval-sized budget and reset the story clock."""
+        session = self.client.create_session(self.scenario_id)
+        sid = session['session_id']
+        self.budget = TouchBudget(min(self.session_budget, session['touch_budget']), PER_BRANCH)
+        self.budget.sync(session['touches_used'])
+        self.contact_count = 0
+        self.story_base = _next_business_morning(datetime.now(timezone.utc))
+        self.sessions_opened.append(sid)
+        print(f"  new session {sid} for the next approach (clean slate)")
+        return sid
 
     def _replan(self, remaining, after_node):
         """after a failed approach, let the model reorder what is left using this session's lessons
@@ -583,6 +632,9 @@ class Orchestrator:
                 return False
             if plan.get("intent") == "reassure":
                 reassured += 1
+            if plan.get("intent") == "nudge" and seed and seed.get("call_back") in LIVE_CHANNELS \
+                    and self.budget.can_spend():
+                return self._call_back(sid, approach, approach_node, history, seed["call_back"])
             if plan.get("intent") == "nudge":
                 nudged += 1
             last_intent = plan.get("intent", "")
@@ -693,7 +745,7 @@ class Orchestrator:
                 return False                   # compose cannot vary a follow-up; pivot
         return False
 
-    def _run_call(self, sid, approach, approach_node):
+    def _run_call(self, sid, approach, approach_node, prior=None):
         """a live call: one touch for the whole call, up to 10 turns. cheap and fast, and
         well suited to a disclosure ask. writer.generate_call_line writes one line per turn."""
         if not self.budget.can_spend():
@@ -744,17 +796,23 @@ class Orchestrator:
         incident_type = incident_reason = None
         max_turns = 10
         closing = False                      # they declined or want it in writing: one closing line, then hang up
+        asked_for_writing = 0
         for turn in range(1, max_turns + 1):
             try:
                 def draft_line(feedback):
                     extra = [{'role':'quality-feedback','text':json.dumps(feedback)}] if feedback else []
+                    lead = list(prior or [])
                     if closing:
                         extra.append({'role': 'instruction', 'text': 'They declined or asked for it in writing. '
                                       'Thank them, confirm in one sentence what you will send today, and end the call. No questions.'})
+                    elif asked_for_writing:
+                        extra.append({'role': 'instruction', 'text': 'They want the details by mail and asked questions. '
+                                      'Answer each of their questions concretely and consistently with what you said, say the '
+                                      'mail follows today, then continue towards your goal with one short question.'})
                     gen = _retry_model(lambda: writer.generate_call_line(
                         self._cfg(), target=self._target_dict(), approach=approach,
                         sender=caller, verified_facts=self.profile.get('facts', []),
-                        transcript=transcript + extra, turn_number=turn, max_turns=max_turns))
+                        transcript=lead + transcript + extra, turn_number=turn, max_turns=max_turns))
                     return {'say':(gen.get('content') or {}).get('body','')}
                 if self.quality_enabled:
                     line = generate_checked_turn(draft_line, self.client.context, max_attempts=3,
@@ -791,9 +849,12 @@ class Orchestrator:
                     + "\n".join(t["text"] for t in transcript if t["role"] == "us")))
             if incident_type or turn_r.get("ended") or closing:
                 break
-            # stop probing once they decline or ask for writing: pushing on raises their guard for the
-            # rest of the session; the follow-up mail carries the thread instead
-            closing = _wants_out(heard)
+            # stop probing once they decline, or once they ask for writing a second time: pushing on
+            # raises their guard. A first "send it by mail" that comes with questions is still a live
+            # conversation (each turn is free inside the one touch), so the questions get answered first.
+            if _wants_out(heard):
+                asked_for_writing += 1
+            closing = call_should_close(heard, asked_for_writing)
         try:
             self.client.end_conversation(cid)
         except Exception:
@@ -830,8 +891,23 @@ class Orchestrator:
             # they asked for the mail: the promised mail always goes out, then their reply decides
             score = min(score if score is not None else 0, strategy.SCEPTICISM_ASK_MAX)
         seed = {"history": [{"message": f"(phone call) {ours}", "events": [], "reply": theirs}],
-                "scepticism": score}
+                "scepticism": score,
+                # one call-back if the mail goes unanswered: a ringing phone is a new chance to talk,
+                # a second unanswered mail is not (in practice runs, calls engaged and mail nudges
+                # after a call were ignored almost every time)
+                "call_back": None if approach.get("is_call_back") else approach.get("channel")}
         return self._run_messages(sid, follow, contact, seed=seed)
+
+    def _call_back(self, sid, approach, approach_node, history, channel):
+        """the follow-up mail went unanswered: call again as the same person, about that mail."""
+        print("     follow-up mail unanswered; calling back instead of a written nudge")
+        sent = [h.get("message", "") for h in history]
+        prior = [{"role": "instruction", "text":
+                  "This is your second call. Earlier you spoke on the phone and then sent the promised mail; "
+                  "they have not answered it. Open by referring to the earlier call and the mail in one "
+                  "sentence, and stay consistent with everything said before:\n" + "\n---\n".join(sent)[-1800:]}]
+        again = dict(approach, channel=channel, is_call_back=True)
+        return self._run_call(sid, again, approach_node, prior=prior)
 
     def _check_contact_touches(self, response):
         used = response.get('touches_used')

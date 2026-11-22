@@ -2,7 +2,8 @@
 
 - an llm groups facts that state the same thing even when worded differently
 - a group is verified only when >=2 distinct domains carry it (llm groups, domains decide)
-- a claim a source disputes is annotated and left unverified, to dodge the wrong-fact penalty
+- a claim a source disputes is dropped: a writer that repeats a contested claim risks the
+  wrong-fact penalty, and an annotated value ("CEO [disputed: ...]") leaked into messages
 - falls back to exact-value grouping if the llm call fails
 """
 import json
@@ -41,11 +42,8 @@ def verify(facts):
         domains = {_domain(f.source_url) for f in group if f.source_url}
         best.supporting_urls = sorted({f.source_url for f in group if f.source_url != best.source_url})
         if dispute:
-            best.verified = False  # a contested claim is never verified
-            if "[disputed" not in best.value:
-                best.value = f"{best.value} [disputed: {dispute}]"
-        else:
-            best.verified = best.verified or len(domains) >= 2  # never downgrade an authoritative fact
+            continue  # a contested claim never reaches the profile
+        best.verified = best.verified or len(domains) >= 2  # never downgrade an authoritative fact
         out.append(best)
     return out
 
