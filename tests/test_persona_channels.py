@@ -196,6 +196,13 @@ class LiveThreadTests(unittest.TestCase):
         self.assertTrue(strategy.plan_next_move(turn=5, last_state="silent", engaged_count=2, nudged=2).get("stop"))
         self.assertTrue(strategy.plan_next_move(turn=3, last_state="silent", engaged_count=0, nudged=1).get("stop"))
 
+    def test_a_call_closes_once_they_decline_or_want_writing(self):
+        for line in ("Send me the details by mail and I'll look at them.", "Ich gebe am Telefon keine Details raus.",
+                     "Julia, I still can't place you."):
+            self.assertTrue(runner._wants_out(line), line)
+        for line in ("Hallo Frau Weber, danke für die Anfrage, das klingt spannend.", "Which conference is it, and who is speaking?"):
+            self.assertFalse(runner._wants_out(line), line)
+
     def test_what_they_refuse_is_not_sent_again(self):
         self.assertEqual(runner._refused("I also don't open attachments or fill in forms from people I don't know."), {"files", "links"})
         self.assertEqual(runner._refused("Ich öffne keine Anhänge von Unbekannten."), {"files"})

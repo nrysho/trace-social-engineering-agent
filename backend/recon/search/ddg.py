@@ -8,6 +8,9 @@ import html
 import re
 from urllib.parse import parse_qs, unquote, urlsplit
 
+import threading
+import time
+
 import requests
 
 from backend.recon.search.result import SearchResult
@@ -33,8 +36,33 @@ def _real_url(href):
     return unquote(q["uddg"][0]) if q.get("uddg") else href
 
 
+# DuckDuckGo answers single queries but shows a bot challenge when one IP fires a burst (recon runs
+# its queries in parallel): send ours one at a time with a short gap, and wait once on a challenge.
+_LOCK = threading.Lock()
+_GAP = 1.5
+_last = [0.0]
+
+
+def _get(query):
+    with _LOCK:
+        wait = _GAP - (time.monotonic() - _last[0])
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            return requests.get(ENDPOINT, params={"q": query}, headers=HEADERS, timeout=TIMEOUT)
+        finally:
+            _last[0] = time.monotonic()
+
+
+def _challenged(r):
+    return r.status_code != 200 or any(m in r.text.lower() for m in ('challenge-form', 'anomaly.js', 'bots use duckduckgo'))
+
+
 def search(query, k=5, key=None):
-    r = requests.get(ENDPOINT, params={"q": query}, headers=HEADERS, timeout=TIMEOUT)
+    r = _get(query)
+    if _challenged(r):
+        time.sleep(8)                    # one patient retry: the block on a burst is short-lived
+        r = _get(query)
     r.raise_for_status()
     if r.status_code != 200 or any(marker in r.text.lower() for marker in ('challenge-form', 'anomaly.js', 'bots use duckduckgo')):
         raise RuntimeError('DuckDuckGo returned a challenge/non-result response; configure TAVILY_API_KEY or SERPER_API_KEY for recon')

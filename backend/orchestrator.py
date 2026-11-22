@@ -183,6 +183,18 @@ _REFUSE_LINKS = re.compile(r"(don'?t|do not|won'?t|will not|never|nicht|keine)\W
                            r"|(no|keine)\s+(links|forms|formulare)|(don'?t|do not)\s+(?:\w+\s+){0,3}(forms|links)", re.I)
 
 
+_WANTS_OUT = re.compile(
+    r"(per (e-?)?mail|by (e-?)?mail|send (me|it|the|that)|schick|schicken sie|schriftlich|in writing|"
+    r"not (on|over) the phone|on a call|am telefon|won'?t (go through|share|give|confirm|discuss)|"
+    r"ich (gebe|bestätige|sage) .{0,30}nicht|can'?t place you|kenne (sie|dich) .{0,15}nicht|"
+    r"verify|überprüf|official (site|website|channel))", re.I)
+
+
+def _wants_out(heard):
+    """the person on the phone declined, wants it in writing or asks for verification."""
+    return bool(_WANTS_OUT.search(heard or ""))
+
+
 def _refused(text):
     """what the target said they will not do in this thread: open files, click links or fill in forms."""
     out = set()
@@ -639,7 +651,7 @@ class Orchestrator:
             self._save_tree()                  # write the bundle after each contact, so the viewer can follow live
 
             if incident_type:
-                print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
+                print(f"     *** INCIDENT candidate ({incident_type}, our judge; revel8 confirms at scoring): {incident_reason} ***")
                 return True
             if verdict.get("recommended_action") == "stop":
                 return False
@@ -697,10 +709,14 @@ class Orchestrator:
         self._save_tree()
         incident_type = incident_reason = None
         max_turns = 10
+        closing = False                      # they declined or want it in writing: one closing line, then hang up
         for turn in range(1, max_turns + 1):
             try:
                 def draft_line(feedback):
                     extra = [{'role':'quality-feedback','text':json.dumps(feedback)}] if feedback else []
+                    if closing:
+                        extra.append({'role': 'instruction', 'text': 'They declined or asked for it in writing. '
+                                      'Thank them, confirm in one sentence what you will send today, and end the call. No questions.'})
                     gen = _retry_model(lambda: writer.generate_call_line(
                         self._cfg(), target=self._target_dict(), approach=approach,
                         sender=caller, verified_facts=self.profile.get('facts', []),
@@ -739,8 +755,11 @@ class Orchestrator:
                 incident_type, incident_reason = self._judge_disclosure(heard, sent=(
                     f"Caller: {sender['name']} <{sender['address']}>\n"
                     + "\n".join(t["text"] for t in transcript if t["role"] == "us")))
-            if incident_type or turn_r.get("ended"):
+            if incident_type or turn_r.get("ended") or closing:
                 break
+            # stop probing once they decline or ask for writing: pushing on raises their guard for the
+            # rest of the session; the follow-up mail carries the thread instead
+            closing = _wants_out(heard)
         try:
             self.client.end_conversation(cid)
         except Exception:
@@ -753,7 +772,7 @@ class Orchestrator:
                       incident_chance=1.0 if incident_type else 0.0)
         self._save_tree()
         if incident_type:
-            print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
+            print(f"     *** INCIDENT candidate ({incident_type}, our judge; revel8 confirms at scoring): {incident_reason} ***")
             return True
         said = [t["text"] for t in transcript[1:] if t["role"] == "them" and t["text"]]
         if said and not self.budget.exhausted():
