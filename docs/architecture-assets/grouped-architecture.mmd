@@ -1,0 +1,53 @@
+flowchart TB
+ subgraph INPUT["PUBLIC RESEARCH"]
+ direction LR
+ SOURCES["Public sources<br/>Company / news / talks / network"]
+ PROFILE[("Sourced profile<br/>Facts / URLs / hook hypotheses")]
+ SOURCES --> PROFILE
+ end
+ subgraph AGENT["AUTONOMOUS AGENT"]
+ direction LR
+ PLAN["Strategist<br/>Rank approaches + explain choices"]
+ WRITER["Writer<br/>Facts + conversation + lessons"]
+ QA{"Quality gate<br/>Rules / craft / consistency"}
+ SEND["Simulator client<br/>Idempotency / retries / budget"]
+ EVAL["Evaluator<br/>Answer / continue / close / stop"]
+ MEMORY[("Session memory<br/>Objections + closure reasons")]
+ PLAN --> WRITER --> QA
+ QA -->|pass| SEND
+ QA -.->|correct| WRITER
+ EVAL --> MEMORY
+ MEMORY -.->|adapt next decision| PLAN
+ end
+ subgraph SIM["REVEL8 SIMULATION"]
+ direction LR
+ TWIN["Target AI twin<br/>Session remembers all contacts"]
+ EVENTS["API observations<br/>Replies / opens / submissions"]
+ TWIN --> EVENTS
+ end
+ subgraph AUDIT["EVIDENCE & REPLAY"]
+ direction LR
+ STORE[("Saved run evidence<br/>Decisions / QA / receipts / events")]
+ VIEW["Read-only replay<br/>Chosen path + rejected alternatives"]
+ STORE --> VIEW
+ end
+ PROFILE --> PLAN
+ SEND -->|message / page / call| TWIN
+ EVENTS -->|response + receipt| EVAL
+ EVAL -.->|same-story reply| WRITER
+ SEND -.-> STORE
+ MEMORY -.-> STORE
+ classDef research fill:#e4edff,stroke:#587bb1,color:#172b4d,stroke-width:1.6px;
+ classDef agent fill:#e9e5fb,stroke:#8271b2,color:#30234f,stroke-width:1.6px;
+ classDef quality fill:#fff1c6,stroke:#bb922e,color:#56400d,stroke-width:1.8px;
+ classDef simulation fill:#dcf2ec,stroke:#428976,color:#16493a,stroke-width:1.6px;
+ classDef evidence fill:#fce9dc,stroke:#bb8257,color:#59381f,stroke-width:1.6px;
+ class SOURCES,PROFILE research;
+ class PLAN,WRITER,EVAL,MEMORY agent;
+ class QA,SEND quality;
+ class TWIN,EVENTS simulation;
+ class STORE,VIEW evidence;
+ style INPUT fill:#f4f7fd,stroke:#9bb2d1,stroke-width:1.5px,stroke-dasharray:6 4
+ style AGENT fill:#f7f5fc,stroke:#a79ac5,stroke-width:1.5px,stroke-dasharray:6 4
+ style SIM fill:#f1f9f6,stroke:#8bb5a8,stroke-width:1.5px,stroke-dasharray:6 4
+ style AUDIT fill:#fff8f2,stroke:#cfad90,stroke-width:1.5px,stroke-dasharray:6 4
