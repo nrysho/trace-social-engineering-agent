@@ -188,32 +188,36 @@ def _next_business_morning(now):
 SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for an implausible one
 
 
-_REFUSE_FILES = re.compile(r"(don'?t|do not|won'?t|will not|never|nicht|keine)\W+(?:\w+\W+){0,4}(open|öffne|öffnen)\W+(?:\w+\W+){0,4}"
-                           r"(attachments?|pdfs?|files?|anh[äa]nge?|dateien?)|(keine|no)\s+(anh[äa]nge|attachments|pdfs?)", re.I)
-_REFUSE_LINKS = re.compile(r"(don'?t|do not|won'?t|will not|never|nicht|keine)\W+(?:\w+\W+){0,4}(click|fill|klicke|füll|ausfüll)\w*"
-                           r"|(no|keine)\s+(links|forms|formulare)|(don'?t|do not)\s+(?:\w+\s+){0,3}(forms|links)", re.I)
+_NEGATION = re.compile(r"\b(not|don'?t|do not|won'?t|will not|never|no|nicht|keine?n?|kein|zu)\b|vorerst nicht|lasse ich", re.I)
+_FILE_WORDS = re.compile(r"\b(attachments?|pdfs?|files?|briefing|anh[äa]nge?n?|dateien?)\b", re.I)
+_LINK_WORDS = re.compile(r"\b(links?|forms?|formulare?s?|rsvp|click|klick|sign[ -]?in|anmelden)\w*", re.I)
+_DECLINE = re.compile(r"(public|öffentlich|website|not (on|over) the phone|won'?t (share|discuss|go through|give)|"
+                      r"don'?t (share|discuss|give)|keine (details|angaben)|brauchen wir nicht|gebe .{0,25}nicht|"
+                      r"nicht (am telefon|weiter)|no need|not going to|nicht nötig)", re.I)
 
 
-_WANTS_OUT = re.compile(
-    r"(per (e-?)?mail|by (e-?)?mail|send (me|it|the|that)|schick|schicken sie|schriftlich|in writing|"
-    r"not (on|over) the phone|on a call|am telefon|won'?t (go through|share|give|confirm|discuss)|"
-    r"ich (gebe|bestätige|sage) .{0,30}nicht|can'?t place you|kenne (sie|dich) .{0,15}nicht|"
-    r"verify|überprüf|official (site|website|channel))", re.I)
-
-
-def _wants_out(heard):
-    """the person on the phone declined, wants it in writing or asks for verification."""
-    return bool(_WANTS_OUT.search(heard or ""))
+def _sentences(text):
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+|\n+", text or "") if x.strip()]
 
 
 def _refused(text):
-    """what the target said they will not do in this thread: open files, click links or fill in forms."""
+    """what the target said they will not do in this thread, judged per sentence so it works in any
+    word order ("I don't open attachments", "Die Anhänge öffne ich vorerst nicht")."""
     out = set()
-    if _REFUSE_FILES.search(text or ""):
-        out.add("files")
-    if _REFUSE_LINKS.search(text or ""):
-        out.add("links")
+    for sentence in _sentences(text):
+        if not _NEGATION.search(sentence):
+            continue
+        if _FILE_WORDS.search(sentence):
+            out.add("files")
+        if _LINK_WORDS.search(sentence):
+            out.add("links")
     return out
+
+
+def _declined(text):
+    """the target's own sentences that turn down a question (tools, internal details), passed to the
+    writer verbatim so the next message asks about something else instead of the same thing again."""
+    return [x[:200] for x in _sentences(text) if _DECLINE.search(x)][-4:]
 
 
 def _read_order(raw, n):
@@ -585,7 +589,9 @@ class Orchestrator:
                     # they asked for the agenda, articles, deck...: send it; opening it is the action incident
                     step["attachment"] = step.get("attachment") or _material_name(history[-1]["reply"], approach.get("pretext"))
                 # what they refused in this thread is never sent again ("I don't open attachments")
-                refused = _refused(" ".join(h.get("reply", "") for h in history))
+                theirs = " ".join(h.get("reply", "") for h in history)
+                refused = _refused(theirs)
+                step["they_declined"] = _declined(theirs)
                 if "files" in refused:
                     step["attachment"] = None
                 if "links" in refused:

@@ -243,6 +243,13 @@ class LiveThreadTests(unittest.TestCase):
         days = [runner._business_day(datetime(2026, 11, 26, 8, 30), i).weekday() for i in range(6)]
         self.assertTrue(all(d < 5 for d in days))
 
+    def test_german_word_order_refusals_and_declined_questions(self):
+        text = ("Die Anhänge öffne ich vorerst nicht. Anhänge und RSVP-Formular lasse ich vorerst zu. "
+                "Zu unseren Tools: Was wir öffentlich zeigen, sehen Sie auf unserer Website.")
+        self.assertEqual(runner._refused(text), {"files", "links"})
+        self.assertEqual(len(runner._declined(text)), 1)
+        self.assertEqual(runner._declined("Please send the agenda by mail."), [])
+
     def test_what_they_refuse_is_not_sent_again(self):
         self.assertEqual(runner._refused("I also don't open attachments or fill in forms from people I don't know."), {"files", "links"})
         self.assertEqual(runner._refused("Ich öffne keine Anhänge von Unbekannten."), {"files"})
