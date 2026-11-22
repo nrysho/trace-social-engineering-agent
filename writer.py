@@ -61,7 +61,7 @@ SIMULATION_SYSTEM = (
 # What makes a message believable, from our practice runs: twins ignore vague, unsigned, generic
 # mail and check every detail, so be specific, sign as a real person and make one clear ask.
 WRITING_RULES = [
-    "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient by first name. Sign off using exactly you_are.name: a person adds role, organisation, a phone number from the fictional range +49 30 23125 0xx and the city; a company or team signs as the team.",
+    "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient as this sender would and keep one form of address (in German the formal Sie, unless they use du). Sign off using exactly you_are.name: a person adds role, organisation, a phone number from the fictional range +49 30 23125 0xx and the city; a company or team signs as the team.",
     "2. Do what this_message says, with at most one ask. Never ask for something your sender would already know.",
     "3. Be concrete: realistic full names and roles for the people in your story, real-sounding places, dates after today. If asked who someone is, give names; if asked how you found them, it is their public work (a talk, a post, the company site).",
     "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation.",
@@ -76,13 +76,30 @@ WRITING_RULES = [
 _GERMAN = re.compile(r"\b(ich|nicht|und|der|die|das|bitte|danke|schicken|gerne|gern|ist|wir|sie|mir|mit|auf)\b", re.I)
 
 
-def _reply_language(history: list[dict[str, Any]] | None) -> str | None:
-    """the language the recipient last used, so the next message does not switch language."""
-    theirs = [h.get("text", "") for h in (history or []) if h.get("from") not in (None, "quality-feedback")][-1:]
-    if not theirs or len(theirs[0].split()) < 4:
+_GERMAN_GREETING = re.compile(r"\b(hallo|guten (morgen|tag|abend)|servus|moin|grüß|ja bitte)\b", re.I)
+_GERMAN_SPEAKING = ("germany", "deutschland", "austria", "österreich", "switzerland", "schweiz", "de", "at", "ch")
+
+
+def _language_of(text: str) -> str | None:
+    """German or English for a piece of their text; a short greeting is enough ("Müller, guten Morgen.")."""
+    text = str(text or "")
+    words = len(text.split())
+    if _GERMAN_GREETING.search(text):
+        return "German"
+    if words < 4:
         return None
-    words = len(theirs[0].split())
-    return "German" if len(_GERMAN.findall(theirs[0])) >= max(2, words // 12) else "English"
+    return "German" if len(_GERMAN.findall(text)) >= max(2, words // 12) else "English"
+
+
+def _reply_language(theirs: list[str] | None, country: str = "") -> str | None:
+    """the language to write or speak in: what the recipient last used (their own words only),
+    else their country's (recon's country), so we never open in English with someone who answers
+    the phone in German."""
+    for text in reversed(list(theirs or [])):
+        lang = _language_of(text)
+        if lang:
+            return lang
+    return "German" if str(country or "").strip().casefold() in _GERMAN_SPEAKING else None
 
 
 def _sourced_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -200,7 +217,8 @@ def generate_message(
         "verified_facts_about_recipient": facts,
         "conversation_history": conversation_history or [],
         # what THIS message must do (plan_next_move): a first contact only opens the conversation
-        "write_in": _reply_language(conversation_history),
+        "write_in": _reply_language([h.get("text", "") for h in (conversation_history or [])
+                                     if h.get("from") == target.get("name")], target.get("country", "")),
         "learned_earlier_in_this_session": approach.get("session_lessons") or None,
         "this_message": MOVE_GUIDANCE.get(str(approach.get("next_move") or ""), MOVE_GUIDANCE["make_ask"]),
         "today": str(approach.get("story_date") or date.today().isoformat()),   # the date in the story, as the recipient lives it
@@ -269,8 +287,8 @@ def generate_call_line(
     facts = _sourced_facts(verified_facts)
     user_payload = {
         "instruction": (
-            "Write the caller's next spoken line as JSON {\"body\": \"...\"}, in the language the other party speaks. "
-            "1. You are exactly the sender (name, role, organisation); keep every detail consistent. "
+            "Write the caller's next spoken line as JSON {\"body\": \"...\"}, in the language given as speak_in. "
+            "1. You are exactly the sender (name, role, organisation); keep every detail consistent, including one form of address (in German the formal Sie, unless they use du). "
             "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
             "3. Dates you mention lie after today. "
             "4. Answer their question briefly, then ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need for your story. "
@@ -281,6 +299,8 @@ def generate_call_line(
         "approach": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
         "verified_facts": facts,
         "transcript": transcript,
+        "speak_in": _reply_language([t.get("text", "") for t in transcript if t.get("role") == "them"],
+                                    target.get("country", "")) or "the language the other party speaks",
         "turn": turn_number,
         "max_turns": max_turns,
         "today": str(approach.get("story_date") or date.today().isoformat()),

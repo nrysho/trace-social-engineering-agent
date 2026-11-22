@@ -103,8 +103,13 @@ class CallFollowUpTests(unittest.TestCase):
             self.assertEqual(run.call_args.args[1]["channel"], channel, kind)
 
     def test_the_next_message_keeps_the_language_of_the_reply(self):
-        self.assertEqual(writer._reply_language([{"from": "Tom", "text": "Ja, schicken Sie mir das bitte per Mail, danke."}]), "German")
-        self.assertEqual(writer._reply_language([{"from": "Tom", "text": "Please send me a short note with your fund size first."}]), "English")
+        self.assertEqual(writer._reply_language(["Ja, schicken Sie mir das bitte per Mail, danke."]), "German")
+        self.assertEqual(writer._reply_language(["Please send me a short note with your fund size first."]), "English")
+
+    def test_a_short_german_greeting_or_the_country_sets_german(self):
+        self.assertEqual(writer._reply_language(["Müller, guten Morgen."]), "German")
+        self.assertEqual(writer._reply_language(["Seilbeck."], "Germany"), "German")
+        self.assertEqual(writer._reply_language(["Please send me the deck first, thanks a lot."], "Germany"), "English")
 
 
 class GuardLinkTests(unittest.TestCase):
