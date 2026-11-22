@@ -61,19 +61,47 @@ SIMULATION_SYSTEM = (
 # What makes a message believable, from our practice runs: twins ignore vague, unsigned, generic
 # mail and check every detail, so be specific, sign as a real person and make one clear ask.
 WRITING_RULES = [
+    "Write in the recipient's language: match the language of their last reply; for a first contact, use the language their verified facts and company suggest (German for someone working in Germany who posts in German), else English. Keep the sender's own name and organisation as they are.",
     "Write as the person in you_are, in their organisation's normal tone for this channel.",
     "Address the recipient by first name. Never greet the sender.",
     "Be specific: name a concrete product, plan, event, date, document or person. Use facts about the recipient only from verified_facts_about_recipient.",
+    "State only facts with confirmed_by_two_sources true. An unconfirmed fact may set the topic, but never quote it or state its details (names, numbers, dates, titles) as certain: the recipient notices every wrong fact about them.",
     "Never use the wording of internal_plan_do_not_quote, and never write words like pretext, hook, target, 'known vendor' or 'known tool'.",
     "The subject must read like a real subject line from this sender, not a description of the message.",
-    "Make exactly one clear ask that serves the plan. Mention a file or a link only if included_with_your_text has it; otherwise ask for a reply with one specific detail.",
-    "Do not name other people or companies the recipient could look up and find missing; describe them in general terms (for example 'two founders from the Munich security scene').",
+    "Do exactly what this_message says, with one clear ask at most. Mention a file or a link only if included_with_your_text has it. A link is appended after your text automatically: refer to it naturally ('the link below') but never write a URL, a placeholder, or a note that a link was added.",
+    "Real-world timing is fine (the RSVP list closes Friday, the renewal date, the issue goes to print next week). No alarm words or threats: no 'urgent', 'action required', audits or account suspension, which security-aware people recognise instantly.",
+    "Never ask for something the sender would already know (a vendor knows the account's seats and contacts) or for internal names, tools or numbers before the recipient has replied.",
+    "Be concrete about people: give the other speakers, your editor, your partner or your colleague realistic full names and roles, and when the recipient asks who someone is, answer with names, never stay vague. Improvise whatever details make your story hold, but never state something about the recipient that their facts do not support.",
+    "Never say something is attached, linked or below unless included_with_your_text has it. If they asked for material and it is included, send it now and say so; never promise it for a later day.",
     "In a follow-up, refer to your earlier message and add one new reason or detail; never repeat it.",
+    "The recipient remembers this whole conversation: never claim a meeting, call, referral or earlier contact that is not in conversation_history.",
     "Sign off using exactly you_are.name. Never invent a different personal name. If the supplied name is a company or team, sign as that company/team; include only the supplied role and organisation.",
     "Never invent the recipient's subscription, billing, renewal, expiry, upgrade, incident or account status. A DNS/SPF record does not prove any of those. Ask a neutral question when the verified facts do not establish the detail.",
+    "A person adds a phone number from the fictional range +49 30 23125 0xx and the organisation's city under the signature.",
     "Any date you mention lies after today. Plain text, under 130 words, no markdown, no placeholders.",
     "Reply with the JSON object only.",
 ]
+
+
+def _sourced_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every sourced recon fact, flagged confirmed or not. Recon confirms mostly DNS tool records;
+    the events, open roles, interests and activity that make a hook are single-source. The writer
+    states confirmed facts and only alludes to the topic of unconfirmed ones (never quoting them),
+    which the quality gate checks."""
+    return [{"category": f.get("category"), "value": f.get("value"), "source_url": f.get("source_url"),
+             "confirmed_by_two_sources": f.get("verified") is True}
+            for f in facts if isinstance(f, dict) and f.get("source_url") and f.get("value")]
+
+
+# What each planned move (strategy.plan_next_move intent) asks of the message.
+MOVE_GUIDANCE = {
+    "introduce": "First contact. Introduce yourself and a concrete, relevant reason for writing that fits the recipient's verified facts. Ask only for interest or a quick reply (a yes, a time that suits); nothing internal, no link or file unless included_with_your_text has one.",
+    "nudge": "They did not answer. A short, friendly follow-up that adds one new, concrete reason; no pressure and no repeat of the first message.",
+    "answer_build": "They replied with some doubt. Answer their questions concretely, add one detail that makes you more credible, and keep the ask small.",
+    "reassure": "They are doubtful. Address the doubt directly and calmly with something they can check about you or your organisation (your role, the publication or event, an official next step); make no new ask. Never invent a past meeting, call or referral.",
+    "make_ask": "They engaged. Make the one ask that serves the plan now, clearly and naturally, building on what they said.",
+    "push_complete": "They opened the link but did not finish. Briefly help them complete it, as the sender would.",
+}
 
 
 @dataclass(frozen=True)
@@ -160,21 +188,19 @@ def generate_message(
     channel = str(approach["channel"])
     if channel not in CHANNEL_GUIDANCE and channel not in {"phone_call", "video_call", "teams_call", "live_chat"}:
         raise ValueError(f"unsupported channel: {channel}")
-    facts = [
-        {"category": f.get("category"), "value": f.get("value"), "source_url": f.get("source_url")}
-        for f in verified_facts
-        if f.get("verified") is True and f.get("source_url") and f.get("value")
-    ]
+    facts = _sourced_facts(verified_facts)
     payload = {
         "task": CHANNEL_GUIDANCE.get(channel, "Write only the caller's next spoken line for a live call."),
-        "recipient": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
+        "recipient": {key: target.get(key) for key in ("name", "role", "company", "country") if target.get(key)},
         "you_are": {key: sender.get(key) for key in ("name", "role", "organization", "email") if sender.get(key)},
         # the agent's own plan: guides the message, but its wording must never appear in it
         "internal_plan_do_not_quote": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
         "verified_facts_about_recipient": facts,
         "conversation_history": conversation_history or [],
-        "today": date.today().isoformat(),   # so dates and years in the message are plausible
-        "included_with_your_text": {"attachment": attachment, "link_added_below_your_text": bool(link_follows)},
+        # what THIS message must do (plan_next_move): a first contact only opens the conversation
+        "this_message": MOVE_GUIDANCE.get(str(approach.get("next_move") or ""), MOVE_GUIDANCE["make_ask"]),
+        "today": str(approach.get("story_date") or date.today().isoformat()),   # the date in the story, as the recipient lives it
+        "included_with_your_text": {"attachment": attachment, "a_link_follows_your_text": bool(link_follows)},
         "output_schema": {"subject": "string or empty", "body": "string"},
         "writing_rules": WRITING_RULES,
     }
@@ -236,13 +262,16 @@ def generate_call_line(
     """Write exactly one consistent caller line for a live simulation call."""
     if turn_number < 1 or turn_number > max_turns:
         raise ValueError("call turn is outside the configured limit")
-    facts = [
-        {"category": f.get("category"), "value": f.get("value"), "source_url": f.get("source_url")}
-        for f in verified_facts
-        if f.get("verified") is True and f.get("source_url") and f.get("value")
-    ]
+    facts = _sourced_facts(verified_facts)
     user_payload = {
-        "instruction": "Write only the caller's next spoken line as JSON {\"body\": \"...\"}. Keep the sender persona and established details consistent. Answer the other party's last question briefly, then make at most one clear ask.",
+        "instruction": (
+            "Write only the caller's next spoken line as JSON {\"body\": \"...\"}. Speak the language the other party speaks. "
+            "Keep the sender persona and established details consistent. Answer the other party's last question briefly, then make at most one clear ask. "
+            "Calls are short: by your second line, move to the concrete next step that serves the goal, and never let the call end without one. "
+            "The natural next step is that you email the material right after the call (name what you will send, e.g. the programme, the questions, the profile); "
+            "get their agreement and ask one specific question that the email will build on. If they say to send it by mail, agree warmly, "
+            "say it comes from you today, and close the call politely."
+        ),
         "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
         "sender": {key: sender.get(key) for key in ("name", "role", "organization") if sender.get(key)},
         "approach": {key: approach.get(key) for key in ("hook", "pretext", "story", "incident_goal") if approach.get(key)},
@@ -275,6 +304,7 @@ def generate_call_line(
 # Internal labels of the agent (strategy.PRETEXTS keys and story wording) that must never reach a message.
 INTERNAL_WORDING = (
     "known vendor", "known tool", "known collaborator", "pretext", "internal plan", "incident goal",
+    "link added below", "added below your text", "link below your text",
     "speaker_invite", "press_request", "customer_question", "document_share", "meeting_reschedule",
     "vendor_notice", "security_alert", "internal_favor", "investor_intro",
 )
@@ -301,6 +331,11 @@ def quality_gate(
     leaked = [phrase for phrase in INTERNAL_WORDING if phrase in lower]
     if leaked:
         raise ValueError("quality gate rejected internal plan wording: " + ", ".join(leaked))
+    if re.search(r"\[[A-Za-z][A-Za-z _-]{1,24}\d*\]", text):
+        raise ValueError("quality gate rejected a bracket placeholder such as [article1]")
+    if re.search(r"https?://|\bwww\.", text, re.I):
+        # the only link that goes out is the registered page we append; any other URL has no page behind it
+        raise ValueError("quality gate rejected a URL in the text; the registered link is appended separately")
     greeting = GREETING.match(str(message.get("body", "")))
     if greeting:
         greeted = greeting.group(1).casefold()
@@ -368,8 +403,65 @@ def _fill(template: str, brand: str, tld: str) -> str:
 
 
 def _local_part(name: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", ".", str(name).lower()).strip(".")
+    """'Dr. Tom Müller' -> 'tom.mueller': umlauts spelled out, titles dropped, ASCII only."""
+    import unicodedata
+    text = str(name).lower()
+    for k, v in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        text = text.replace(k, v)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    text = re.sub(r"\b(dr|prof|mr|mrs|ms)\.?\s+", "", text)
+    slug = re.sub(r"[^a-z0-9]+", ".", text).strip(".")
     return slug or "contact"
+
+
+# ----- sender and page domains must be ones an attacker could still register -----
+# A domain someone already owns (okta-verify.com, secure-login.com, ...) may be that organisation's
+# own: a page or sender there voids the session. So every domain we use is checked for NS records
+# (dns.google, as recon already uses) and replaced by a free variant when it is taken.
+_SECOND_LEVEL = {"co", "com", "org", "net", "ac", "gov", "or", "ne"}
+_TAKEN: dict[str, bool | None] = {}
+
+
+def _registrable(domain: str) -> str:
+    """The part someone registers: 'a.b.secure-login.com' -> 'secure-login.com', 'x.co.uk' kept."""
+    labels = [p for p in str(domain).lower().strip(".").split(".") if p]
+    keep = 3 if len(labels) >= 3 and labels[-2] in _SECOND_LEVEL and len(labels[-1]) == 2 else 2
+    return ".".join(labels[-keep:])
+
+
+def domain_taken(domain: str) -> bool | None:
+    """True if the registrable domain already exists (has NS records), False if it does not
+    (NXDOMAIN), None if DNS could not tell."""
+    base = _registrable(domain)
+    if base not in _TAKEN:
+        try:
+            r = requests.get("https://dns.google/resolve", params={"name": base, "type": "NS"}, timeout=8)
+            status = r.json().get("Status")
+            _TAKEN[base] = True if status == 0 else False if status == 3 else None
+        except (requests.RequestException, ValueError):
+            _TAKEN[base] = None
+    return _TAKEN[base]
+
+
+def free_domain(domain: str) -> str:
+    """domain itself if nobody owns it, else the first unregistered variant of its registrable
+    part ('okta-verify.com' -> 'okta-verify-notice.com'), keeping any subdomain in front."""
+    domain = str(domain).lower().strip(".")
+    if domain_taken(domain) is not True:
+        return domain
+    base = _registrable(domain)
+    prefix = domain[: -len(base)]
+    label, _, suffix = base.partition(".")
+    # closest lookalikes first: the same name on another ending, then a hyphen, then an added word.
+    # No homoglyphs (Cyrillic 'е'): browsers show such domains as xn--… punycode, which looks worse.
+    near = [f"{label}.{t}" for t in ("co", "io", "net", "de", "eu", "org", "com") if t != suffix]
+    near += [f"{label[:i]}-{label[i:]}.{suffix}" for i in range(3, len(label) - 2) if "-" not in label][:2]
+    near += [f"{label}-{extra}.{suffix}" for extra in ("notice", "mail", "portal", "service", "online", "secure-mail")]
+    for candidate in near:
+        if domain_taken(candidate) is False:
+            logger.info("domain %s is registered; using %s", base, candidate)
+            return prefix + candidate
+    raise RuntimeError(f"no unregistered variant of {base}")
 
 
 # Tools worth impersonating, by keyword found in the target's vendors_and_tools facts.
@@ -455,6 +547,7 @@ def build_sender(pretext: str, target_domain: str, colleague: str = "", vendors:
         name = vendor["brand"]
         domain = vendor["domain"]
         technique = f"vendor_impersonation:{vendor['brand']}"
+    domain = free_domain(domain)
     return {
         "name": name,
         "address": f"{_local_part(name)}@{domain}",
@@ -464,34 +557,60 @@ def build_sender(pretext: str, target_domain: str, colleague: str = "", vendors:
     }
 
 
-# Pretexts whose sender is an invented outsider: their identity is generated to fit the hook.
-# Vendor and security notices impersonate a tool, colleague pretexts use the colleague's name.
-GENERATED_SENDER_PRETEXTS = {"speaker_invite", "press_request", "recruiting", "customer_question", "investor_intro"}
+# Who sends a message, per kind of sender (strategy.Pretext.sender). Every message gets a generated
+# sender that fits its story; the fixed senders.json entry is only the offline/failure fallback.
+SENDER_KIND_RULES = {
+    "outsider": [
+        "The sender works at an invented organisation that would naturally write about this topic (e.g. a monitoring vendor for a cloud-cost topic, an executive search firm for a hiring topic, an events agency for a speaking invitation).",
+        "The role fits the question being asked (an engineer for technical questions, a partner for investors, a researcher or editor for press).",
+        "The name is a realistic full name from the recipient's region; the first name differs from the recipient's.",
+        "The domain is a plausible, registrable domain for that invented organisation.",
+    ],
+    "vendor": [
+        "The sender writes for a tool or service the recipient uses (see impersonated_tool or the facts), or for the recipient's own IT team if no tool fits.",
+        "The name is either a team name such as '<Tool> Account Security' or '<Company> IT Service Desk', or a support agent's realistic full name.",
+        "The organisation is the tool or team being impersonated.",
+        "The domain is a believable lookalike an attacker could register (an extra word or hyphen, a different ending), never the tool's real domain.",
+    ],
+    "colleague": [
+        "The sender is a colleague at the recipient's company. If known_colleague is given, use exactly that name; otherwise invent a realistic full name from the recipient's region whose first name differs from the recipient's.",
+        "The role is one that would plausibly make this request of the recipient (finance for an invoice, operations for a document, an assistant for a meeting).",
+        "The organisation is the recipient's company.",
+        "The domain is a lookalike of the company's own domain that an attacker could register (a small typo, an extra word, a different ending), never the real domain.",
+    ],
+}
 REAL_ORG_DOMAINS = ("google.com", "microsoft.com", "linkedin.com", "docusign.com", "okta.com", "apple.com",
-                    "amazon.com", "slack.com", "zoom.us", "github.com", "salesforce.com", "hubspot.com")
+                    "amazon.com", "slack.com", "zoom.us", "github.com", "salesforce.com", "hubspot.com",
+                    "atlassian.com", "notion.so", "dropbox.com", "box.com", "office.com", "outlook.com")
 
 
 def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], approach: dict[str, Any],
-                            facts: list[dict[str, Any]], default: dict[str, Any]) -> dict[str, Any]:
-    """Invent who sends this message so the identity fits the story: an organisation that
-    would naturally write about this hook, a role that fits the question, a name from the
-    recipient's region (never their own first name) and a matching registrable domain.
-    Returns {name, role, organization, domain, address}; raises if no valid persona."""
+                            facts: list[dict[str, Any]], colleague: str = "", tool: str = "",
+                            avoid_names: list[str] | None = None) -> dict[str, Any]:
+    """Invent who sends this message so the identity fits the story and the kind of sender
+    (approach["sender_kind"]: outsider, vendor or colleague). No fixed name is shown to the
+    model, so it cannot copy one. Returns {name, role, organization, domain, address};
+    raises if neither model gives a valid persona."""
+    kind = approach.get("sender_kind") if approach.get("sender_kind") in SENDER_KIND_RULES else "outsider"
     recipient_first = str(target.get("name", "")).split()[0].casefold() if target.get("name") else ""
-    own = str(target.get("company_domain", "")).lower()
+    own = str(target.get("company_domain", "")).lower().removeprefix("www.")
     payload = {
-        "task": "Invent the sender of a first message for this plan. Return JSON only.",
+        "task": "Invent the sender of a message for this plan. Return JSON only.",
         "recipient": {k: target.get(k) for k in ("name", "role", "company") if target.get(k)},
+        "company_domain": own or None,
+        "recipient_country": target.get("country") or None,
+        "channel": approach.get("channel"),
         "internal_plan_do_not_quote": {k: approach.get(k) for k in ("hook", "pretext", "story") if approach.get(k)},
         "facts_about_recipient": [f.get("value") for f in facts if f.get("value")][:12],
-        "rules": [
-            "The organisation is invented and would naturally send this message about this topic (e.g. a monitoring vendor for a cloud-cost topic, an executive search firm for a hiring topic, an events agency for a speaking invitation).",
-            "The role fits the question being asked (an engineer for technical questions, a partner for investors, a researcher or editor for press).",
-            "A realistic full name from the recipient's region; the first name must differ from the recipient's first name.",
-            "The domain is a plausible, registrable domain for that invented organisation: never a real company's domain and never the recipient's.",
+        "known_colleague": colleague or None,
+        "impersonated_tool": tool or None,
+        "names_already_used_in_this_conversation": avoid_names or None,
+        "rules": SENDER_KIND_RULES[kind] + [
+            "Never use a real company's own domain and never the recipient's company domain.",
+            "An outside organisation and its domain ending fit the recipient's country (recipient_country), e.g. a .de domain for Germany.",
+            "The recipient remembers every earlier sender: the first and last name must both differ from names_already_used_in_this_conversation.",
         ],
-        "example_default_sender": {k: default.get(k) for k in ("name", "role", "domain") if default.get(k)},
-        "output_schema": {"name": "First Last", "role": "string", "organization": "string", "domain": "example-org.de"},
+        "output_schema": {"name": "string", "role": "string", "organization": "string", "domain": "example-org.de"},
     }
     messages = [{"role": "system", "content": SIMULATION_SYSTEM},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
@@ -502,16 +621,176 @@ def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], ap
         except Exception as e:
             problems.append(f"{model}: {e}")
             continue
-        name, domain = str(out.get("name", "")).strip(), str(out.get("domain", "")).strip().lower().removeprefix("www.")
-        first = name.split()[0].casefold() if name.split() else ""
-        if (len(name.split()) < 2 or first == recipient_first or not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", domain)
+        name = colleague if (kind == "colleague" and colleague) else " ".join(str(out.get("name", "")).split())
+        domain = str(out.get("domain", "")).strip().lower().removeprefix("www.")
+        words = name.split()
+        used = {w.casefold() for n in (avoid_names or []) for w in n.split()[:1]}
+        if not (kind == "colleague" and colleague) and words and words[0].casefold() in used:
+            problems.append(f"{model}: reused an earlier sender's first name ({name})")
+            continue
+        person = kind != "vendor"            # a vendor may sign as a team ("Acme Account Security")
+        if (not words or len(words) > 6 or (person and len(words) < 2)
+                or (person and words[0].casefold() == recipient_first)
+                or not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", domain)
                 or (own and (domain == own or domain.endswith("." + own)))
-                or any(domain == d or domain.endswith("." + d) for d in REAL_ORG_DOMAINS) or not out.get("organization")):
+                or any(domain == d or domain.endswith("." + d) for d in REAL_ORG_DOMAINS)
+                or not str(out.get("organization", "")).strip()):
             problems.append(f"{model}: invalid persona {out}")
             continue
+        domain = free_domain(domain)           # a domain someone already owns could be theirs
         return {"name": name, "role": str(out.get("role", "")).strip(), "organization": str(out["organization"]).strip(),
                 "domain": domain, "address": f"{_local_part(name)}@{domain}"}
     raise RuntimeError("no valid sender persona: " + "; ".join(problems))
+
+
+# ----- the look: landing pages and vendor mails as the sender would really make them -----
+# revel8 renders every eval mail (~700 px) and page (~1200 px) in Chrome with scripts off and nothing
+# loaded from the network, then rates: fits the sender, right format, clean, details hold. So the HTML
+# is self-contained (inline styles, system fonts, no images): a text wordmark instead of a logo, a
+# footer, and every link shown with the address it really goes to.
+_BRAND_COLOURS = ("#1a73e8", "#0b6e4f", "#5b3cc4", "#c2410c", "#0f766e", "#1e3a8a", "#9d174d", "#334155")
+_FIELD_LABELS = {"email": "Work email", "password": "Password", "name": "Full name", "availability": "Your availability",
+                 "username": "Username", "phone": "Phone number", "company": "Company", "job_title": "Job title",
+                 "internal_tool": "Tools currently in place on your side (helps our moderator prepare)"}
+_PAGE_COPY = {   # heading, text, button: what this kind of page says (never the internal plan)
+    "security_alert": ("Verify it's you", "We noticed a sign-in from a new device. Sign in to review the activity and keep your account secure.", "Continue"),
+    "vendor_notice": ("Review your account", "Confirm your details to keep your subscription running without interruption.", "Continue"),
+    "document_share": ("A document was shared with you", "Sign in with your work account to open the document.", "Open document"),
+    "press_request": ("Sign in to keep reading", "This article is for registered readers. Sign in with your work account to read the full piece.", "Continue reading"),
+    "speaker_invite": ("Speaker RSVP", "Thank you for your interest. Tell us when you are available and we will send the full programme.", "Send RSVP"),
+    "recruiting": ("Candidate profile", "Enter your work email to open the candidate profile.", "View profile"),
+    "investor_intro": ("Introduction deck", "Enter your email and we will send you the deck right away.", "Get the deck"),
+    "meeting_reschedule": ("Confirm the new time", "Sign in to confirm the updated meeting details.", "Confirm"),
+}
+
+
+# Real brands we impersonate (VENDOR_LOOKALIKES): their logo file in assets/logos/, brand colour,
+# and whether the logo is an icon only (then the name is written next to it).
+BRAND_STYLE = {
+    "Google Workspace": ("google-workspace.png", "#1a73e8", False), "Microsoft 365": ("microsoft.png", "#0067b8", True),
+    "Okta": ("okta.png", "#191919", False), "Dropbox": ("dropbox.png", "#0061fe", False),
+    "DocuSign": ("docusign.png", "#4c00ff", False), "Workday": ("workday.png", "#005cb9", False),
+    "GitHub": ("github.png", "#24292f", True), "AWS": ("aws.png", "#232f3e", False),
+    "Salesforce": ("salesforce.png", "#0176d3", False), "SAP": ("sap.png", "#0070f2", False),
+    "HubSpot": ("hubspot.png", "#ff5c35", False), "SendGrid": ("sendgrid.png", "#1a82e2", False),
+    "Slack": ("slack.png", "#4a154b", False),
+}
+LOGO_DIR = __import__("pathlib").Path(__file__).with_name("assets") / "logos"
+
+
+def brand_of(organization: str) -> str | None:
+    """The real brand an organisation name stands for ('Google Workspace Security' -> 'Google
+    Workspace', 'HubSpot Support' -> 'HubSpot'), or None for an invented organisation."""
+    org = f" {str(organization).casefold()} "
+    for v in VENDOR_LOOKALIKES:
+        if re.search(rf"\b{re.escape(v['brand'].casefold())}\b", org) or any(re.search(rf"\b{re.escape(m)}\b", org) for m in v["match"] if len(m) > 3):
+            return v["brand"] if v["brand"] in BRAND_STYLE else None
+    return None
+
+
+def _brand_colour(org: str) -> str:
+    brand = brand_of(org)
+    if brand:
+        return BRAND_STYLE[brand][1]
+    return _BRAND_COLOURS[sum(map(ord, org)) % len(_BRAND_COLOURS)]
+
+
+def _logo(org: str, logo_src: str, size: int) -> str:
+    """The real logo (an uploaded asset) for a known brand; the name beside it if the logo is an icon."""
+    brand = brand_of(org)
+    icon_only = BRAND_STYLE[brand][2] if brand else True
+    img = f'<img src="{html.escape(logo_src, quote=True)}" alt="{html.escape(brand or org)}" style="height:{size + 12}px;display:block">'
+    if not icon_only:
+        return img
+    return (f'<div style="display:flex;align-items:center;gap:10px">{img}'
+            f'<div style="font-weight:600;font-size:{size}px;color:#111827">{html.escape(org)}</div></div>')
+
+
+def _wordmark(org: str, colour: str, size: int = 20, logo_src: str = "") -> str:
+    if logo_src:
+        return _logo(org, logo_src, size)
+    initial = html.escape((org.strip() or "?")[0].upper())
+    return (f'<div style="display:flex;align-items:center;gap:10px">'
+            f'<div style="width:{size + 12}px;height:{size + 12}px;border-radius:8px;background:{colour};color:#fff;'
+            f'font-weight:700;font-size:{size - 2}px;display:flex;align-items:center;justify-content:center">{initial}</div>'
+            f'<div style="font-weight:600;font-size:{size}px;color:#111827">{html.escape(org)}</div></div>')
+
+
+def render_landing_html(*, pretext: str, organization: str, title: str, fields: list[str],
+                        logo_src: str = "", german: bool = False) -> tuple[str, str]:
+    """A self-contained page for this sender and occasion. Returns (html, visible text)."""
+    org = organization.strip() or "Account services"
+    colour = _brand_colour(org)
+    heading, text, button = _PAGE_COPY.get(pretext, (title, "Please fill in the form below.", "Continue"))
+    brand = brand_of(org)
+    tab_title = BRAND_TAB_TITLES.get(brand) if brand and "password" in fields else None
+    tab_title = tab_title or f"{title} – {org}"
+    # styled like links (the rating looks at a picture); no href, so nothing points at an unregistered page
+    labels = ["Privacy", "Terms", "Help"] + (["Imprint"] if german else [])
+    footer_links = "".join(f' · <span style="color:{colour};text-decoration:underline">{x}</span>' for x in labels)
+    font = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+    inputs = "".join(
+        f'<label style="display:block;font-size:14px;color:#374151;margin:16px 0 6px">'
+        f'{html.escape(_FIELD_LABELS.get(f, f.replace("_", " ").capitalize()))}</label>'
+        f'<input name="{html.escape(f, quote=True)}" type="{"password" if f == "password" else "email" if f == "email" else "text"}" '
+        f'style="width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;font-family:inherit">'
+        for f in fields[:20])
+    year = date.today().year
+    page = (
+        f'<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{html.escape(tab_title)}</title></head>'
+        f'<body style="margin:0;background:#f3f4f6;font-family:{font};color:#111827">'
+        f'<div style="max-width:1200px;margin:0 auto;padding:28px 40px">{_wordmark(org, colour, logo_src=logo_src)}</div>'
+        f'<main style="max-width:440px;margin:24px auto 0;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:36px 40px">'
+        f'<h1 style="font-size:24px;margin:0 0 10px;font-weight:600">{html.escape(heading)}</h1>'
+        f'<p style="font-size:15px;line-height:1.55;color:#4b5563;margin:0">{html.escape(text)}</p>'
+        f'<form>{inputs}<button type="submit" style="margin-top:24px;width:100%;padding:12px;border:0;border-radius:8px;'
+        f'background:{colour};color:#fff;font-size:15px;font-weight:600;font-family:inherit">{html.escape(button)}</button></form></main>'
+        f'<footer style="text-align:center;font-size:12px;color:#6b7280;margin:32px 0">© {year} {html.escape(org)}{footer_links}</footer>'
+        f'</body></html>')
+    return page, f"{heading}. {text}"
+
+
+def render_mail_html(*, body: str, organization: str, link: dict[str, str] | None = None, logo_src: str = "") -> str:
+    """A vendor or IT notice as such senders send it: brand header, short text, one button whose
+    address is also printed, and a footer. Plain text stays right for people writing as themselves."""
+    org = organization.strip() or "Account services"
+    colour = _brand_colour(org)
+    font = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+    blocks = [p for p in str(body).strip().split("\n\n") if p.strip()]
+    # the button belongs above the sign-off ("Best,\nAccount Security"), as real notices put it
+    sign_off = blocks.pop() if len(blocks) > 1 and len(blocks[-1].split()) <= 8 else ""
+    para = lambda t: f'<p style="margin:0 0 14px;font-size:15px;line-height:1.55">{html.escape(t).replace(chr(10), "<br>")}</p>'
+    paras = "".join(para(t) for t in blocks)
+    cta = ""
+    if link and link.get("url"):
+        url = html.escape(link["url"], quote=True)
+        cta = (f'<p style="margin:22px 0 8px"><a href="{url}" style="display:inline-block;background:{colour};color:#fff;'
+               f'text-decoration:none;padding:11px 22px;border-radius:6px;font-weight:600;font-size:15px">'
+               f'{html.escape(link.get("title") or "Continue")}</a></p>'
+               f'<p style="margin:0 0 14px;font-size:12px;color:#6b7280">Or open this link: <a href="{url}" style="color:{colour}">{url}</a></p>')
+    year = date.today().year
+    return (f'<div style="background:#f3f4f6;padding:24px 0;font-family:{font};color:#111827">'
+            f'<div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px">'
+            f'<div style="padding:20px 28px;border-bottom:3px solid {colour}">{_wordmark(org, colour, 17, logo_src=logo_src)}</div>'
+            f'<div style="padding:24px 28px">{paras}{cta}{para(sign_off) if sign_off else ""}</div></div>'
+            f'<p style="max-width:600px;margin:14px auto 0;font-size:11px;line-height:1.5;color:#6b7280;text-align:center">'
+            f'You are receiving this service message because of your {html.escape(org)} account. '
+            f'© {year} {html.escape(org)}. All rights reserved.</p></div>')
+
+
+# The address bar is part of the craft rating: a real sign-in sits on accounts.<brand>/…?continue=…,
+# a shared file on docs.<brand>/…?usp=sharing. The subdomain is ours, on our registrable domain.
+PAGE_HOST = {
+    "security_alert": ("accounts", "?continue=mail&hl=en"), "document_share": ("docs", "?usp=sharing"),
+    "vendor_notice": ("billing", "?ref=renewal"), "speaker_invite": ("events", "?ref=speaker-invite"),
+    "press_request": ("www", "?utm_source=linkedin"), "recruiting": ("portal", "?ref=candidate"),
+    "investor_intro": ("", "?ref=intro"), "meeting_reschedule": ("calendar", "?view=event"),
+}
+# what the browser tab says for a known brand's sign-in page
+BRAND_TAB_TITLES = {"Google Workspace": "Sign in – Google Accounts", "Microsoft 365": "Sign in to your account",
+                    "Okta": "Okta – Sign In", "Dropbox": "Dropbox – Sign in", "Slack": "Sign in | Slack",
+                    "GitHub": "Sign in to GitHub · GitHub", "Salesforce": "Login | Salesforce",
+                    "DocuSign": "DocuSign", "HubSpot": "HubSpot Login", "Workday": "Workday"}
 
 
 def build_landing(pretext: str, target_domain: str, vendors: list[str] | None = None) -> dict[str, Any] | None:
@@ -527,11 +806,15 @@ def build_landing(pretext: str, target_domain: str, vendors: list[str] | None = 
     vendor = detect_vendor(pretext, vendors or [])
     if vendor:
         domain = vendor["domain"]
+    domain = free_domain(domain)
+    sub, query = PAGE_HOST.get(pretext, ("", ""))
+    host = f"{sub}.{domain}" if sub else domain
     return {
-        "url": f"https://{domain}{page.get('path', '/')}",
+        "url": f"https://{host}{page.get('path', '/')}{query}",
         "title": page.get("title", "Details"),
         "fields": page.get("fields", []),
         "domain": domain,
+        "sub": sub,
     }
 
 
@@ -556,11 +839,14 @@ def suggest_sender_domains(
 
 
 def _first_colleague(profile: dict[str, Any]) -> str:
+    """A named coworker from recon's network facts, never the target themself
+    ("Julius Muth's co-founder is Tom Müller" -> "Tom Müller" for Julius)."""
+    own = str(profile.get("name", "")).casefold()
     for f in profile.get("facts", []):
         if isinstance(f, dict) and f.get("category") == "network":
-            m = re.search(r"[A-Z][a-z]+ [A-Z][a-z]+", str(f.get("value", "")))
-            if m:
-                return m.group(0)
+            for m in re.finditer(r"\b([A-ZÄÖÜ][a-zäöüß]+) ([A-ZÄÖÜ][a-zäöüß]+)\b", str(f.get("value", ""))):
+                if m.group(0).casefold() != own and m.group(1).casefold() not in own.split():
+                    return m.group(0)
     return ""
 
 
@@ -630,7 +916,7 @@ def compose(profile: dict[str, Any], approach: dict[str, Any]) -> dict[str, Any]
         "body": body,
         "landing_page": landing,
         # the recipient sees this name, so it must read like a real file, never an internal label
-        "attachment": {"recruiting": "Candidate_Profile.pdf", "document_share": "Q1_Planning_Update.pdf"}.get(pretext),
+        "attachment": approach.get("attachment") or {"recruiting": "Candidate_Profile.pdf", "document_share": "Q1_Planning_Update.pdf"}.get(pretext),
     }
 
 

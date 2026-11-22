@@ -71,6 +71,7 @@ class RunIntegrityTests(unittest.TestCase):
         drafts=[]
         for index in [1,2]:
             data=message();data['idempotency_key']=f'contact-key-{index}'
+            if index==2: data['body']=data['body'].replace('Please reply.','Please reply when you can.',1)  # a real follow-up never repeats word for word
             drafts.append(as_shared_message(prepare_message(data,context())))
         self.raw.send_message.side_effect=[
             {'message_id':'m1','touches_used':1,'events':[{'type':'page.submitted','fields':['name','email']}]},

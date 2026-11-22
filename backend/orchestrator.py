@@ -17,6 +17,7 @@ field (password, one-time code) was entered; name/email alone is just a step.
 import json
 import os
 from urllib.parse import urlsplit
+import html
 import re
 import sys
 import time
@@ -67,6 +68,7 @@ except Exception:                          # recon has optional deps; profile ca
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "runs"                       # the viewer globs runs/*.json for run bundles
 TREE_DIR = RUNS / "trees"
+ASSET_CACHE = RUNS / "assets.json"          # uploaded logo asset ids per api, reused across sessions (300 per team)
 PROFILE_DIRS = [RUNS / "profiles", ROOT / "mock"]
 
 EVAL_BUDGET = 10
@@ -93,13 +95,28 @@ def _now():
 
 # ----- adapt writer.compose output into a schemas.Message the client can send -----
 
+def _org_of(comp):
+    """the organisation the sender writes for: the generated persona's, else the fixed sender's name."""
+    sender = comp.get("sender", {})
+    return sender.get("organization") or sender.get("name") or "Account services"
+
+
+def _plain(body):
+    """an html mail as the text the target reads, for the conversation history and the judges."""
+    if "<" not in body:
+        return body
+    text = re.sub(r"<(br|/p|/div)[^>]*>", "\n", body)
+    return html.unescape(re.sub(r"<[^>]+>", "", text)).strip()
+
+
 def _message_from_compose(comp, sid, target_id, node_id):
     lp = comp.get("landing_page")
     landing = None
     if lp:
         landing = schemas.LandingPage(
             url=lp["url"], title=lp.get("title", "Sign in"),
-            fields=lp.get("fields", []), text="Please sign in to continue.",
+            fields=lp.get("fields", []), html=lp.get("html", ""),
+            text=lp.get("text") or "Please fill in the form below.",
         )
     attachments = [{"filename": comp["attachment"]}] if comp.get("attachment") else []
     return schemas.Message(
@@ -115,6 +132,57 @@ def _message_from_compose(comp, sid, target_id, node_id):
 
 def _slug(text):
     return re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-")
+
+
+# what a caller promises to email after the call; opening it is the "action" incident
+FOLLOW_UP_ATTACHMENTS = {
+    "speaker_invite": "Speaker_Briefing.pdf", "press_request": "Interview_Questions.pdf",
+    "investor_intro": "Fund_Overview.pdf", "customer_question": "Requirements_Overview.pdf",
+    "recruiting": "Candidate_Profile.pdf", "internal_favor": "Details.pdf",
+    "document_share": "Q1_Planning_Update.pdf", "vendor_notice": "Renewal_Summary.pdf",
+}
+_MATERIAL = re.compile(r"\b(agenda|programme|program|article|articles|pieces|link|links|deck|profile|cv|brief|lineup|line-up|"
+                       r"questions|overview|speakers|"
+                       r"details|document|documents|attachment|brochure|portfolio|samples|"
+                       r"unterlagen|programm|details|dokument|link)\b", re.I)
+
+
+def _asks_for_material(reply):
+    """does the reply ask us to send something (an agenda, articles, a deck, details)?"""
+    return bool(reply) and bool(_MATERIAL.search(reply)) and bool(
+        re.search(r"\b(send|share|paste|forward|attach|schick|senden)\w*", reply, re.I))
+
+
+def _material_name(reply, pretext):
+    """a file name for what they asked for, else the pretext's usual follow-up material."""
+    text = reply.casefold()
+    for words, name in ((("article", "pieces", "samples", "portfolio"), "Recent_Articles.pdf"),
+                        (("agenda", "programme", "program", "programm", "speakers"), "Programme_and_Speakers.pdf"),
+                        (("deck",), "Introduction_Deck.pdf"), (("cv", "profile"), "Candidate_Profile.pdf")):
+        if any(w in text for w in words):
+            return name
+    return FOLLOW_UP_ATTACHMENTS.get(pretext, "Details.pdf")
+
+
+def _next_business_morning(now):
+    """09:30 German time (08:30 UTC in winter) on the next weekday: the story's first contact.
+    Contacts then follow a day apart, so no call reaches anyone in the middle of the night."""
+    day = now + timedelta(days=1)
+    while day.weekday() >= 5:
+        day += timedelta(days=1)
+    return day.replace(hour=8, minute=30, second=0, microsecond=0)
+
+
+SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for an implausible one
+
+
+def _switch_channel(approach, ranked, silent):
+    """after a branch got no reaction at all on a channel, run the next pretext on its best
+    other channel (ranked is sorted, so the first match is the best), if it has a plausible one."""
+    if approach.get("channel") not in silent:
+        return approach
+    return next((a for a in ranked if a.get("pretext") == approach.get("pretext")
+                 and a.get("channel") not in silent and a.get("channel_fit", 0) >= SWITCH_MIN_FIT), approach)
 
 
 def _dedupe_by_pretext(approaches):
@@ -197,8 +265,9 @@ class Orchestrator:
         self.profile = {}
         self.messages = []                   # sent messages, for the replay viewer bundle
         self.events = {}                     # reactions, for the replay viewer bundle
+        self.reactions = 0                   # contacts the target reacted to at all (events or words on a call)
         self.contact_count = 0               # drives sent_at pacing
-        self.story_base = datetime.now(timezone.utc)
+        self.story_base = _next_business_morning(datetime.now(timezone.utc))   # people answer at 09:30, not 02:00
 
     def add_node(self, level, agent, decision, reasoning, parent_id, **extra):
         node = schemas.TreeNode(
@@ -264,7 +333,7 @@ class Orchestrator:
         self.budget.sync(session['touches_used'])
 
         try:
-            if not self._search(profile, sid, approaches, hook_node.id):
+            if not self._search(profile, sid, approaches, hook_node.id, ranked):
                 print("\n  no incident: budget or approaches exhausted")
         finally:
             self._save_tree()
@@ -317,10 +386,13 @@ class Orchestrator:
             audit=lambda entry:self.qa_by_node.__setitem__(node_id, entry['report']))
         return as_shared_message(prepared)
 
-    def _search(self, profile, sid, approaches, parent_id):
+    def _search(self, profile, sid, approaches, parent_id, ranked=()):
+        silent = set()                       # channels a whole branch got no reaction on
         for approach in approaches:
             if self.budget.exhausted():
                 return False
+            approach = _switch_channel(approach, ranked, silent)
+            seen = self.reactions
             self.budget.new_branch()
             node = self.add_node(
                 "approach", "strategist",
@@ -328,9 +400,12 @@ class Orchestrator:
                 f"score {approach.get('score')}, angle {approach.get('angle')}", parent_id,
                 incident_chance=float(approach.get("score", 0.0)), status="active",
                 evidence=list(approach.get("evidence", [])))   # which facts this approach rests on
-            print(f"  >> approach: {approach.get('pretext')} (goal {approach.get('incident_goal')})")
+            print(f"  >> approach: {approach.get('pretext')} via {approach.get('channel')} "
+                  f"({approach.get('channel_reason', 'no channel reason')}; goal {approach.get('incident_goal')})")
             if self._run_branch(sid, approach, node):
                 return True
+            if self.reactions == seen:
+                silent.add(approach.get("channel"))
             print(f"  -- branch '{approach.get('pretext')}' stalled; pivoting\n")
         return False
 
@@ -342,7 +417,7 @@ class Orchestrator:
             return self._run_call(sid, approach, approach_node)
         return self._run_messages(sid, approach, approach_node)
 
-    def _run_messages(self, sid, approach, approach_node):
+    def _run_messages(self, sid, approach, approach_node, seed=None):
         """messages on one approach until an incident, a stop, or the per-branch cap.
         plan_next_move stages the thread (introduce, build trust, then ask with the link),
         so a first cold contact has no login link. with the model writer each contact
@@ -353,6 +428,9 @@ class Orchestrator:
         has_page = bool(writer.compose(self.profile, approach).get("landing_page"))
         turn = engaged = reassured = 0
         last_state, last_events, scepticism = "", [], None
+        if seed:                                       # continuing a thread, e.g. the mail promised on a call
+            history = list(seed["history"])
+            turn, engaged, last_state, scepticism = 1, 1, "engaged", seed.get("scepticism")
         while not self.budget.exhausted():            # the session's total budget is the hard limit
             # pivot a cold branch after the per-branch cap, but stay on one that is engaging:
             # keep answering and pushing the ask while the target keeps replying
@@ -370,12 +448,18 @@ class Orchestrator:
                 reassured += 1
             # a page-based pretext (sign-in, document) carries its link from the start, since the
             # link is the lure; a relationship pretext stages it until the target engages
-            include_link = bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
+            include_link = (bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
+                            or bool(history and has_page and re.search(r"\blinks?\b|\burl\b|\bpage\b", history[-1].get("reply", ""), re.I)))
             contact = self.add_node("contact", "writer",
                                     f"contact on {approach.get('pretext')} ({plan.get('intent', '')})",
                                     plan.get("reason", ""), parent, status="active")
             try:
-                msg = self._draft_checked(approach, sid, contact.id, history, include_link)
+                story_day = (self.story_base + timedelta(days=self.contact_count)).date().isoformat()
+                step = dict(approach, next_move=plan.get("intent", ""), story_date=story_day)
+                if history and _asks_for_material(history[-1].get("reply", "")):
+                    # they asked for the agenda, articles, deck...: send it; opening it is the action incident
+                    step["attachment"] = step.get("attachment") or _material_name(history[-1]["reply"], approach.get("pretext"))
+                msg = self._draft_checked(step, sid, contact.id, history, include_link)
             except Exception as e:
                 contact.status = "failed"
                 contact.level = "attempt"
@@ -384,6 +468,11 @@ class Orchestrator:
                 print(f"     writer failed: {e}")
                 return False
 
+            if history and _plain(msg.body) == history[-1]["message"]:
+                # the api treats a word-for-word repeat as the same message: it would not count
+                contact.status, contact.outcome = "failed", "draft repeats the last message word for word"
+                print("     stop branch: draft repeats the last message")
+                return False
             self.contact_count += 1
             sent_at = (self.story_base + timedelta(days=self.contact_count - 1)).isoformat()
             print(f"     -> [{msg.channel}] {msg.subject or msg.body[:48]}")
@@ -407,6 +496,7 @@ class Orchestrator:
             self.messages.append(dict(msg.to_dict(), qa=self.client.last_report,
                                       message_id=result['message_id'], touches_used=result.get('touches_used')))
             self.events.setdefault(contact.id, []).extend(events)
+            self.reactions += bool(events)
             reply = next((e.get("body", "") for e in events if e.get("type") == "reply"), "")
             print(f"     <- {[e.get('type') for e in events] or ['ignored']}  "
                   f"({self.budget.used}/{self.budget.total} touches)")
@@ -414,7 +504,7 @@ class Orchestrator:
             incident_type, incident_reason = classify_incident(events)
             if not incident_type and reply:            # a reply may disclose internal info
                 incident_type, incident_reason = self._judge_disclosure(
-                    reply, sent="\n\n".join(h["message"] for h in history) + "\n\n" + msg.body)
+                    reply, sent="\n\n".join(h["message"] for h in history) + "\n\n" + _plain(msg.body))
             verdict = strategy.evaluate_reaction(
                 events, reply_text=reply,
                 touches_used=self.budget.used, touch_budget=self.budget.total)
@@ -432,7 +522,7 @@ class Orchestrator:
             self.add_node("reaction", "evaluator", f"{state}: {verdict.get('recommended_action')}",
                           reason, contact.id, status=state,
                           incident_chance=1.0 if incident_type else 0.0)
-            history.append({"message": msg.body, "events": events, "reply": reply})
+            history.append({"message": _plain(msg.body), "events": events, "reply": reply})
             parent = contact.id
             last_state = state
             last_events = [e.get("type") for e in events]
@@ -455,7 +545,9 @@ class Orchestrator:
         if not self.budget.can_spend():
             return False
         comp = writer.compose(self.profile, approach)
+        self._apply_persona(approach, comp)          # the caller is the same generated persona as on mail
         sender = {"name": comp["sender"]["name"], "address": comp["sender"]["address"]}
+        caller = {k: comp["sender"][k] for k in ("name", "role", "organization") if comp["sender"].get(k)}
         self.contact_count += 1
         sent_at = (self.story_base + timedelta(days=self.contact_count - 1)).isoformat()
         contact = self.add_node("contact", "caller", f"call on {approach.get('pretext')}",
@@ -482,6 +574,7 @@ class Orchestrator:
         heard = conv.get("persona_says", "")
         print(f"     [call {approach['channel']}] persona: {heard[:60]}")
         transcript = [{"role": "them", "text": heard}] if heard else []
+        self.reactions += bool(heard)
         # Persist the acknowledged contact before any further model/API work.
         # A later turn failure must not erase an already spent call touch.
         call_record = {
@@ -501,7 +594,7 @@ class Orchestrator:
                     extra = [{'role':'quality-feedback','text':json.dumps(feedback)}] if feedback else []
                     gen = _retry_model(lambda: writer.generate_call_line(
                         self._cfg(), target=self._target_dict(), approach=approach,
-                        sender={'name':sender['name']}, verified_facts=self.profile.get('facts', []),
+                        sender=caller, verified_facts=self.profile.get('facts', []),
                         transcript=transcript + extra, turn_number=turn, max_turns=max_turns))
                     return {'say':(gen.get('content') or {}).get('body','')}
                 if self.quality_enabled:
@@ -548,7 +641,24 @@ class Orchestrator:
         self._save_tree()
         if incident_type:
             print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
-        return bool(incident_type)
+            return True
+        said = [t["text"] for t in transcript[1:] if t["role"] == "them" and t["text"]]
+        if said and not self.budget.exhausted():
+            # they talked to us: send the material the call promised, in the same thread, instead of pivoting
+            return self._follow_up_call(sid, approach, contact, transcript)
+        return False
+
+    def _follow_up_call(self, sid, approach, contact, transcript):
+        """the email a call ends with ("send it by mail"): same sender, the call as history,
+        engaged state, and the promised material attached so opening it is the action."""
+        print("     call engaged; sending the follow-up mail the call agreed on")
+        follow = dict(approach, channel="email", attachment=FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext")))
+        ours = " ".join(t["text"] for t in transcript if t["role"] == "us")
+        theirs = " ".join(t["text"] for t in transcript if t["role"] == "them")
+        sc = strategy.assess_scepticism(theirs, judge=self._judge_scepticism if self.use_model else None)
+        seed = {"history": [{"message": f"(phone call) {ours}", "events": [], "reply": theirs}],
+                "scepticism": sc["score"]}
+        return self._run_messages(sid, follow, contact, seed=seed)
 
     def _check_contact_touches(self, response):
         used = response.get('touches_used')
@@ -573,26 +683,38 @@ class Orchestrator:
             except Exception as e:
                 print(f"     model writer unavailable ({e}); using compose")
         if model_ok:
-            if include_link and landing:
-                comp["body"] += f"\n\n{landing.get('title', 'Sign in')}: {landing['url']}"
-                comp["landing_page"] = landing
-            else:
-                comp["landing_page"] = None    # withhold the page until the ask is staged
+            link = landing if (include_link and landing) else None
+            comp["landing_page"] = link        # withhold the page until the ask is staged
+            if comp.get("channel") == "email" and approach.get("sender_kind") == "vendor":
+                # a tool's notice comes as a branded mail; a person writing as themselves stays plain text
+                comp["body"] = writer.render_mail_html(body=comp["body"], organization=_org_of(comp), link=link,
+                                                       logo_src=self._logo_src(_org_of(comp)))
+            elif link:
+                comp["body"] += f"\n\n{link.get('title', 'Sign in')}: {link['url']}"
+        if comp.get("landing_page"):
+            lp = comp["landing_page"]
+            lp["html"], lp["text"] = writer.render_landing_html(
+                pretext=approach.get("pretext", ""), organization=_org_of(comp),
+                title=lp.get("title", "Sign in"), fields=lp.get("fields", []),
+                logo_src=self._logo_src(_org_of(comp)), german=urlsplit(lp["url"]).hostname.endswith(".de") or str(self.profile.get("country", "")).upper() in ("DE", "GERMANY"))
         return _message_from_compose(comp, sid, self.target_id, node_id)
 
     def _apply_persona(self, approach, comp):
-        """swap the fixed sender for one generated to fit this approach's story (outsider
-        pretexts only), cached per approach so follow-ups keep the same identity. any landing
-        page moves onto the persona's domain, so sender and link belong together."""
-        if not self.use_model or approach.get("pretext") not in writer.GENERATED_SENDER_PRETEXTS:
+        """swap the fixed fallback sender for one generated to fit this approach's story and
+        kind of sender (outsider, vendor, colleague), cached per approach so follow-ups keep the
+        same identity. any landing page moves onto the persona's domain, so sender and link
+        belong together."""
+        if not self.use_model:
             return
-        key = (approach.get("pretext"), approach.get("channel"), approach.get("hook"))
+        key = (approach.get("pretext"), approach.get("hook"))   # same sender across channels (call, then its mail)
         if key not in self._personas:
             try:
                 self._personas[key] = writer.generate_sender_persona(
                     self._cfg(), target={**self._target_dict(), "company_domain": self.profile.get("domain", "")},
                     approach=approach, facts=self.profile.get("facts", []),
-                    default={"name": comp["sender"]["name"], "domain": comp["sender"]["address"].rpartition("@")[2]})
+                    colleague=writer._first_colleague(self.profile),
+                    avoid_names=[q["name"] for q in self._personas.values() if q],
+                    tool=(writer.detect_vendor(approach.get("pretext", ""), writer._tool_vectors(self.profile)) or {}).get("brand", ""))
                 p = self._personas[key]
                 print(f"     sender: {p['name']}, {p['role']} at {p['organization']} <{p['address']}>")
             except Exception as e:
@@ -605,19 +727,47 @@ class Orchestrator:
             context = self.client.context
             host = str(persona.get('domain', '')).lower().rstrip('.')
             forbidden = context.get('known_organisation_domains', [])
-            page = comp.get('landing_page')
-            if (host not in context['approved_sender_domains'] or
-                    (page and host not in context['approved_link_hosts']) or
-                    any(host == own or host.endswith('.' + own) for own in forbidden)):
-                print('     generated sender domain is not approved; retaining the checked playbook sender')
+            # the model never approves its own domain: DNS does. A domain nobody has registered
+            # (NXDOMAIN) cannot be any organisation's own, so it is approved; anything else is not.
+            if any(host == own or host.endswith('.' + own) for own in forbidden) or writer.domain_taken(host) is not False:
+                print('     generated sender domain is not provably unregistered; retaining the checked playbook sender')
                 return
+            for key in ('approved_sender_domains', 'approved_link_hosts'):
+                if host not in context[key]:
+                    context[key].append(host)
         comp["sender"] = {"name": persona["name"], "address": persona["address"],
                           "role": persona["role"], "organization": persona["organization"]}
         landing = comp.get("landing_page")
         if landing and landing.get("url"):
             path = "/" + landing["url"].split("://", 1)[-1].partition("/")[2]
-            landing["url"] = f"https://{persona['domain']}{path if path != '/' else '/'}"
+            host = f"{landing['sub']}.{persona['domain']}" if landing.get("sub") else persona["domain"]
+            landing["url"] = f"https://{host}{path}"
             landing["domain"] = persona["domain"]
+            if self.quality_enabled and host not in self.client.context["approved_link_hosts"]:
+                self.client.context["approved_link_hosts"].append(host)   # a subdomain of the DNS-checked domain
+
+    def _logo_src(self, organization):
+        """asset://… of the real logo when the sender is a known brand, uploaded once per api
+        and reused; "" for an invented organisation or if the upload fails (then a text wordmark)."""
+        brand = writer.brand_of(organization)
+        if not brand:
+            return ""
+        from .revel8 import BASE
+        key = f"{BASE}|{writer.BRAND_STYLE[brand][0]}"
+        try:
+            cache = json.loads(ASSET_CACHE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            cache = {}
+        if key not in cache:
+            try:
+                raw = getattr(self.client, "client", self.client).upload_asset(writer.LOGO_DIR / writer.BRAND_STYLE[brand][0])
+                cache[key] = raw["asset_id"]
+                ASSET_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                ASSET_CACHE.write_text(json.dumps(cache, indent=1), encoding="utf-8")
+            except Exception as e:
+                print(f"     logo upload failed for {brand} ({e}); using a text wordmark")
+                return ""
+        return f"asset://{cache[key]}"
 
     def _cfg(self):
         key = config.load_env().get("RADEON_API_KEY")
@@ -626,7 +776,7 @@ class Orchestrator:
         return writer.ModelConfig(api_key=key, primary_model=PRIMARY_MODEL, fallback_model=FALLBACK_MODEL)
 
     def _target_dict(self):
-        return {k: self.profile.get(k) for k in ("name", "role", "company") if self.profile.get(k)}
+        return {k: self.profile.get(k) for k in ("name", "role", "company", "country") if self.profile.get(k)}
 
     def _model_body(self, approach, comp, history, feedback=None, link_follows=False):
         sender = {"name": comp["sender"]["name"], "email": comp["sender"]["address"],
@@ -686,7 +836,9 @@ class Orchestrator:
             "or approval rule, a number (budget, cost, headcount), an internal plan or a colleague's "
             "responsibility. These do NOT count: anything in the public facts, anything the sender's "
             "own message already said, opinions, vague statements (\"costs are high\"), questions, "
-            "pleasantries or refusals. Be strict: when unsure, it is not a disclosure. "
+            "pleasantries or refusals, and generic product features anyone could name (an admin console, "
+            "MFA, single sign-on, 'our IT team') unless they reveal how their company configured or uses them. "
+            "Be strict: when unsure, it is not a disclosure. "
             'Reply JSON only: {"disclosure": true|false, "details": ["<each internal detail, one short '
             'phrase>"], "why": "<one sentence: why these are not public>"}.'
         )

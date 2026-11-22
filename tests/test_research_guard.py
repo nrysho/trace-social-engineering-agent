@@ -31,20 +31,26 @@ class ResearchGuardTests(unittest.TestCase):
         fact = dict(value='Finance lead', verified=True, source_url='https://company.example/team')
         good = dict(name='Mara Felsen', target_id='mara', facts=[fact])
         self.assertTrue(research_readiness(good, 'mara', 'Mara Felsen').passed)
-        for changes in [dict(name='Someone Else'), dict(target_id='other'), dict(facts=[]),
-                        dict(facts=[dict(fact, verified=False)]),
+        # the wrong person stops the run
+        for changes in [dict(name='Someone Else'), dict(target_id='other')]:
+            with self.subTest(changes=changes):
+                self.assertFalse(research_readiness(dict(good, **changes), 'mara', 'Mara Felsen').passed)
+        # thin or unconfirmed recon only warns: sending nothing in a scoring run is a certain loss
+        for changes in [dict(facts=[]), dict(facts=[dict(fact, verified=False)]),
                         dict(facts=[dict(fact, source_url='javascript:bad')]),
                         dict(facts=[dict(fact, source_url=123)]),
                         dict(facts=[dict(fact, source_url='https://user:secret@company.example')])]:
             with self.subTest(changes=changes):
-                self.assertFalse(research_readiness(dict(good, **changes), 'mara', 'Mara Felsen').passed)
+                report = research_readiness(dict(good, **changes), 'mara', 'Mara Felsen')
+                self.assertTrue(report.passed)
+                self.assertTrue(any('confirmed' in w for w in report.warnings))
 
-    def test_empty_recon_aborts_before_strategy_or_any_session(self):
+    def test_wrong_person_aborts_before_strategy_or_any_session(self):
         raw = Mock()
         raw.scenarios.return_value = [{'id':'practice','targets':[{'id':'mara','name':'Mara Felsen'}]}]
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(runner,'Revel8Client',return_value=raw), patch.object(
-                    runner,'load_profile',return_value={'name':'Mara Felsen','facts':[]}), patch.object(
+                    runner,'load_profile',return_value={'name':'Someone Else','facts':[]}), patch.object(
                     runner.strategy,'rank_approaches') as rank, patch.object(
                     runner,'RUNS',Path(directory)), patch.object(runner,'TREE_DIR',Path(directory)/'trees'):
                 agent = runner.Orchestrator('mara')

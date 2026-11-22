@@ -137,6 +137,8 @@ def check_artifact(artifact: dict, *, approved_domains=()) -> QualityReport:
         link = normalized(link)
         if link.startswith('#'):
             continue
+        if re.fullmatch(r'asset://a_[A-Za-z0-9_-]+', link):
+            continue  # an image the team uploaded to the target API: the only images revel8 renders
         if not link.lower().startswith(('https://', 'http://')):
             report.errors.append('Unsupported hyperlink or resource scheme')
         else:

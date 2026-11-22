@@ -16,7 +16,8 @@ LIVE_CHANNELS = {'phone_call', 'video_call', 'teams_call', 'live_chat'}
 
 def linked_urls(text):
     parser = Markup(); parser.feed(text); parser.close()
-    return set(unescape(url) for url in re.findall(r'https?://[^\s<>"\x27)]+', text) + parser.links if not url.startswith('#'))
+    return set(unescape(url) for url in re.findall(r'https?://[^\s<>"\x27)]+', text) + parser.links
+               if not url.startswith('#') and not re.fullmatch(r'asset://a_[A-Za-z0-9_-]+', url))  # uploaded images are not links
 
 
 class GuardedClient:

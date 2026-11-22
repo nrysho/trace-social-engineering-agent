@@ -45,23 +45,30 @@ class LatestWriterMergeTests(unittest.TestCase):
         self.assertEqual(args['sender']['organization'], 'Example Events')
         self.assertIn('Correct signature', args['conversation_history'][-1]['text'])
 
-    def test_generated_domain_requires_explicit_permission(self):
-        key = ('speaker_invite', 'email', 'Agenda')
-        self.agent._personas[key] = dict(name='Alice Example', role='Organizer', organization='Reviewed Events',
-            domain='unreviewed.example', address='alice@unreviewed.example')
-        original = deepcopy(self.comp)
-        self.agent._apply_persona(self.approach, self.comp)
-        self.assertEqual(self.comp, original)
-        self.agent.client.context['approved_sender_domains'].append('unreviewed.example')
-        self.agent._apply_persona(self.approach, self.comp)
+    def test_generated_domain_needs_dns_proof_it_is_unregistered(self):
+        # the model never approves its own domain: only a DNS answer that nobody owns it does
+        key = ('speaker_invite', 'Agenda')
+        persona = dict(name='Alice Example', role='Organizer', organization='Reviewed Events',
+                       domain='unreviewed.example', address='alice@unreviewed.example')
+        for taken in (True, None):           # registered by someone, or DNS could not tell
+            self.agent._personas[key] = persona
+            original = deepcopy(self.comp)
+            with patch.object(runner.writer, 'domain_taken', return_value=taken):
+                self.agent._apply_persona(self.approach, self.comp)
+            self.assertEqual(self.comp, original)
+            self.assertNotIn('unreviewed.example', self.agent.client.context['approved_sender_domains'])
+        with patch.object(runner.writer, 'domain_taken', return_value=False):
+            self.agent._apply_persona(self.approach, self.comp)
         self.assertEqual(self.comp['sender']['address'], 'alice@unreviewed.example')
+        self.assertIn('unreviewed.example', self.agent.client.context['approved_sender_domains'])
 
     def test_real_org_domain_cannot_be_authorised_by_extra_policy(self):
         self.agent.client.context['approved_sender_domains'].append('company.example')
-        self.agent._personas[('speaker_invite', 'email', 'Agenda')] = dict(name='Alice Example', role='Organizer',
+        self.agent._personas[('speaker_invite', 'Agenda')] = dict(name='Alice Example', role='Organizer',
             organization='Example', domain='company.example', address='alice@company.example')
         original = deepcopy(self.comp)
-        self.agent._apply_persona(self.approach, self.comp)
+        with patch.object(runner.writer, 'domain_taken', return_value=False):
+            self.agent._apply_persona(self.approach, self.comp)
         self.assertEqual(self.comp, original)
 
     def test_company_from_role_preserved_without_cross_scenario_fallback(self):

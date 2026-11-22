@@ -6,6 +6,7 @@
 
 shared client: recon, writer and evaluator all call chat().
 """
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,7 +37,7 @@ def _one_call(provider, messages, response_format, temperature):
     body = {"model": provider.model, "messages": messages}
     if provider.is_reasoning:
         body["max_tokens"] = 3000  # reasoning models spend tokens thinking before the answer
-        body["reasoning_effort"] = "low"
+        body["reasoning_effort"] = "none"  # "low" still thinks long: slow, and empty answers when it runs out
     else:
         body["max_tokens"] = 2000
     if response_format:
@@ -58,10 +59,19 @@ def chat(messages, response_format=None, temperature=None):
     # walk providers until one answers without refusing; raise if they all fail
     errors = []
     for provider in config.llm_providers():
-        try:
-            text = _one_call(provider, messages, response_format, temperature)
-        except requests.RequestException as e:
-            errors.append(f"{provider.name}: {e}")
+        text, last = None, None
+        for attempt in range(3):            # the gateway times out or rate-limits under load: retry
+            try:
+                text = _one_call(provider, messages, response_format, temperature)
+                break
+            except requests.RequestException as e:
+                last = e
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                if status is not None and status < 500 and status != 429:
+                    break                   # a real client error: retrying will not help
+                time.sleep(4 * (attempt + 1))
+        if text is None:
+            errors.append(f"{provider.name}: {last}")
             continue
         if _looks_like_refusal(text):
             _log_refusal(provider.name, text)

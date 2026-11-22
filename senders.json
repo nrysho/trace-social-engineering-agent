@@ -8,15 +8,128 @@
     "subdomain": "{brand}.{tld}.secure-login.com — strong for a sign-in (credentials) page."
   },
   "pretexts": {
-    "speaker_invite":    {"technique": "invented_third_party", "sender_name": "Lena Hofer",   "role": "events lead",    "domain": "eventcrew-muc.de",        "page": {"domain": "eventcrew-muc.de",        "path": "/panel-rsvp",  "title": "Panel RSVP",            "fields": ["name", "availability"]}},
-    "press_request":     {"technique": "invented_third_party", "sender_name": "Jonas Brandt",  "role": "podcast host",   "domain": "techpress-briefing.de",   "page": null},
-    "recruiting":        {"technique": "invented_third_party", "sender_name": "Mara Feld",     "role": "recruiter",      "domain": "feld-talent-search.de",   "page": {"domain": "feld-talent-search.de",   "path": "/candidate",   "title": "Candidate profile",    "fields": ["email"]}},
-    "customer_question": {"technique": "invented_third_party", "sender_name": "Daniel Weiss",  "role": "procurement",    "domain": "nordwind-procurement.de", "page": null},
-    "investor_intro":    {"technique": "invented_third_party", "sender_name": "Clara Benn",    "role": "partner",        "domain": "benn-capital-partners.de","page": {"domain": "benn-capital-partners.de","path": "/deck",       "title": "Intro deck",           "fields": ["email"]}},
-    "document_share":    {"technique": "vendor_lookalike",     "sender_name": "{colleague}",   "role": "colleague",      "domain": "docsign-mail.net",        "page": {"domain": "docsign-mail.net",        "path": "/open",        "title": "Shared document",      "fields": ["email"]}},
-    "vendor_notice":     {"technique": "vendor_lookalike",     "sender_name": "Billing Team",  "role": "billing",        "domain": "workspace-billing.net",   "page": {"domain": "workspace-billing.net",   "path": "/account",     "title": "Account billing",      "fields": ["email"]}},
-    "security_alert":    {"technique": "cousin_brand",         "sender_name": "IT Security",   "role": "security",       "domain": "{brand}-security.com",    "page": {"domain": "{brand}.{tld}.secure-login.com", "path": "/signin", "title": "Security verification", "fields": ["email", "password"]}},
-    "internal_favor":    {"technique": "typosquat",            "sender_name": "{colleague}",   "role": "colleague",      "domain": "{brand}-team.com",        "page": null},
-    "meeting_reschedule":{"technique": "typosquat",            "sender_name": "{colleague}",   "role": "assistant",      "domain": "{brand}-team.com",        "page": null}
+    "speaker_invite": {
+      "technique": "invented_third_party",
+      "sender_name": "Lena Hofer",
+      "role": "events lead",
+      "domain": "eventcrew-muc.de",
+      "page": {
+        "domain": "eventcrew-muc.de",
+        "path": "/panel-rsvp",
+        "title": "Panel RSVP",
+        "fields": [
+          "name",
+          "availability",
+          "internal_tool"
+        ]
+      }
+    },
+    "press_request": {
+      "technique": "invented_third_party",
+      "sender_name": "Jonas Brandt",
+      "role": "podcast host",
+      "domain": "techpress-briefing.de",
+      "page": {
+        "domain": "techpress-briefing.de",
+        "path": "/articles/ai-security-training",
+        "title": "Members sign-in",
+        "fields": [
+          "email",
+          "password"
+        ]
+      }
+    },
+    "recruiting": {
+      "technique": "invented_third_party",
+      "sender_name": "Mara Feld",
+      "role": "recruiter",
+      "domain": "feld-talent-search.de",
+      "page": {
+        "domain": "feld-talent-search.de",
+        "path": "/candidate",
+        "title": "Candidate profile",
+        "fields": [
+          "email"
+        ]
+      }
+    },
+    "customer_question": {
+      "technique": "invented_third_party",
+      "sender_name": "Daniel Weiss",
+      "role": "procurement",
+      "domain": "nordwind-procurement.de",
+      "page": null
+    },
+    "investor_intro": {
+      "technique": "invented_third_party",
+      "sender_name": "Clara Benn",
+      "role": "partner",
+      "domain": "benn-capital-partners.de",
+      "page": {
+        "domain": "benn-capital-partners.de",
+        "path": "/deck",
+        "title": "Intro deck",
+        "fields": [
+          "email"
+        ]
+      }
+    },
+    "document_share": {
+      "technique": "vendor_lookalike",
+      "sender_name": "{colleague}",
+      "role": "colleague",
+      "domain": "docsign-mail.net",
+      "page": {
+        "domain": "docsign-mail.net",
+        "path": "/open",
+        "title": "Shared document",
+        "fields": [
+          "email"
+        ]
+      }
+    },
+    "vendor_notice": {
+      "technique": "vendor_lookalike",
+      "sender_name": "Billing Team",
+      "role": "billing",
+      "domain": "workspace-billing.net",
+      "page": {
+        "domain": "workspace-billing.net",
+        "path": "/account",
+        "title": "Account billing",
+        "fields": [
+          "email"
+        ]
+      }
+    },
+    "security_alert": {
+      "technique": "cousin_brand",
+      "sender_name": "IT Security",
+      "role": "security",
+      "domain": "{brand}-security.com",
+      "page": {
+        "domain": "{brand}.{tld}.secure-login.com",
+        "path": "/signin",
+        "title": "Security verification",
+        "fields": [
+          "email",
+          "password"
+        ]
+      }
+    },
+    "internal_favor": {
+      "technique": "typosquat",
+      "sender_name": "{colleague}",
+      "role": "colleague",
+      "domain": "{brand}-team.com",
+      "page": null
+    },
+    "meeting_reschedule": {
+      "technique": "typosquat",
+      "sender_name": "{colleague}",
+      "role": "assistant",
+      "domain": "{brand}-team.com",
+      "page": null
+    }
   }
 }

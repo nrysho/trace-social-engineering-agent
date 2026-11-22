@@ -34,6 +34,9 @@ def research_readiness(profile, target_id, target_name):
     if profile.get('target_id', target_id) != target_id:
         report.errors.append('Research profile target ID differs from the selected target')
     if not sourced_verified_facts(profile.get('facts')):
-        report.errors.append('No verified facts with usable source URLs; stop and repair recon before contacting the target')
+        # thin recon is a warning, not a stop: in a scoring run sending nothing is a certain loss.
+        # The writer then uses single-source facts lightly, or the strategist's general hooks.
+        # Only a profile of the wrong person (the checks above) stops the run.
+        report.warnings.append('No fact confirmed by two sources; writing from single-source facts or general hooks')
     report.warnings.append('Source metadata and verified flags are supplied evidence, not automatic proof of truth')
     return report

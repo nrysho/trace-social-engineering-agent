@@ -45,6 +45,7 @@ class Pretext:
     required_facts: tuple[str, ...]  # canonical schemas.FACT_CATEGORIES
     channels: tuple[str, ...]
     incident_goal: str
+    sender: str = "outsider"  # who writes: "outsider" (invented third party), "vendor" (a tool's team), "colleague"
 
 
 # required_facts use the canonical categories from schemas.FACT_CATEGORIES so
@@ -54,16 +55,82 @@ PRETEXTS: tuple[Pretext, ...] = (
     Pretext("press_request", "Journalist or host requests an interview", ("media", "recent_activity"), ("email", "linkedin_message", "phone_call"), "get a reply with interview availability"),
     Pretext("customer_question", "Prospective customer asks a product question", ("role", "company"), ("email", "linkedin_message", "teams_chat"), "start a substantive product conversation"),
     Pretext("recruiting", "Candidate asks about a real open role", ("hiring", "role"), ("email", "linkedin_message"), "get a reply about the hiring process"),
-    Pretext("document_share", "Known collaborator shares a relevant document", ("network", "recent_activity"), ("email", "shared_document", "teams_chat"), "get the recipient to open a registered simulation page"),
-    Pretext("meeting_reschedule", "Known collaborator proposes a meeting change", ("network", "upcoming_events"), ("email", "calendar_invite", "teams_chat"), "get a reply confirming a meeting detail"),
-    Pretext("vendor_notice", "Question about a known vendor or tool", ("vendors_and_tools", "role"), ("email", "teams_chat"), "start a conversation about the known tool"),
-    Pretext("security_alert", "Account or sign-in notice for a tool they use", ("vendors_and_tools", "role"), ("email", "sms", "teams_chat"), "get the recipient to open a registered sign-in page"),
-    Pretext("internal_favor", "Colleague requests a small, plausible work favour", ("network", "communication_style"), ("email", "teams_chat", "slack", "phone_call"), "get a reply or a harmless simulated action"),
+    Pretext("document_share", "Known collaborator shares a relevant document", ("network", "recent_activity"), ("email", "shared_document", "teams_chat"), "get the recipient to open a registered simulation page", "colleague"),
+    Pretext("meeting_reschedule", "Known collaborator proposes a meeting change", ("network", "upcoming_events"), ("email", "calendar_invite", "teams_chat", "whatsapp", "teams_call"), "get a reply confirming a meeting detail", "colleague"),
+    Pretext("vendor_notice", "Question about a known vendor or tool", ("vendors_and_tools", "role"), ("email", "teams_chat"), "start a conversation about the known tool", "vendor"),
+    Pretext("security_alert", "Account or sign-in notice for a tool they use", ("vendors_and_tools", "role"), ("email", "sms", "teams_chat", "voicemail", "phone_call"), "get the recipient to open a registered sign-in page", "vendor"),
+    Pretext("internal_favor", "Colleague requests a small, plausible work favour", ("network", "communication_style"), ("email", "teams_chat", "slack", "whatsapp", "phone_call", "teams_call", "voicemail"), "get a reply or a harmless simulated action", "colleague"),
     Pretext("investor_intro", "Someone introduces an investor or partner", ("recent_activity", "network"), ("email", "linkedin_message"), "start an investor or partnership thread"),
 )
 
 _PRETEXTS_BY_KEY = {p.key: p for p in PRETEXTS}
 _CALL_CHANNELS = {"phone_call", "video_call", "teams_call", "live_chat"}
+
+
+def _recon_blob(profile: dict[str, Any]) -> str:
+    """Everything recon found about the target, lowercased: fact text plus where it came from."""
+    parts = []
+    for f in profile.get("facts", []) or []:
+        if isinstance(f, dict):
+            parts += [str(f.get("value", "")), str(f.get("source_url", "")), str(f.get("category", ""))]
+    parts += [str(s.get("url", s) if isinstance(s, dict) else s) for s in profile.get("sources", []) or []]
+    return " ".join(parts).casefold()
+
+
+def channel_fit(profile: dict[str, Any], pretext: Pretext, channel: str) -> tuple[float, str]:
+    """How plausible this channel is for this target and this kind of sender, 0..1 with a reason.
+
+    Grounded in recon: a channel scores high only when the target is visibly on it (LinkedIn
+    sources, Microsoft 365 or Slack in their tools) or when it is how such a sender really
+    writes (sign-in codes by SMS, colleagues on work chat). Without evidence, email is the
+    safe default and a cold call is about as good, since one touch buys ten live turns.
+    """
+    blob = _recon_blob(profile)
+    preferred = str(profile.get("preferred_channel") or "")
+    if preferred and preferred != "email" and channel == preferred and pretext.sender != "vendor":
+        return 0.7, "recon: the channel they say they prefer or are active on"   # recon.channel.infer
+    colleague = pretext.sender == "colleague"
+    internal_voice = pretext.sender in ("colleague", "vendor")
+    microsoft = any(k in blob for k in ("microsoft 365", "office 365", "microsoft teams", "outlook", "sharepoint"))
+    if channel == "email":
+        return 0.6, "everyone has a work inbox"
+    if channel == "teams_call":
+        return (0.65, "a colleague calling on their Microsoft Teams") if colleague and microsoft else (0.15, "only colleagues call on Teams")
+    if channel == "video_call":
+        return 0.3, "a cold video call is unusual"
+    if channel in _CALL_CHANNELS:
+        # level with the preferred channel; on a tie the call wins (one touch, ten live turns).
+        # In practice runs the calls converted: all three incidents of one batch came from calls.
+        return 0.7, "one touch buys a live conversation"
+    if channel == "whatsapp":
+        return (0.5, "colleagues text each other on WhatsApp") if colleague else (0.2, "a stranger on WhatsApp reads as spam")
+    if channel == "voicemail":
+        return (0.4, "a voicemail asking for a call back") if internal_voice else (0.2, "an unexpected voicemail")
+    if channel == "linkedin_message":
+        if pretext.sender == "colleague":
+            return 0.2, "colleagues do not ask work favours on LinkedIn"
+        if "linkedin.com" in blob:
+            return 0.75, "recon found them active on LinkedIn"
+        return 0.3, "no sign they use LinkedIn"
+    if channel == "teams_chat":
+        if not colleague:
+            return 0.15, "Teams marks senders from outside the company as external"
+        return (0.7, "their company runs Microsoft 365") if microsoft else (0.35, "no sign they use Teams")
+    if channel == "slack":
+        if colleague and "slack" in blob:
+            return 0.7, "their company uses Slack"
+        return 0.1, "only colleagues write on their Slack"
+    if channel == "sms":
+        return (0.45, "sign-in codes and alerts arrive by SMS") if pretext.key == "security_alert" else (0.25, "cold SMS reads as spam")
+    if channel == "shared_document":
+        if microsoft or any(k in blob for k in ("google workspace", "google drive", "dropbox")):
+            return 0.65, "they share files in a suite recon found"
+        return 0.45, "no file-sharing tool found"
+    if channel == "calendar_invite":
+        if pretext.key == "meeting_reschedule" or "upcoming_events" in blob:
+            return 0.5, "their calendar is part of the story"
+        return 0.35, "an unexpected invite without context"
+    return 0.3, "no evidence for this channel"
 
 # Fallback playbook for a target whose role we have not determined. These lures
 # work on almost anyone regardless of job, so they seed a sensible opening set
@@ -278,6 +345,9 @@ def rank_approaches(
     credit = _category_credit(profile)
     approaches: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    personal_hook = any(float(h.get("probability", 0)) >= 0.4 and
+                        _PRETEXTS_BY_KEY.get(h.get("pretext", ""), PRETEXTS[0]).sender == "outsider"
+                        and h.get("pretext") in _PRETEXTS_BY_KEY for h in hooks)
 
     for pretext in PRETEXTS:
         # Only hooks that map to THIS pretext count; a pretext with no hook must not
@@ -300,19 +370,32 @@ def rank_approaches(
         else:
             reason = ""
 
-        for channel in pretext.channels:
+        channels = pretext.channels
+        preferred = str(profile.get("preferred_channel") or "")
+        if pretext.sender == "outsider" and preferred and preferred not in channels and preferred not in _CALL_CHANNELS:
+            channels = channels + (preferred,)   # an outsider can reach them where recon says they are
+        for channel in channels:
             if reason:
                 rejected.append({"hook": hook_topic, "pretext": pretext.key, "channel": channel, "reason": reason})
                 continue
             # The recon hook probability is the expensive, high-quality judgment, so it
             # dominates; coverage is a mild bonus (never a veto); own-angle gets a nudge
             # toward the 4-point bonus without outranking a strong planted hook.
-            score = 0.85 * probability + 0.15 * coverage + (0.03 if angle == "own_angle" else 0.0)
+            # Channel fit picks the channel within a pretext and only nudges across pretexts.
+            fit, fit_reason = channel_fit(profile, pretext, channel)
+            # their topic scores points and tool notices kept being ignored: when recon found a
+            # personal hook (event, press, hiring, investors), it leads and vendor notices follow
+            tool_penalty = 0.25 if (pretext.sender == "vendor" and personal_hook) else 0.0
+            score = (0.85 * probability + 0.15 * coverage + (0.03 if angle == "own_angle" else 0.0)
+                     + 0.05 * fit - tool_penalty)
             approaches.append({
                 "hook": hook_topic,
                 "pretext": pretext.key,
                 "story": pretext.story,
+                "sender_kind": pretext.sender,
                 "channel": channel,
+                "channel_fit": fit,
+                "channel_reason": fit_reason,
                 "angle": angle,
                 "incident_goal": pretext.incident_goal,
                 "score": round(score, 4),
