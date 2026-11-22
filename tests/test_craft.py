@@ -2,10 +2,29 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from quality.craft import score_item, review_bundle
+from quality.craft import score_item, review_bundle, craft_readiness
 
 
 class CraftTests(unittest.TestCase):
+    def test_readiness_uses_median_and_exposes_missing_artifacts(self):
+        rows=[dict(message_index=i,kind='email',local_total_0_8=value) for i,value in enumerate([8,2,None])]
+        result=craft_readiness(rows)
+        self.assertEqual(result['local_median_0_8'],5)
+        self.assertFalse(result['coverage_complete'])
+        self.assertEqual(result['rendered_artifacts'],2)
+        self.assertEqual(result['issues'][0]['message_index'],2)
+        self.assertIsNone(result['official_craft_score'])
+
+    def test_no_artifacts_cannot_claim_craft_readiness(self):
+        result=craft_readiness([])
+        self.assertFalse(result['coverage_complete']);self.assertIsNone(result['local_median_0_8'])
+
+    def test_clean_render_with_signature_warning_remains_visible(self):
+        result=craft_readiness([dict(message_index=0,kind='email',local_total_0_8=6,
+            quality_warnings=['Inspect signature'],signals={'clipped_element_count':1})])
+        self.assertTrue(result['coverage_complete'])
+        self.assertIn('Inspect signature',result['issues'][0]['reasons'])
+        self.assertIn('clipped_element_count',result['issues'][0]['reasons'])
     def test_missing_render_is_unknown_not_zero(self):
         self.assertIsNone(score_item({}, {'render_status':'blocked'})['local_total_0_8'])
 

@@ -18,3 +18,16 @@ Overflow, clipping, excessive height, broken images and font-family counts are
 recorded. Images are not resolved; network images cannot load. No vision model
 is configured or called. These artifacts are for comparing writer versions and
 visual inspection, never for changing incident/touch metrics or blocking sends.
+
+## Review coverage before choosing the demo
+
+craft.json now contains readiness: captured/rendered counts, coverage_complete,
+a local median_0_8 and issues grouped by message index/type. Missing screenshots
+stay unknown and prevent complete coverage. Review the issues across the whole
+captured bundle rather than selecting its best artifact. Signature/footer warnings
+and overflow/clipping/missing images remain visible in that list.
+
+The local median is a mechanical proxy over captured artifacts, not the official
+median over every mail/page in the API's scoring records. A bundle may omit
+registered pages or uploaded assets. coverage_complete only means all captured
+artifacts rendered; it does not mean content passed human craft judgment.
