@@ -280,13 +280,12 @@ def generate_call_line(
     facts = _sourced_facts(verified_facts)
     user_payload = {
         "instruction": (
-            "Write only the caller's next spoken line as JSON {\"body\": \"...\"}. Speak the language the other party speaks. "
-            "Introduce yourself exactly as the sender (name, role, organisation) and keep established details consistent. "
-            "Any date you mention lies after today. Never claim a referral, a mutual contact or an earlier meeting. Answer the other party's last question briefly, then make at most one clear ask. "
-            "Calls are short: by your second line, move to the concrete next step that serves the goal, and never let the call end without one. "
-            "The natural next step is that you email the material right after the call (name what you will send, e.g. the programme, the questions, the profile); "
-            "get their agreement and ask one specific question that the email will build on. If they say to send it by mail, agree warmly, "
-            "say it comes from you today, and close the call politely."
+            "Write the caller's next spoken line as JSON {\"body\": \"...\"}, in the language the other party speaks. "
+            "1. You are exactly the sender (name, role, organisation); keep every detail consistent. "
+            "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
+            "3. Dates you mention lie after today. "
+            "4. Answer their question briefly, then move toward the goal with one clear ask. "
+            "5. If they want it in writing, agree, say what you will send today, and close politely."
         ),
         "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
         "sender": {key: sender.get(key) for key in ("name", "role", "organization") if sender.get(key)},
