@@ -2,7 +2,7 @@
 
 Integration checked on 22 November 2026 on **theja-person5**, incorporating main
 **cb9b2e8**, including the latest writer/strategy update. The final combined
-regression suite has 208 passing tests with browser checks enabled and no skips.
+regression suite has 212 passing tests with browser checks enabled and no skips.
 
 ## Implemented and locally checked
 
@@ -207,3 +207,26 @@ an ambiguous response. They do not provide full automatic used-session recovery;
 that existing reconciliation requirement remains in place. A malformed contact
 receipt can mean delivery occurred: it must not be interpreted as confirmed
 silence or a safe invitation to resend under a new key.
+
+## Scoring-rubric review
+
+The architecture and decision records were rewritten for the integrated main
+implementation. docs/architecture.html is a standalone, read-only printable
+page; the local Chrome PDF contains one page. Desktop/mobile overflow checks
+passed. PITCH_3_MIN.md and PITCH_5_MIN.md address the conflict between event guide
+and rubric durations; organisers must confirm the speaking slot. The current
+rubric priorities and remaining team evidence are in RUBRIC_READINESS.md.
+
+The generic evaluator no longer treats all page submissions as incidents.
+Ordinary name/email submission is engagement; the orchestrator and viewer share
+backend/outcomes.py for secret/internal-field/action candidates. Short PIN
+matching no longer matches shipping_address. A two-contact regression proves
+an ordinary form does not falsely stop the run as a win. Historical raw events
+and recorded statuses are not rewritten. Viewer headings now distinguish local
+candidate labels from official jury confirmation. Local bench truth remains
+local benchmark ground truth, not official challenge scoring.
+
+The real sourced-profile practice email was rendered offline for craft review:
+no overflow, clipping or broken images; one font family. Its mechanical 8/8 proxy
+is not a jury rating. No official contacts or model calls were used for this
+review. The full network-isolated suite passes 212 tests with no skips.

@@ -66,6 +66,21 @@ class RunIntegrityTests(unittest.TestCase):
             with self.assertRaises(TimeoutError):self.agent._search({},'s1',approaches,None)
         branch.assert_called_once()
 
+    def test_email_only_form_does_not_falsely_end_the_run_as_incident(self):
+        self.agent.use_model=True;self.agent.budget.total=2
+        drafts=[]
+        for index in [1,2]:
+            data=message();data['idempotency_key']=f'contact-key-{index}'
+            drafts.append(as_shared_message(prepare_message(data,context())))
+        self.raw.send_message.side_effect=[
+            {'message_id':'m1','touches_used':1,'events':[{'type':'page.submitted','fields':['name','email']}]},
+            {'message_id':'m2','touches_used':2,'events':[]}]
+        with patch.object(runner.writer,'compose',return_value={'landing_page':None}),patch.object(
+                self.agent,'_draft_checked',side_effect=drafts),patch.object(self.agent,'_judge_scepticism',return_value={'score':0,'reason':'Synthetic'}):
+            self.assertFalse(self.agent._run_messages('s1',{'pretext':'speaker_invite','incident_goal':'reply'},self.node))
+        self.assertEqual(self.raw.send_message.call_count,2)
+        self.assertFalse(any(node.status=='incident' for node in self.agent.nodes))
+
 
 class TransportRetryTests(unittest.TestCase):
     def setUp(self):

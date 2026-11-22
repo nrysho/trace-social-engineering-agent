@@ -10,13 +10,15 @@ The output uses the same run format as agent runs (see README.md), plus "metrics
 """
 import json
 from datetime import datetime, timedelta
+from backend.outcomes import classify_incident
 
 FOUNDERS = {
     "julius": ("Julius Muth", "Co-Founder & Co-CEO, revel8 (business and go-to-market)"),
     "robert": ("Robert Seilbeck", "Co-Founder & CTO, revel8"),
     "tom": ("Tom Müller", "Co-Founder & Co-CEO, revel8 (product)"),
 }
-WINS = {"page.submitted": "credentials", "attachment.opened": "action"}
+# Compatibility label map; form outcomes require classify_incident, not event type alone.
+WINS = {"attachment.opened": "action"}
 
 
 def load_personas(path):
@@ -179,7 +181,7 @@ def from_chat_log(path, personas):
             c["call_lines"] = len(c["body"].splitlines())
         elif e["kind"] == "event" and contacts:
             contacts[-1]["events"].append(e["event"])
-            win = WINS.get(e["event"]["type"])
+            win, _ = classify_incident([e['event']])
             if win and win not in contacts[-1]["incidents"]:
                 contacts[-1]["incidents"].append(win)
         elif e["kind"] == "page":

@@ -612,7 +612,7 @@ function outcomeBanner() {
   const cs = contacts(), win = cs.findIndex((c) => c.status === "incident");
   if (run.metrics?.voided) return el("div", { class: "banner void" }, el("div", {}, "Voided", el("small", { text: "A rule was broken, so this run does not count." })));
   if (win >= 0) return el("div", { class: "banner win" }, el("span", { class: "star", text: "★" }),
-    el("div", {}, "Success", el("small", { text: root?.outcome || `Incident on touch ${win + 1}.` })));
+    el("div", {}, "Local incident candidate", el("small", { text: root?.outcome || `Incident on touch ${win + 1}.` })));
   return el("div", { class: "banner none" }, el("div", {}, "No incident yet",
     el("small", { text: `${cs.length} touch${cs.length === 1 ? "" : "es"} so far.` })));
 }
@@ -846,12 +846,12 @@ async function renderResults() {
   });
   box.replaceChildren(
     el("h2", { text: "Results" }),
-    el("div", { class: "muted", text: "Hooks found is only known on the bench, where we planted them." }),
+    el("div", { class: "muted", text: "Incident labels are local candidates, not jury-confirmed results. Hooks found is only known on the bench, where we planted them." }),
     el("h3", { text: "Per version" }),
-    totals.length ? table([["Where"], ["Version"], ["Runs", 1], ["Incident rate", 1], ["Median touches", 1], ["Hooks found", 1]], totals)
+    totals.length ? table([["Where"], ["Version"], ["Runs", 1], ["Candidate rate", 1], ["Median touches", 1], ["Hooks found", 1]], totals)
                   : el("div", { class: "muted", text: "No runs yet." }),
     el("h3", { text: `All runs (${data.runs.length}) · click one to replay it` }),
-    table([["When"], ["Where"], ["Version"], ["Target"], ["Touches", 1], ["First incident", 1], ["Incidents"], ["Hooks found", 1], ["Rules"], ["Quality gate"], ["Craft (provisional)", 1]], runs));
+    table([["When"], ["Where"], ["Version"], ["Target"], ["Touches", 1], ["First candidate", 1], ["Candidate types"], ["Hooks found", 1], ["Rules"], ["Quality gate"], ["Craft (provisional)", 1]], runs));
 }
 async function openFromResults(id) { showView("replay"); await loadRuns(id); }
 // ---------- progress (agent versions on the bench) ----------

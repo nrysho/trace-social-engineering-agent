@@ -353,7 +353,7 @@ def evaluate_reaction(
     remaining = max(0, touch_budget - touches_used)
 
     if "page.submitted" in event_types:
-        state, action, reason = "incident", "stop", "registered simulation page submitted"
+        state, action, reason = "engaged", "continue", "registered page submitted; incident requires secret/internal-field evidence"
     elif "attachment.opened" in event_types:
         state, action, reason = "engaged", "continue", "simulation attachment opened"
     elif "link.opened" in event_types:

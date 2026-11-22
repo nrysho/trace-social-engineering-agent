@@ -28,6 +28,7 @@ MOCK = ROOT / "mock"
 sys.path.insert(0,str(ROOT))
 from viewer import sessions
 from viewer.qa_metrics import quality_summary, by_version
+from backend.outcomes import classify_incident
 PERSONAS = ROOT / "bench" / "personas.json"
 DEMO_RUNS = {"sample", "mock"}  # replayable, but never counted as results
 
@@ -87,7 +88,9 @@ def metrics(bundle):
         "source": "agent" if bundle.get("mode") not in ("sample", "mock") else bundle["mode"],
         "label": bundle.get("agent_version", ""), "created_at": (contacts[0].get("timestamp") if contacts else ""),
         "touches": len(contacts), "first_incident_touch": first,
-        "incidents": sorted(sessions.WINS[t] for t in types if t in sessions.WINS), "topic_hits": None, "voided": False,
+        "incidents": sorted({candidate for evs in (bundle.get('events') or {}).values()
+                             for event in evs for candidate,_ in [classify_incident([event])] if candidate}),
+        "topic_hits": None, "voided": False,
     }
 
 

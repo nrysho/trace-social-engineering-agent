@@ -31,6 +31,8 @@ import strategy
 import writer
 from . import config
 from .budget import TouchBudget
+from .outcomes import (classify_incident, SECRET_MARKER, CREDENTIAL_FIELDS,
+                       DISCLOSURE_FIELDS, SECRET_HINTS, _filled, _is_secret)
 from .revel8 import Revel8Client
 from quality.guarded_client import GuardedClient
 from quality.integration import generate_checked, generate_checked_turn, as_shared_message, QualityBlocked
@@ -83,57 +85,11 @@ FALLBACK_MODEL = "Qwen3.8-27B"
 # the message path below skips them for now; wiring calls is a follow-up.
 LIVE_CHANNELS = {"phone_call", "video_call", "teams_call", "live_chat"}
 
-# field names that make a submitted form a win, from the docs' Forms section.
-# page.submitted carries `fields` (list of filled field names) and `values` ({name: value},
-# a secret shown only as "(entered, not shown)"); an empty field is in neither.
-SECRET_MARKER = "(entered, not shown)"
-CREDENTIAL_FIELDS = {"password", "pin", "otp", "verification_code", "token",
-                     "api_key", "card_number", "iban"}
-DISCLOSURE_FIELDS = {"vpn_client", "approver", "internal_tool"}
-# substring fallback, so a page that names a secret field slightly differently still counts
-SECRET_HINTS = ("password", "passcode", "passwd", "otp", "one-time", "onetime", "2fa",
-                "mfa", "totp", "pin", "verification", "security code", "auth code",
-                "token", "secret", "api key", "card number", "iban")
-
-
 def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
 # ----- incident rule (docs' Forms section): a form wins only on a secret or internal field -----
-
-def _filled(event):
-    """field names the person filled in, plus the {name: value} dict, from a page.submitted."""
-    names = set()
-    for f in event.get("fields", []) or []:
-        names.add(f.get("name", "") if isinstance(f, dict) else str(f))
-    values = event.get("values", {})
-    values = values if isinstance(values, dict) else {}
-    names.update(str(k) for k in values)
-    return {str(n).strip().casefold() for n in names if n}, values
-
-
-def _is_secret(name):
-    return name in CREDENTIAL_FIELDS or any(hint in name for hint in SECRET_HINTS)
-
-
-def classify_incident(events):
-    """return (incident_type, reason) or (None, "").
-    a submitted secret is credentials, an internal field is disclosure, an opened
-    attachment is an action; name/email alone is only a step, not a win."""
-    for e in events:
-        if str(e.get("type")) != "page.submitted":
-            continue
-        names, values = _filled(e)
-        if any(str(v) == SECRET_MARKER for v in values.values()) or any(_is_secret(n) for n in names):
-            return "credentials", "secret field submitted"
-        if names & DISCLOSURE_FIELDS:
-            return "disclosure", "internal field submitted"
-    for e in events:
-        if str(e.get("type")) == "attachment.opened":
-            return "action", f"attachment opened: {e.get('filename', '')}"
-    return None, ""
-
 
 # ----- adapt writer.compose output into a schemas.Message the client can send -----
 

@@ -96,6 +96,12 @@ From the challenge brief, breaking any of the first three voids a scoring run:
 - No human in the loop: the agent writes, sends, and decides on its own.
 - Attachments are file names only; no real malware.
 
+## Judging materials
+
+- [Architecture page](docs/architecture.html) and [implementation explanation](docs/ARCHITECTURE.md).
+- [Rubric readiness and priorities](docs/RUBRIC_READINESS.md).
+- [Three-minute core](docs/PITCH_3_MIN.md) and [five-minute version](docs/PITCH_5_MIN.md); confirm the stage slot.
+
 ## Deliverables
 
 - An architecture page: how the system goes from research to contact to reading a

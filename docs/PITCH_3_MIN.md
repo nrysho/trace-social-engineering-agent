@@ -1,60 +1,56 @@
-# Three-minute pitch: final evidence slots and fallback
+# Three-minute core pitch
 
-Use one verified team thread when supplied. The local backup is synthetic bench
-evidence. Do not describe it as an official practice/scoring run.
+The event guide says three minutes plus two minutes Q&A; the rubric says five
+minutes. Confirm the slot. Use PITCH_5_MIN.md only if five speaking minutes are
+confirmed. This script has not been spoken/timed by the presenter.
 
-## 0:00-0:30 — Problem
+## 0:00-0:25 - Problem
 
-AI can automate personalised social engineering. But a convincing email alone
-does not tell a defender what the agent knew, why it chose that approach or
-whether its reported result is trustworthy.
+A convincing message alone does not explain how an autonomous agent reached it,
+what it actually knew, or whether its reported outcome is trustworthy.
 
 We are SchnitzelStrikers. We built an inspectable agent for revel8's authorised
-AI-twin simulation. Everything stays inside the simulator.
+AI-twin simulation. Nothing goes to real people or real channels.
 
-## 0:30-1:00 — What we built
+## 0:25-0:55 - The system
 
-Research feeds a profile into strategy, writing and response evaluation. The
-decision tree records the selected path and rejected alternatives.
+Research produces a sourced profile. Strategy ranks approaches and channels.
+The writer adapts to replies, and our quality boundary checks each message,
+page and call turn before sending. A blocked draft gets bounded automatic
+correction, without a person approving it. Every accepted contact keeps its
+API receipt and touch count beside the decision and QA evidence.
 
-Our quality boundary sits immediately before Python sending. It catches
-run-breaking content, returns feedback for bounded automatic correction and
-keeps QA separate from the message on the wire. Craft warnings remain visible
-without stopping an otherwise valid message.
+## 0:55-2:20 - One real thread
 
-## 1:00-2:30 — One actual thread, full-screen
+Open the selected genuine run. Show its profile source, chosen approach and
+actual message or call. Point to the receipt and API touch count. Show the
+response, then the recorded next move. Explain the outcome exactly as evidenced.
 
-[Insert a supplied, verified official thread: profile and highlighted evidence,
-chosen approach, draft, QA verdict, message ID, response, next move and outcome.
-Use Neryss's full-screen shortcut only after verifying it in the final UI.]
+Available fallback: the official four-turn Julius practice call, one contact,
+real dialogue and no detected incident. The sourced-profile email is a separate
+one-touch thread with no returned events; do not imply they are one session.
+Replace this fallback with a more informative complete scoring thread when the
+team provides it. Label synthetic PASS/BLOCK footage if used to explain QA.
 
-Say the actual contact count and recorded outcome. A reply is not automatically
-a disclosure; a local incident label is not official adjudication.
+Suggested narration: "This is the evidence the agent had. This is the choice it
+made. Here is the actual API receipt and response. Here is how its next move
+changed. A local candidate is not an official jury-confirmed incident."
 
-If final evidence or Wi-Fi fails, say: “This backup is a synthetic local-bench
-test.” Show the accepted/corrected draft and blocked attempt. Explain that the
-blocked draft spent zero touches and that QA metadata never entered the API
-request. Do not invent a success result to fill this slot.
+## 2:20-3:00 - What matters and next
 
-## 2:30-3:00 — Results and next
+The result is a system whose choices and failures can be inspected. Drafts are
+not contacts; replies are not automatically incidents. Calls keep their spent
+touch and transcript even if a later turn fails. Ambiguous sends stop instead
+of silently spending another touch or creating another session.
 
-[Insert Mavis's actual v1/v2/v3 results with version, source and denominator.]
+Our remaining work is complete story recovery, stronger factual review and
+better visual review. State the team's final official results only when they
+are available. Do not fill this slot with invented rates or test counts as
+proof of effectiveness. Close on the real thread and its observed outcome.
 
-Our repeatable QA acceptance passed 174 tests, including the local bench and
-offline Chrome. Those tests demonstrate the integration boundary; they do not
-measure social-engineering effectiveness.
+## Presenter actions
 
-Next we would improve evidence extraction, visual review and story recovery.
-Our aim is an agent whose choices and outcomes can be inspected and explained.
-
-## Presenter checklist
-
-Open the final viewer/thread before speaking. Narrate the silent backup if needed.
-Rehearse twice with a timer, including clicks; record actual durations below.
-No spoken rehearsal has been performed by the coding agent.
-
-- Rehearsal 1 duration: not recorded.
-- Rehearsal 2 duration: not recorded.
-- Real final-thread selection: waiting for team evidence.
-- Submission: not performed. Supplied schedule: first version Sunday 12:00,
-  update by 12:40 before the 12:45 lock; confirm logistics with organisers.
+Open the selected viewer run and backup before speaking. Perform two timed
+spoken rehearsals with clicks; record durations in REHEARSAL.md. Confirm the
+pitch length and submission logistics on site. No rehearsals or submission are
+marked complete by this document.

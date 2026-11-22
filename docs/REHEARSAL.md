@@ -20,13 +20,13 @@ Open the offline walkthrough index before starting. Have the silent backup video
 - Actual date/time: not recorded.
 - Spoken duration including clicks: not recorded.
 - Use the final wording. If a click stalls, switch to the backup clip and continue.
-- Target below 2:50 to leave margin for stage transitions; strict event limit is 3:00.
+- Target below 2:50 to leave margin for stage transitions; use the confirmed event limit: earlier guide says 3:00, rubric says 5:00.
 - Record final changes and freeze the spoken script after this pass.
 
 ## Likely questions
 
 - Is this real? The offline QA demo is synthetic. Earlier practice responses came from revel8's authorised AI twins; no real person was contacted.
-- Is it integrated? The opt-in wrapper around the shared API client is tested with fake HTTP. Existing team scripts must explicitly adopt it.
+- Is it integrated? The default Python orchestrator on main is guarded, and Node practice routes invoke the same validator. Manual scripts are separate. Official practice sending/replay has also been checked.
 - Did you win an incident? Not in the evidence used here. Replies, signals and confirmed outcomes remain distinct.
 - What does the checker miss? Factual truth, domain availability, aesthetic judgment and unsupported uploaded assets still need the relevant team components or review.
 - Why not count each call turn? A conversation is one touch; the API and log formats distinguish its turns from separate contacts.

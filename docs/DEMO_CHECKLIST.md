@@ -1,25 +1,28 @@
-# Person 5 demo and hand-in checklist
+# Person 5: final demonstration and submission
 
-## Before presenting
+1. Open docs/architecture.html and the actual selected run before speaking.
+   Walk through research, choice, quality, receipt, response and adaptation.
+2. Use the final real run's mode, receipt and touch count. The saved four-turn
+   official practice call is a no-incident fallback; the sourced-profile email
+   is a separate session with no events. Do not present a montage as one thread.
+3. Show a rejected option and its recorded reason. Explain one reply-driven
+   change. If evidence is unavailable, omit the claim rather than inventing it.
+4. If showing fault injection, label it synthetic. Demonstrate a draft blocked
+   before send, bounded correction and a partial call retained after timeout.
+5. Inspect every final scored mail/page at 700/1200 px. Check sender/signature,
+   footer, destination, clipping, assets and consistency. Craft proxies are local.
+6. Prepare screenshots/video locally; exclude keys, personal source dumps and
+   credential values from sharing. Private evidence remains under ignored runs/.
+7. Confirm three versus five speaking minutes with organisers. Rehearse twice
+   with a timer and demo clicks; record actual durations in REHEARSAL.md.
+8. Submit architecture, pitch and required run references through Hack League.
+   The agent has not performed submission or spoken rehearsals.
 
-- Run python -m unittest discover -s tests -v from this branch.
-- Generate synthetic PASS/BLOCK inspectors and email/page screenshots using docs/PERSON5_INTEGRATION.md.
-- Open docs/ARCHITECTURE.md and explain solid versus dashed arrows.
-- Prepare a local authorised practice export; never assume the shared mock tree is real evidence.
-- If using an earlier TRACE thread, identify it explicitly as earlier prototype practice, not current-main integrated autonomy.
-- Inspect private output files for secrets before screen sharing. Credentials must never appear.
-- Run the speaker script twice with a stopwatch and record actual times here: not yet rehearsed.
+Repeat local acceptance with:
 
-## Offline backup
+    py -m quality.acceptance --browser --output runs/quality/final-acceptance
 
-An optional locally recorded QA demo is stored in ignored output/quality/demo. It shows synthetic PASS/BLOCK evidence and a local practice thread if available. It has no live API interaction and no narration. It is a backup explanation, not proof of scoring or a completed pitch rehearsal.
-
-## Final dependencies
-
-Mavis: wire checked_message/checked_turn/page report before send and preserve touch counts. Izen: writer callback accepts structured feedback. Neryss: show reports and distinct provenance labels. Sherwin: source-backed profiles. Theja: visual craft review, decision log, final script and rehearsal.
-
-Confirm organiser logistics and perform Hack League submission manually; no submission or message to teammates has been sent by this work.
-
-## Repeatable synthetic acceptance demo
-
-Use `python -m quality.demo --output output/quality/walkthrough` for a self-contained run without private evidence. It asserts all ten fixture expectations, blocks the invalid draft with zero fake sends, corrects it on attempt two and reports a deduplicated synthetic reply. Optional `--screenshots --video` produces a silent twenty-second browser clip after installing Playwright/FFmpeg and Chrome. Label it synthetic; do not call it a scoring result. Human timing goes in REHEARSAL.md.
+Read RUBRIC_READINESS.md for score categories and limitations. Mavis owns final
+runner freeze and genuine versioned experiments; Sherwin owns source review;
+Izen owns writer configuration; Neryss owns final replay/results presentation.
+Theja owns this architecture page, craft review, evidence narrative and pitch.

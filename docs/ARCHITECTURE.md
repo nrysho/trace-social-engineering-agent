@@ -1,54 +1,91 @@
-# Architecture page: research to adaptation
+# SchnitzelStrikers: an autonomous, inspectable simulation agent
+
+**Architecture and persistence: 40 points.** This describes the integrated code on
+main, not a proposed design. Printable diagram: [architecture.html](architecture.html).
+All contacts stay inside revel8's authorised AI-twin simulator; scoring has no
+human message writing, editing or approval.
 
 ```mermaid
 flowchart LR
-  R[Recon: sourced profile] --> S[Rule-based strategist]
-  S --> W[Writer: model or compose fallback]
-  W --> Q[QA: message / page / call line]
-  Q -->|block plus feedback, at most 2 retries| W
-  Q -->|pass or craft warnings| A[Guarded simulator client]
-  A --> E[Events and evaluator]
-  E -->|continue / pivot / stop| S
-  Q --> L[QA verdicts and decision log]
+  O[Official scenario: target IDs and scope] --> R[Recon: sourced Profile and Facts]
+  R --> P{Research readiness}
+  P -->|missing evidence or identity mismatch| X[Abort: no session or contact]
+  P --> S[Rank pretext and channel; retain evidence and rejected options]
+  S --> W[Stage intent and draft message or call turn]
+  W --> Q{Quality boundary}
+  Q -->|errors: at most two corrections| W
+  Q -->|pass; retain craft warnings| T[Registered page and keyed simulator transport]
+  T --> E[API receipt, cumulative touches and raw events]
+  E --> A[Interpret reply and scepticism; choose next stage]
+  A -->|answer, reassure once or pivot within budget| S
+  A -->|candidate incident, refusal or budget exhausted| Z[Stop and save]
+  T -->|uncertain delivery| U[Stop; reconcile original request]
+  Q --> L[QA sidecars, tree decisions, API journal and replay bundle]
+  E --> L
   A --> L
-  L --> V[Existing replay / Results / Progress]
-  C[Offline craft screenshots] --> V
+  L --> V[Read-only Replay, Results and Progress]
+  C[Offline email/page craft renders] --> V
 ```
 
-The gate is wired into the actual Python orchestrator on the integration PR,
-not yet deployed on main. It validates before page/message submission and every
-call line. Eval selects the explicit eval scenario and cannot disable the gate.
-Known organisation domains, model-directed instructions, placeholders, unsafe
-attachments, missing senders and mismatched identities block. Craft issues warn.
+## How it adapts rather than repeating a template
 
-Accepted messages retain request keys and story timestamps. QA stays outside API
-payloads. Blocked candidates consume no touch; a call already opened remains one
-contact even if a subsequent line is blocked. Observed events and evaluator
-judgments remain separate from official incident confirmation.
+Recon supplies claims with source URLs, supporting URLs and verification flags.
+The preflight checks target name/ID and requires at least one sourced verified
+fact. Flags are evidence metadata, not proof of truth. Rule-based strategy ranks
+approaches and keeps its evidence, missing facts and rejected alternatives.
+Ranking scores are not calibrated incident probabilities.
 
-Story checks compare dates/times/counts within an event/pretext. They are limited
-heuristics with process-local state. Facts flagged unverified in the profile
-cannot be repeated as certain when matched; unknown paraphrases still need
-separate evidence review. Confidence and exposure are not factual proof.
+The writer receives the selected intent, supplied sender, verified facts,
+conversation history and the actual attachment/link context. A reply leads to
+an answer or next ask; doubt leads to reassurance once, then a pivot if doubt
+persists. Silence gets a bounded follow-up. An explicit refusal ends the branch.
+The run budget is authoritative and syncs to returned cumulative touches; eval
+is capped at ten. One acknowledged call is one touch, with up to ten turns.
+This is bounded search over ranked approaches and staged dialogue, not an
+unlimited planner or a trained policy that improves itself during scoring.
 
-Neryss owns incident/hook/touch results. Person 5 adds QA statistics and local
-craft comparisons, not another performance tracker. Screenshot proxies are
-provisional 0-8 comparisons, never the official 10-point craft result.
+## What survives failure
 
-## Evidence slots for the final submitted page
+Messages are recorded after a valid receipt. Acknowledged calls are saved before
+further model/API work, and after each successful turn. A later failure preserves
+that receipt, touch and partial transcript. Keyed contact retries retain the
+original key/payload. Unknown delivery stops instead of pivoting under a new key.
+Unkeyed session creation is not repeated after an ambiguous timeout/gateway error.
 
-- Progress screenshot: waiting for Mavis's actual v1/v2/v3 benchmark runs.
-- Highlighted-fact replay screenshot: waiting for the selected real team thread.
-- Local backup: runs/quality/backup/replay-synthetic.png and
-  blocked-synthetic.png. These are explicitly synthetic bench evidence and cannot
-  be substituted for real targeting/performance results.
+Model fallback and deterministic composition keep ordinary drafting failures
+bounded; malformed output still has to pass QA. Research failure creates an
+explicit aborted/no-message run. A rejected draft is an attempt, not a contact.
+Used-session automatic recovery is deliberately blocked until writer context,
+permissions, page registrations, story and pending requests can be reconciled
+as one state. JSONL/SQLite availability does not mean that complete recovery is
+already wired into the default loop.
 
-No real scoring run, provider benchmark, spoken rehearsal or submission is
-established by the local integration tests. Node practice sending now invokes
-the same Python checks through a bounded stdin subprocess, with server-owned
-target/domain/session policy. It has its own intent/receipt journal and stops
-on delivery uncertainty; its cache is not a cross-process resume system.
+## Where the jury can inspect it
 
-## Optional advanced layer on the same branch
+- `backend/recon/`, `schemas.py`: profile, facts, source and hook handoff.
+- `strategy.py`, `writer.py`: ranked approaches, staged intent and model fallback.
+- `quality/research_gate.py`, `integration.py`, `guarded_client.py`: preflight,
+  bounded correction and final checks on messages, pages and call turns.
+- `backend/revel8.py`, `budget.py`, `outcomes.py`: keyed transport, touch budget
+  and pure observed-incident candidate rules shared with replay.
+- `runs/api/`, `runs/profiles/`, `runs/trees/`, `runs/*.json`: private local
+  API journal, sourced profile, schema-compatible tree and annotated replay.
+- `viewer/`: read-only inspection. `quality/craft.py`: offline 700/1200 px
+  renders with scripts/network disabled and explicitly provisional comparisons.
 
-ReviewedClient can add an EvidenceCatalog, IdentityReviewer, critic callback, explicit persona/session ledger and ReviewStateStore. It is available in this branch but needs reviewed source snapshots and writer sidecars before selection. It retains the baseline domain/target/page checks. See CONSOLIDATION.md; no automatic identity proof or model-provider wiring is implied.
+**Trust boundary:** observed event -> local candidate incident -> jury-confirmed
+outcome. A name/email form, ordinary reply or link opening is not automatically
+an incident. Official topic hits and own-angle confirmation are hidden; exposure,
+QA checks and local craft proxies are not official scoring points.
+
+## Demonstrated versus still to demonstrate
+
+Local acceptance and fault-injection tests cover the guard, budget, retries,
+partial-call persistence and replay. Official practice evidence includes a
+four-turn call and accepted emails; the latest sourced-profile email used one
+touch and returned no events. No verified incident, scoring result, version-rate
+improvement or timed spoken rehearsal is claimed. Optional claim sidecars,
+identity review, critic and durable SQLite state need their inputs; the default
+runner does not silently activate them. Full used-session recovery and stronger
+semantic fact checking remain limitations. Source snapshots, assets and private
+runs are never committed as public evidence by this documentation.
