@@ -130,6 +130,59 @@
       "role": "assistant",
       "domain": "{brand}-team.com",
       "page": null
+    },
+    "invoice_approval": {
+      "technique": "vendor_lookalike",
+      "sender_name": "Accounts Receivable",
+      "role": "Accounts Receivable",
+      "domain": "supplier-billing-portal.de",
+      "page": {
+        "domain": "supplier-billing-portal.de",
+        "path": "/invoices/2026-1184",
+        "title": "Invoice confirmation",
+        "fields": [
+          "email",
+          "approver"
+        ]
+      }
+    },
+    "hr_policy": {
+      "technique": "typosquat",
+      "sender_name": "People Team",
+      "role": "People & Culture",
+      "domain": "{brand}-people.com",
+      "page": {
+        "domain": "{brand}-people.com",
+        "path": "/policies/acknowledge",
+        "title": "Policy acknowledgement",
+        "fields": [
+          "email",
+          "password"
+        ]
+      }
+    },
+    "it_helpdesk": {
+      "technique": "typosquat",
+      "sender_name": "IT Service Desk",
+      "role": "IT Service Desk",
+      "domain": "{brand}-servicedesk.com",
+      "page": {
+        "domain": "{brand}-servicedesk.com",
+        "path": "/device-check",
+        "title": "Device check",
+        "fields": [
+          "email",
+          "vpn_client",
+          "password"
+        ]
+      }
+    },
+    "exec_request": {
+      "technique": "typosquat",
+      "sender_name": "{colleague}",
+      "role": "",
+      "domain": "{brand}-team.com",
+      "page": null
     }
   }
 }

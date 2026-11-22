@@ -60,6 +60,11 @@ PRETEXTS: tuple[Pretext, ...] = (
     Pretext("vendor_notice", "Question about a known vendor or tool", ("vendors_and_tools", "role"), ("email", "teams_chat"), "start a conversation about the known tool", "vendor"),
     Pretext("security_alert", "Account or sign-in notice for a tool they use", ("vendors_and_tools", "role"), ("email", "sms", "teams_chat", "voicemail", "phone_call"), "get the recipient to open a registered sign-in page", "vendor"),
     Pretext("internal_favor", "Colleague requests a small, plausible work favour", ("network", "communication_style"), ("email", "teams_chat", "slack", "whatsapp", "phone_call", "teams_call", "voicemail"), "get a reply or a harmless simulated action", "colleague"),
+    # pretexts for ordinary employees (finance, HR, staff): the scoring targets are not founders
+    Pretext("invoice_approval", "A supplier asks to confirm an invoice or its payment details", ("role", "company"), ("email", "phone_call"), "get the recipient to open the invoice or name who approves it", "vendor"),
+    Pretext("hr_policy", "HR asks staff to acknowledge an updated policy or benefits form", ("company", "role"), ("email", "teams_chat"), "get the recipient to sign in on a registered HR page", "colleague"),
+    Pretext("it_helpdesk", "IT support follows up on a ticket, device or VPN update", ("company", "vendors_and_tools"), ("phone_call", "teams_call", "teams_chat", "email"), "get the recipient to name their VPN client or sign in on a registered page", "colleague"),
+    Pretext("exec_request", "A senior leader asks for a quick, discreet favour", ("network", "company"), ("whatsapp", "teams_chat", "sms", "email"), "get the recipient to act for them (open, forward, approve) or name who approves payments", "colleague"),
     Pretext("investor_intro", "Someone introduces an investor or partner", ("recent_activity", "network"), ("email", "linkedin_message"), "start an investor or partnership thread"),
 )
 
@@ -139,6 +144,8 @@ GENERAL_HOOKS: tuple[dict[str, Any], ...] = (
     {"topic": "Account or sign-in security notice", "probability": 0.45, "angle": "their_topic", "evidence": [], "rationale": "Everyone has accounts and sign-ins.", "pretext": "security_alert"},
     {"topic": "A shared document to open", "probability": 0.40, "angle": "their_topic", "evidence": [], "rationale": "Anyone in an organisation opens shared files.", "pretext": "document_share"},
     {"topic": "A quick favour from a colleague", "probability": 0.38, "angle": "their_topic", "evidence": [], "rationale": "Helpfulness and deference to authority are near-universal.", "pretext": "internal_favor"},
+    {"topic": "IT support follow-up on a device or VPN update", "probability": 0.42, "angle": "their_topic", "evidence": [], "rationale": "Everyone has IT support and answers it.", "pretext": "it_helpdesk"},
+    {"topic": "An updated HR policy to acknowledge", "probability": 0.32, "angle": "their_topic", "evidence": [], "rationale": "Every employee gets HR mail.", "pretext": "hr_policy"},
     {"topic": "A change to a meeting", "probability": 0.30, "angle": "their_topic", "evidence": [], "rationale": "Most people keep a calendar.", "pretext": "meeting_reschedule"},
 )
 

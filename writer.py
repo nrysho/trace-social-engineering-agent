@@ -307,6 +307,7 @@ INTERNAL_WORDING = (
     "link added below", "added below your text", "link below your text",
     "speaker_invite", "press_request", "customer_question", "document_share", "meeting_reschedule",
     "vendor_notice", "security_alert", "internal_favor", "investor_intro",
+    "invoice_approval", "hr_policy", "it_helpdesk", "exec_request",
 )
 GREETING = re.compile(r"^\s*(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))\s+([A-ZÄÖÜ][\w'’-]+)", re.I)
 
@@ -567,7 +568,7 @@ SENDER_KIND_RULES = {
         "The domain is a plausible, registrable domain for that invented organisation.",
     ],
     "vendor": [
-        "The sender writes for a tool or service the recipient uses (see impersonated_tool or the facts), or for the recipient's own IT team if no tool fits.",
+        "The sender writes for a tool, service or supplier the recipient's company uses (see impersonated_tool or the facts), or for the recipient's own IT team if none fits.",
         "The name is either a team name such as '<Tool> Account Security' or '<Company> IT Service Desk', or a support agent's realistic full name.",
         "The organisation is the tool or team being impersonated.",
         "The domain is a believable lookalike an attacker could register (an extra word or hyphen, a different ending), never the tool's real domain.",
@@ -651,11 +652,15 @@ def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], ap
 _BRAND_COLOURS = ("#1a73e8", "#0b6e4f", "#5b3cc4", "#c2410c", "#0f766e", "#1e3a8a", "#9d174d", "#334155")
 _FIELD_LABELS = {"email": "Work email", "password": "Password", "name": "Full name", "availability": "Your availability",
                  "username": "Username", "phone": "Phone number", "company": "Company", "job_title": "Job title",
-                 "internal_tool": "Tools currently in place on your side (helps our moderator prepare)"}
+                 "internal_tool": "Tools currently in place on your side (helps our moderator prepare)",
+                 "approver": "Who approves this invoice on your side?", "vpn_client": "VPN client on this device"}
 _PAGE_COPY = {   # heading, text, button: what this kind of page says (never the internal plan)
     "security_alert": ("Verify it's you", "We noticed a sign-in from a new device. Sign in to review the activity and keep your account secure.", "Continue"),
     "vendor_notice": ("Review your account", "Confirm your details to keep your subscription running without interruption.", "Continue"),
     "document_share": ("A document was shared with you", "Sign in with your work account to open the document.", "Open document"),
+    "invoice_approval": ("Confirm invoice 2026-1184", "Confirm the invoice and tell us who approves it on your side, so payment is not delayed.", "Confirm invoice"),
+    "hr_policy": ("Acknowledge the updated policy", "Sign in with your work account to read and acknowledge the updated policy.", "Sign in"),
+    "it_helpdesk": ("Confirm your device", "Sign in with your work account and tell us which VPN client your device uses, so we can finish the update.", "Confirm device"),
     "press_request": ("Sign in to keep reading", "This article is for registered readers. Sign in with your work account to read the full piece.", "Continue reading"),
     "speaker_invite": ("Speaker RSVP", "Thank you for your interest. Tell us when you are available and we will send the full programme.", "Send RSVP"),
     "recruiting": ("Candidate profile", "Enter your work email to open the candidate profile.", "View profile"),
@@ -785,6 +790,8 @@ PAGE_HOST = {
     "vendor_notice": ("billing", "?ref=renewal"), "speaker_invite": ("events", "?ref=speaker-invite"),
     "press_request": ("www", "?utm_source=linkedin"), "recruiting": ("portal", "?ref=candidate"),
     "investor_intro": ("", "?ref=intro"), "meeting_reschedule": ("calendar", "?view=event"),
+    "invoice_approval": ("", "?ref=email"), "hr_policy": ("hr", "?doc=policy-2026"),
+    "it_helpdesk": ("servicedesk", "?ticket=INC-48213"),
 }
 # what the browser tab says for a known brand's sign-in page
 BRAND_TAB_TITLES = {"Google Workspace": "Sign in – Google Accounts", "Microsoft 365": "Sign in to your account",
@@ -871,6 +878,14 @@ FALLBACK_COPY = {
                        "We noticed a new sign-in to your {vendor} account from an unrecognised device. If this wasn't you, please review your recent activity below."),
     "internal_favor": ("Quick favour",
                        "Do you have a minute today? I need a quick hand with something before a deadline; details below."),
+    "invoice_approval": ("Invoice 2026-1184 for {company}",
+                         "Please find our invoice attached. Could you confirm who approves it on your side so it reaches the right person before the payment run?"),
+    "hr_policy": ("Updated policy: please acknowledge",
+                  "We've updated a company policy that applies to everyone. Please read it and confirm in the HR portal below."),
+    "it_helpdesk": ("Your IT ticket: device update",
+                    "We're following up on the device and VPN update for your account. Please confirm your device below so we can close the ticket."),
+    "exec_request": ("Quick favour",
+                     "Are you at your desk? I need a quick hand with something discreet before my next meeting."),
     "investor_intro": ("Introduction",
                        "I'd like to introduce you to a partner at a fund that has been following {company} closely. Would you be open to a short call next week?"),
 }
@@ -916,7 +931,8 @@ def compose(profile: dict[str, Any], approach: dict[str, Any]) -> dict[str, Any]
         "body": body,
         "landing_page": landing,
         # the recipient sees this name, so it must read like a real file, never an internal label
-        "attachment": approach.get("attachment") or {"recruiting": "Candidate_Profile.pdf", "document_share": "Q1_Planning_Update.pdf"}.get(pretext),
+        "attachment": approach.get("attachment") or {"recruiting": "Candidate_Profile.pdf", "document_share": "Q1_Planning_Update.pdf",
+                                                     "invoice_approval": "Invoice_2026-1184.pdf"}.get(pretext),
     }
 
 

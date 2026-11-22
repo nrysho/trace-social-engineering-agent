@@ -140,6 +140,7 @@ FOLLOW_UP_ATTACHMENTS = {
     "investor_intro": "Fund_Overview.pdf", "customer_question": "Requirements_Overview.pdf",
     "recruiting": "Candidate_Profile.pdf", "internal_favor": "Details.pdf",
     "document_share": "Q1_Planning_Update.pdf", "vendor_notice": "Renewal_Summary.pdf",
+    "invoice_approval": "Invoice_2026-1184.pdf", "hr_policy": "Updated_Policy_2026.pdf", "exec_request": "Approval_List.pdf",
 }
 _MATERIAL = re.compile(r"\b(agenda|programme|program|article|articles|pieces|link|links|deck|profile|cv|brief|lineup|line-up|"
                        r"questions|overview|speakers|"

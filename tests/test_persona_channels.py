@@ -109,6 +109,32 @@ class StoryGateTests(unittest.TestCase):
                       profile_claim_checks("Congrats, you raised a seed round of EUR 3M.", facts).errors)
 
 
+class EmployeePretextTests(unittest.TestCase):
+    """the scoring targets are not founders: role signals must pick pretexts that fit staff"""
+    def top(self, profile):
+        return [a["pretext"] for a in runner._dedupe_by_pretext(strategy.rank_approaches(profile))][:2]
+
+    def test_finance_staff_get_the_invoice(self):
+        clerk = {"name": "Anna Schulz", "role": "Accounts Payable Specialist", "facts": [
+            {"category": "role", "value": "Accounts Payable Specialist at Nordhafen", "source_url": "https://x.example", "verified": True}]}
+        self.assertEqual(self.top(clerk)[0], "invoice_approval")
+
+    def test_an_assistant_gets_the_executive_request(self):
+        assistant = {"name": "Lea Wolf", "role": "Executive Assistant to the CEO", "facts": [
+            {"category": "role", "value": "Executive Assistant at Kraemer Bau", "source_url": "https://x.example", "verified": True}]}
+        self.assertIn("exec_request", self.top(assistant))
+
+    def test_an_unprofiled_target_still_gets_a_plan(self):
+        self.assertIn("it_helpdesk", self.top({"name": "Jan Berg", "role": "", "facts": []}))
+
+    def test_new_pages_pass_the_claim_check(self):
+        from quality.story import operational_claim_checks
+        for pretext in ("invoice_approval", "hr_policy", "it_helpdesk"):
+            lp = writer.build_landing(pretext, "nordhafen.de")
+            page, _ = writer.render_landing_html(pretext=pretext, organization="Nordhafen", title=lp["title"], fields=lp["fields"])
+            self.assertEqual(operational_claim_checks(page, []), [], pretext)
+
+
 class MaterialTests(unittest.TestCase):
     def test_a_request_for_material_gets_a_matching_file(self):
         reply = "Could you send the names of the two founders and the professor, plus a short programme or agenda?"
