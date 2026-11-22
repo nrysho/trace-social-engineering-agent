@@ -236,7 +236,17 @@ _ACT_DONE = re.compile(
     r"i('ve| have) (forwarded|changed|updated|shared|booked|reserved|confirmed)|access (is )?granted|"
     r"freigegeben|genehmigt|gewährt|habe [^.?!]{0,40}(weitergeleitet|geändert|aktualisiert|freigegeben|geteilt|gebucht|reserviert|bestätigt)|"
     r"ist (freigegeben|genehmigt|gebucht|reserviert)|hiermit (freigegeben|bestätigt|genehmigt))\b", re.I)
-_NOT_AN_ACT = re.compile(r"\b(asked|requested|agreed to (receive|wait)|declined|will|would|wait|bat|fragte|möchte)\b", re.I)
+_NOT_AN_ACT = re.compile(r"\b(asked|requested|agreed|declined|deferred|offered|will|would|wait|need|check|verify|pending|"
+                         r"bat|fragte|möchte|prüf\w*)\b", re.I)
+# the judge's own summary must start with the act ("Approved the quote", "Forwarded the invoice to finance")
+_DONE_VERB = re.compile(r"^(approved|forwarded|granted|shared|changed|updated|booked|reserved|confirmed|signed|"
+                        r"authori[sz]ed|accepted the (change|booking|quote|offer|invoice))\b", re.I)
+
+
+def _is_done_act(text, did):
+    """an act done for us: the judge names it as done, and their own words say it in a done form."""
+    did = str(did or "").strip()
+    return bool(did and _DONE_VERB.search(did) and _ACT_DONE.search(text or "") and not _NOT_AN_ACT.search(did))
 REPLAN_BAND = 0.25   # the model may reorder close options, never lift one the ranking scored far lower
 
 
@@ -1195,7 +1205,7 @@ class Orchestrator:
         except Exception:
             return None, ""                # if the judge is unavailable, do not claim a win
         did = str(out.get("action_done") or "").strip()
-        if out.get("action") is True and did and _ACT_DONE.search(text) and not _NOT_AN_ACT.search(did):
+        if out.get("action") is True and _is_done_act(text, did):
             return "action", f"[concrete] {who} acted for the sender: {did}"[:400]
         details = [str(d).strip() for d in out.get("details") or [] if str(d).strip()]
         if out.get("disclosure") is True and details:
