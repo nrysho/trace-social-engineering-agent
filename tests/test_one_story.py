@@ -339,5 +339,34 @@ class StoryConsistencyTests(unittest.TestCase):
         self.assertTrue(second.get("stop"))
 
 
+class JudgedDisclosureTests(unittest.TestCase):
+    def mail_run(self, events, judged):
+        agent = agent_for("tom")
+        agent.client = Mock()
+        agent.client.send_message.side_effect = [
+            {"message_id": "m1", "events": events[0], "touches_used": 1},
+            {"message_id": "m2", "events": events[1], "touches_used": 2}]
+        agent.client.last_report = {}
+        agent.use_model = True                  # the writer is mocked; with it off a thread is one mail
+        agent.budget = runner.TouchBudget(10, 6)
+        msgs = [Mock(body=f"Hallo, Nachricht {i}", subject="Hi", channel="email", to_dict=lambda: {}) for i in (1, 2)]
+        approach = dict(pretext="solution_offer", channel="email", incident_goal="x")
+        with patch.object(agent, "_draft_checked", side_effect=msgs), \
+                patch.object(agent, "_judge_disclosure", side_effect=judged), \
+                patch.object(agent, "_judge_scepticism", return_value=(1, "fine")), \
+                patch.object(runner.strategy, "assess_scepticism", return_value={"score": 1, "reason": "fine"}), \
+                patch.object(agent, "_save_tree"):
+            return agent, agent._run_messages("s1", approach, Mock(id="n_1"))
+
+    def test_a_judged_disclosure_does_not_end_the_run(self):
+        reply = [{"type": "reply", "body": "Bei uns entscheidet Mira Hansen aus People & Culture."}]
+        opened = [{"type": "attachment.opened", "filename": "Proposal.pdf"}]
+        agent, won = self.mail_run([reply, opened], [("disclosure", "named the decider"), (None, "")])
+        self.assertTrue(won)                                     # the opened file ended it, not the judge
+        self.assertEqual(agent.client.send_message.call_count, 2)
+        self.assertEqual(len(agent.judged_disclosures), 1)
+        self.assertEqual(agent.judged_disclosures[0]["touch"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -381,6 +381,9 @@ class Orchestrator:
         self.fresh_sessions = (not eval_mode) and fresh_sessions
         self.session_budget = EVAL_BUDGET if (eval_mode or self.fresh_sessions) else PRACTICE_BUDGET
         self.sessions_opened = []
+        # disclosures only our own judge saw: revel8 decides them at scoring, so they never end a run
+        # (a run counts with >= 1 incident and speed is contacts to the first, so going on costs nothing)
+        self.judged_disclosures = []
         self.budget = TouchBudget(self.session_budget, PER_BRANCH)
         self.eval_mode = eval_mode
         self._personas = {}                  # generated sender identity per approach
@@ -467,7 +470,9 @@ class Orchestrator:
 
         try:
             if not self._search(profile, sid, approaches, hook_node.id, ranked):
-                print("\n  no incident: budget or approaches exhausted")
+                print("\n  no confirmed incident: budget or approaches exhausted")
+                for d in self.judged_disclosures:
+                    print(f"  judged disclosure (revel8 decides at scoring): touch {d['touch']} in {d['session']}: {d['reason']}")
         finally:
             self._save_tree()
             print(f"  saved {len(self.nodes)} nodes to runs/trees/{self.run_id}.json\n")
@@ -732,9 +737,9 @@ class Orchestrator:
                   f"({self.budget.used}/{self.budget.total} touches)")
 
             incident_type, incident_reason = classify_incident(events)
-            if not incident_type and reply:            # a reply may disclose internal info
-                incident_type, incident_reason = self._judge_disclosure(
-                    reply, sent="\n\n".join(h["message"] for h in history) + "\n\n" + _plain(msg.body))
+            if not incident_type and reply:            # a reply may disclose internal info: noted, never a stop
+                self._note_judged(sid, contact, *self._judge_disclosure(
+                    reply, sent="\n\n".join(h["message"] for h in history) + "\n\n" + _plain(msg.body)))
             verdict = strategy.evaluate_reaction(
                 events, reply_text=reply,
                 touches_used=self.budget.used, touch_budget=self.budget.total)
@@ -761,7 +766,7 @@ class Orchestrator:
             self._save_tree()                  # write the bundle after each contact, so the viewer can follow live
 
             if incident_type:
-                print(f"     *** INCIDENT candidate ({incident_type}, our judge; revel8 confirms at scoring): {incident_reason} ***")
+                print(f"     *** INCIDENT ({incident_type}, API event): {incident_reason} ***")
                 return True
             if verdict.get("recommended_action") == "stop":
                 return False
@@ -868,10 +873,10 @@ class Orchestrator:
             self._save_tree()
             print(f"     you: {line[:48]} | persona: {heard[:48]}")
             incident_type, incident_reason = classify_incident(events)
-            if not incident_type and heard:            # the persona may disclose internal info on the call
-                incident_type, incident_reason = self._judge_disclosure(heard, sent=(
+            if not incident_type and heard:            # the persona may disclose internal info on the call: noted, the call goes on
+                self._note_judged(sid, contact, *self._judge_disclosure(heard, sent=(
                     f"Caller: {sender['name']} <{sender['address']}>\n"
-                    + "\n".join(t["text"] for t in transcript if t["role"] == "us")))
+                    + "\n".join(t["text"] for t in transcript if t["role"] == "us"))))
             if incident_type or turn_r.get("ended") or closing:
                 break
             # stop probing once they decline, or once they ask for writing a second time: pushing on
@@ -892,7 +897,7 @@ class Orchestrator:
                       incident_chance=1.0 if incident_type else 0.0)
         self._save_tree()
         if incident_type:
-            print(f"     *** INCIDENT candidate ({incident_type}, our judge; revel8 confirms at scoring): {incident_reason} ***")
+            print(f"     *** INCIDENT ({incident_type}, API event): {incident_reason} ***")
             return True
         said = [t["text"] for t in transcript[1:] if t["role"] == "them" and t["text"]]
         if said and not self.budget.exhausted():
@@ -1117,6 +1122,16 @@ class Orchestrator:
                 return True
         return False
 
+    def _note_judged(self, sid, node, kind, reason):
+        """record a disclosure only our judge saw. It never ends the run: revel8 decides it at scoring,
+        and a confirmed incident (an opened file, a submitted page) is still worth chasing. On the bench
+        our judge flagged disclosures the bench did not count; stopping on them ended runs empty."""
+        if not kind:
+            return
+        self.judged_disclosures.append({"touch": self.budget.used, "session": sid, "node": node.id, "reason": reason})
+        node.outcome = (str(node.outcome or "") + f" | judged disclosure (revel8 decides): {reason}").strip(" |")
+        print(f"     ~ judged disclosure, not a stop (revel8 decides at scoring): {reason}")
+
     def _judge_disclosure(self, text, sent=""):
         """an llm judge: does this reply reveal INTERNAL, non-public information (a disclosure
         win)? strict, since the jury confirms every win and a false claim scores nothing. it
@@ -1174,6 +1189,7 @@ class Orchestrator:
         bundle = {
             "run_id": self.run_id,
             "run_status": getattr(self, 'run_status', 'recorded'),
+            "judged_disclosures": getattr(self, "judged_disclosures", []),
             "abort_reason": getattr(self, 'abort_reason', None),
             "mode": self.scenario_id,
             "profile": self.profile,
