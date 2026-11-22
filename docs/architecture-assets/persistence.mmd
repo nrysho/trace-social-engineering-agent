@@ -1,0 +1,13 @@
+flowchart TB
+ A["READ THE REACTION"]
+ A -->|engaged| C["ANSWER<br/>Respond to the question<br/>Keep the same story"]
+ A -->|doubt or silence| D["BOUND THE EFFORT<br/>Reassure or follow up<br/>Then close if stalled"]
+ A -->|explicit rejection| E["RECORD THE OBJECTION<br/>Keep the recipient quote<br/>Constrain the next approach"]
+ A -->|stop request| F["END CONTACT<br/>No further call turns<br/>No channel pivot"]
+ C --> G["SAVE THE LOOP: response + decision + reason + next move"]
+ D --> G
+ E --> G
+ F --> G
+ classDef default fill:#f3f6fa,stroke:#c0ccd9,color:#152638,stroke-width:1px;
+ classDef stop fill:#fff0e9,stroke:#b95b31,color:#823b1b,stroke-width:2px;
+ class F stop;

@@ -3,7 +3,9 @@
 **Architecture and persistence: 40 points.** Main runtime reference: `310cf2e`; documentation baseline: `5ead8cd`.
 Branch review: `neryss/win-pass` at `bf525b2`, `neryss/one-story` at `8b6ca87`.
 The core sections describe main. The branch section below describes additional
-implemented code that is **not merged into main**. Do not present both as one tested runtime. Printable diagram: [architecture.html](architecture.html).
+implemented code that is **not merged into main**. Do not present both as one tested runtime. Printable page: [architecture.pdf](architecture.pdf). Browser version: [architecture.html](architecture.html).
+Both diagrams are rendered from editable Mermaid sources: [system](architecture-assets/system.mmd)
+and [persistence](architecture-assets/persistence.mmd). SVG exports are kept beside the sources.
 All contacts stay inside revel8's authorised AI-twin simulator; scoring has no
 human message writing, editing or approval.
 

@@ -1,0 +1,12 @@
+flowchart LR
+ R["RESEARCH<br/>Public sources / Profile<br/>Facts + source URLs"] --> S["PLAN<br/>Rank approaches<br/>Keep reasons + alternatives"]
+ S --> W["WRITE<br/>Message, page or call turn<br/>Facts + story + history"]
+ W --> Q{"QUALITY<br/>Rules + consistency"}
+ Q -->|pass| T["CONTACT<br/>revel8 API only<br/>Stable keys + touch budget"]
+ Q -.->|bounded correction| W
+ T --> E["OBSERVE<br/>Receipt + raw events<br/>Reply + cumulative touches"]
+ E --> A["ADAPT<br/>Interpret reaction<br/>Continue, close or stop"]
+ A -.->|next decision + lessons| S
+ classDef default fill:#f3f6fa,stroke:#c0ccd9,color:#152638,stroke-width:1px;
+ classDef guard fill:#e4f3ef,stroke:#287d6a,color:#154e43,stroke-width:2px;
+ class Q guard;
