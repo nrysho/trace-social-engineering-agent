@@ -18,8 +18,9 @@ CCTLD = {
     "sg": "Singapore", "in": "India", "au": "Australia", "ca": "Canada", "nz": "New Zealand",
     "jp": "Japan", "cn": "China", "br": "Brazil", "mx": "Mexico", "us": "United States",
 }
-# fact categories whose values tend to carry a place (hq, office, event or role location)
-LOC_CATS = ("role", "company", "network", "upcoming_events", "hiring", "interests")
+# categories that reflect the company's OWN base (hq / office / role), so the country is
+# not dragged off by event-venue cities or a partner's / portfolio company's location
+LOC_CATS = ("role", "company", "hiring")
 
 JSON_MODE = {"type": "json_object"}
 SYSTEM = (
