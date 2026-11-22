@@ -229,6 +229,15 @@ def _sentences(text):
 _WANTS_LINK = re.compile(r"\b(links?|urls?|page|website|webseite|seite|homepage|landing ?page)\b", re.I)
 
 
+def _echoes_sender(detail, sent):
+    """does this 'detail' only repeat what we said? its distinctive words (names, products, numbers)
+    all appear in our own messages."""
+    marks = [w for w in re.findall(r"[A-Za-z0-9ÄÖÜäöüß][\w\-.]{2,}", str(detail))
+             if any(c.isupper() or c.isdigit() for c in w)]
+    said = str(sent or "").casefold()
+    return bool(marks) and all(w.casefold() in said for w in marks)
+
+
 REPLAN_BAND = 0.25   # the model may reorder close options, never lift one the ranking scored far lower
 
 
@@ -1196,6 +1205,9 @@ class Orchestrator:
         if out.get("disclosure") is True and details:
             # a detail anyone can find on the web is not a disclosure (a colleague's role on LinkedIn).
             # Calling it a win would end the session early and waste the remaining touches.
+            # a detail the sender put in their own words is not theirs to disclose: the judge model credited
+            # Tom with "Cisco AnyConnect" when our caller had suggested it and he refused to answer
+            details = [d for d in details if not _echoes_sender(d, sent)]
             details = [d for d in details if not self._publicly_findable(d)]
             if not details:
                 print("     judge: the details are publicly findable; not a disclosure, the run continues")
