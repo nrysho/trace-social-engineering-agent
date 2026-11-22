@@ -5,8 +5,10 @@ Branch review: `neryss/win-pass` at `bf525b2`, `neryss/one-story` at `8b6ca87`.
 The core sections describe main. The branch section below describes additional
 implemented code that is **not merged into main**. Do not present both as one tested runtime. Printable page: [architecture.pdf](architecture.pdf). Browser version: [architecture.html](architecture.html).
 The submission uses a grouped architecture illustration: [SVG](architecture-assets/grouped-architecture.svg).
-Editable Mermaid component definitions are in `architecture-assets/` (research, agent, simulator,
-evidence and individual agent components); the SVG composes them into fixed system boundaries.
+Editable Mermaid flow definitions are in `architecture-assets/` (research, agent, simulator,
+evidence and individual components). The final submission SVG uses a fixed grid and uniform
+typography to preserve legibility; it follows the same semantic graph without independently
+scaling each component. `grouped-architecture.mmd` records the complete flow.
 Earlier system/persistence sources are retained for the alternate detailed view.
 All contacts stay inside revel8's authorised AI-twin simulator; scoring has no
 human message writing, editing or approval.
