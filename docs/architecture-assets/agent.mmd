@@ -1,9 +1,0 @@
-flowchart LR
- P["Strategist<br/>Rank + explain"] --> W["Writer<br/>Facts + history"] --> Q{"Quality gate<br/>Rules + consistency"} --> T["API client<br/>Keys + budget"]
- Q -.->|correct| W
- E["Evaluator<br/>Choose next move"] --> M[("Session memory<br/>Objections + closures")]
- M -.->|adapt| P
- E -.->|answer| W
- classDef default fill:#e9e5fb,stroke:#8271b2,color:#30234f,stroke-width:2px;
- classDef guard fill:#fff1c6,stroke:#bb922e,color:#56400d,stroke-width:2px;
- class Q,T guard;
