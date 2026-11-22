@@ -10,14 +10,16 @@ flowchart LR
   O[Official scenario: target IDs and scope] --> R[Recon: sourced Profile and Facts]
   R --> P{Research readiness}
   P -->|missing evidence or identity mismatch| X[Abort: no session or contact]
-  P --> S[Rank pretext and channel; retain evidence and rejected options]
-  S --> W[Stage intent and draft message or call turn]
+  P -->|pass| S[Rank all approaches once: pretext, channel, sender, goal; keep evidence and rejected options]
+  S --> K[Pick next approach from the fixed ranked list]
+  K --> W[Stage intent and draft message or call turn]
   W --> Q{Quality boundary}
   Q -->|errors: at most two corrections| W
   Q -->|pass; retain craft warnings| T[Registered page and keyed simulator transport]
   T --> E[API receipt, cumulative touches and raw events]
-  E --> A[Interpret reply and scepticism; choose next stage]
-  A -->|answer, reassure once or pivot within budget| S
+  E --> A[Interpret reply and scepticism; choose next move]
+  A -->|answer or reassure once within this branch| W
+  A -->|branch stalled: pivot, no branch lessons carried| K
   A -->|candidate incident, refusal or budget exhausted| Z[Stop and save]
   T -->|uncertain delivery| U[Stop; reconcile original request]
   Q --> L[QA sidecars, tree decisions, API journal and replay bundle]
