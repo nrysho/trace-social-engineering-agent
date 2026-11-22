@@ -64,7 +64,7 @@ WRITING_RULES = [
     "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient as this sender would and keep one form of address (in German the formal Sie, unless they use du). Sign off using exactly you_are.name: a person adds role, organisation, exactly you_are.phone and the city; a company or team signs as the team.",
     "2. Do what this_message says, with at most one ask. Never ask for something your sender would already know.",
     "3. Keep details light until asked: say only what the recipient needs to decide (who you are, the topic, roughly when). Give names, numbers, references or agendas only when they ask, and then concretely: invented people of your own organisation with realistic full names and roles, real cities and venues, dates after today; a reference, once given, stays the same. Never name real outside companies or real people as participants, partners or references: the recipient can check those. If asked who someone is, give names; if asked how you found them, it is their public work (a talk, a post, the company site).",
-    "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation.",
+    "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation. Never claim you attended, spoke at or share their own talks, events, employer or contacts: they know their own calendar.",
     "5. Mention a file or link only if included_with_your_text has it; if they asked for it and it is included, send it now. A link is appended after your text: refer to it naturally, never write a URL or a placeholder.",
     "6. Stay calm and believable: real-world timing is fine (an RSVP closes Friday), no alarm words, threats, audits or suspensions.",
     "7. In a follow-up, refer to your earlier message and add one new reason; never repeat it. Never ask again for anything they declined (a question, a file, a form): give them what they asked for instead.",
@@ -247,6 +247,7 @@ def generate_message(
             recipient_name=str(target.get("name", "")),
             sender_name=str(sender.get("name", "")),
             today=str(approach.get("story_date") or ""),
+            sender_org=str(sender.get("organization", "")),
         )
         return content
 
@@ -394,8 +395,12 @@ def quality_gate(
     recipient_name: str = "",
     sender_name: str = "",
     today: str = "",
+    sender_org: str = "",
 ) -> None:
     """Raise ValueError for common rule, placeholder, domain or addressing violations."""
+    clash = brand_clash(sender_org, f"{message.get('subject', '')}\n{message.get('body', '')}")
+    if clash:
+        raise ValueError(f"quality gate rejected a message from {sender_org} about {clash}: one sender, one brand")
     past = _past_dates(f"{message.get('subject', '')}\n{message.get('body', '')}", today)
     if past:
         raise ValueError("quality gate rejected a date before today in the story: " + ", ".join(past))
@@ -530,6 +535,22 @@ def domain_taken(domain: str) -> bool | None:
     return _TAKEN[base]
 
 
+def brand_clash(sender_org: str, text: str) -> str:
+    """the other tool brand a vendor's message talks about ('HubSpot Renewals' writing about a
+    'Microsoft 365 renewal'), else ''. Only a sender that IS a known tool brand is checked: an
+    events agency may mention any tool."""
+    org = str(sender_org or "").casefold()
+    own = next((v for v in VENDOR_LOOKALIKES if any(m in org for m in v["match"] if len(m) > 3)), None)
+    if not own:
+        return ""
+    lower = str(text or "").casefold()
+    for v in VENDOR_LOOKALIKES:
+        if v is not own and v["brand"].casefold() not in org and \
+                any(re.search(rf"\b{re.escape(m)}\b", lower) for m in v["match"] if len(m) > 3):
+            return v["brand"]
+    return ""
+
+
 def free_domain(domain: str) -> str:
     """domain itself if nobody owns it, else the first unregistered variant of its registrable
     part ('okta-verify.com' -> 'okta-verify-notice.com'), keeping any subdomain in front."""
@@ -661,7 +682,7 @@ SENDER_KIND_RULES = {
         "The domain is a believable lookalike an attacker could register (an extra word or hyphen, a different ending), never the tool's real domain.",
     ],
     "colleague": [
-        "The sender is a colleague at the recipient's company. If known_colleague is given, use exactly that name; otherwise invent a realistic full name from the recipient's region whose first name differs from the recipient's.",
+        "The sender is a colleague at the recipient's company. If known_colleague is given, use exactly that name and the role known_colleague_facts give them (a co-founder stays a co-founder, never an assistant); otherwise invent a realistic full name from the recipient's region whose first name differs from the recipient's.",
         "The role is one that would plausibly make this request of the recipient (finance for an invoice, operations for a document, an assistant for a meeting).",
         "The organisation is the recipient's company.",
         "The domain is a lookalike of the company's own domain that an attacker could register (an extra word or a different ending), never the real domain and never a misspelling: a typo is the first thing people check.",
@@ -670,6 +691,16 @@ SENDER_KIND_RULES = {
 REAL_ORG_DOMAINS = ("google.com", "microsoft.com", "linkedin.com", "docusign.com", "okta.com", "apple.com",
                     "amazon.com", "slack.com", "zoom.us", "github.com", "salesforce.com", "hubspot.com",
                     "atlassian.com", "notion.so", "dropbox.com", "box.com", "office.com", "outlook.com")
+
+
+_SENIOR_TITLE = re.compile(r"\b(co-?founder|founder|ceo|cto|coo|cfo|chief|managing director|geschäftsführ\w*|gründer\w*|mitgründer\w*)\b", re.I)
+
+
+def _demotes(colleague: str, role: str, facts: list[dict[str, Any]]) -> bool:
+    """does the invented role contradict what recon knows about this real colleague? A founder
+    signing as an executive assistant is the first thing anyone at that company would notice."""
+    known = " ".join(str(f.get("value", "")) for f in facts if colleague in str(f.get("value", "")))
+    return bool(_SENIOR_TITLE.search(known)) and not _SENIOR_TITLE.search(role)
 
 
 def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], approach: dict[str, Any],
@@ -691,6 +722,7 @@ def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], ap
         "internal_plan_do_not_quote": {k: approach.get(k) for k in ("hook", "pretext", "story") if approach.get(k)},
         "facts_about_recipient": [f.get("value") for f in facts if f.get("value")][:12],
         "known_colleague": colleague or None,
+        "known_colleague_facts": [f.get("value") for f in facts if colleague and colleague in str(f.get("value", ""))][:4] or None,
         "impersonated_tool": tool or None,
         "names_already_used_in_this_conversation": avoid_names or None,
         "rules": SENDER_KIND_RULES[kind] + [
@@ -715,6 +747,9 @@ def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], ap
         used = {w.casefold() for n in (avoid_names or []) for w in n.split()[:1]}
         if not (kind == "colleague" and colleague) and words and words[0].casefold() in used:
             problems.append(f"{model}: reused an earlier sender's first name ({name})")
+            continue
+        if kind == "colleague" and colleague and _demotes(colleague, str(out.get("role", "")), facts):
+            problems.append(f"{model}: gave {colleague} a role recon contradicts ({out.get('role')})")
             continue
         person = kind != "vendor"            # a vendor may sign as a team ("Acme Account Security")
         if (not words or len(words) > 6 or (person and len(words) < 2)

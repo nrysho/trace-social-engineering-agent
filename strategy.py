@@ -680,8 +680,8 @@ def plan_next_move(
             return {"stop": True, "reason": f"still doubtful after reassuring {reassured} times (scepticism {scepticism}); pivot"}
         return {"intent": "reassure", "include_link": False, "reason": f"doubtful reply (scepticism {scepticism}); reassure before asking"}
     if last_state == "silent":
-        # a cold branch gets one follow-up; a thread they already engaged in gets two before we let it go
-        if nudged < (2 if engaged_count else 1):
+        # one follow-up, cold or engaged: in live runs a second nudge on a quiet thread was ignored every time
+        if nudged < 1:   # live runs: a second nudge on a quiet thread was ignored every time; the touch is better spent elsewhere
             return {"intent": "nudge", "include_link": False, "reason": "no reaction; follow up" + (" on a live thread" if engaged_count else "")}
         return {"stop": True, "reason": "still silent; pivot"}
     if last_state == "engaged" and last_intent == "make_ask":

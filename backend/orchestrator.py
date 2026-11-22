@@ -228,6 +228,21 @@ def _sentences(text):
 _WANTS_LINK = re.compile(r"\b(links?|urls?|page|website|webseite|seite|homepage|landing ?page)\b", re.I)
 
 
+REPLAN_BAND = 0.25   # the model may reorder close options, never lift one the ranking scored far lower
+
+
+def keep_score_band(ordered):
+    """the replan model's order, but nothing it ranks first may score more than REPLAN_BAND below the
+    best option left: the ranking's penalties (no executive request to a founder, no invented colleague)
+    must survive a replan. Order within each band is the model's."""
+    scores = [a.get("score") for a in ordered if isinstance(a.get("score"), (int, float))]
+    if not scores:
+        return list(ordered)
+    floor = max(scores) - REPLAN_BAND
+    strong = [a for a in ordered if not isinstance(a.get("score"), (int, float)) or a["score"] >= floor]
+    return strong + [a for a in ordered if a not in strong]
+
+
 def _refused(text):
     """what the target said they will not do in this thread, judged per sentence so it works in any
     word order ("I don't open attachments", "Die Anhänge öffne ich vorerst nicht")."""
@@ -591,7 +606,7 @@ class Orchestrator:
         if not order:
             return remaining
         rest = [a for i, a in enumerate(remaining) if i not in order]
-        new = [remaining[i] for i in order] + rest
+        new = keep_score_band([remaining[i] for i in order] + rest)
         why = str(out.get("why", ""))[:300]
         self.add_node("hook", "strategist", f"replan: next {new[0].get('pretext')} via {new[0].get('channel')}",
                       why, after_node.id, status="active")

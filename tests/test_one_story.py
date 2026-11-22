@@ -303,5 +303,41 @@ class DeliverAfterCallTests(unittest.TestCase):
         self.assertIn("No internal question".lower(), writer.MOVE_GUIDANCE["deliver"].lower().replace("ask no internal question", "no internal question"))
 
 
+class StoryConsistencyTests(unittest.TestCase):
+    def test_a_vendor_writes_about_its_own_brand_only(self):
+        import writer
+        self.assertEqual(writer.brand_clash("HubSpot Renewals Team", "Microsoft 365 Renewal for revel8"), "Microsoft 365")
+        self.assertEqual(writer.brand_clash("HubSpot Renewals Team", "Your HubSpot renewal"), "")
+        self.assertEqual(writer.brand_clash("Nordic Finance Forum", "We use Slack and Microsoft 365"), "")   # not a vendor
+
+    def test_the_quality_gate_rejects_a_brand_clash(self):
+        import writer
+        with self.assertRaises(ValueError):
+            writer.quality_gate({"subject": "Microsoft 365 Renewal", "body": "Hallo Robert, ..."}, sender_org="HubSpot Renewals Team")
+
+    def test_a_known_founder_is_never_an_assistant(self):
+        import writer
+        facts = [{"value": "Julius Muth is a co-founder of revel8 alongside Tom Müller and Robert Seilbeck."}]
+        self.assertTrue(writer._demotes("Tom Müller", "Executive Assistant", facts))
+        self.assertFalse(writer._demotes("Tom Müller", "Co-Founder & Co-CEO", facts))
+        self.assertFalse(writer._demotes("Anna Berg", "Executive Assistant", facts))   # nothing known about her
+
+    def test_a_replan_cannot_lift_a_penalised_approach(self):
+        model_order = [dict(pretext="meeting_reschedule", score=0.4), dict(pretext="recruiting", score=0.95),
+                       dict(pretext="press_request", score=0.8)]
+        out = [a["pretext"] for a in runner.keep_score_band(model_order)]
+        self.assertEqual(out, ["recruiting", "press_request", "meeting_reschedule"])
+
+    def test_a_replan_may_reorder_close_options(self):
+        model_order = [dict(pretext="press_request", score=0.8), dict(pretext="recruiting", score=0.95)]
+        self.assertEqual([a["pretext"] for a in runner.keep_score_band(model_order)], ["press_request", "recruiting"])
+
+    def test_a_quiet_engaged_thread_gets_one_nudge(self):
+        first = strategy.plan_next_move(turn=3, last_state="silent", engaged_count=1, nudged=0)
+        second = strategy.plan_next_move(turn=4, last_state="silent", engaged_count=1, nudged=1)
+        self.assertEqual(first["intent"], "nudge")
+        self.assertTrue(second.get("stop"))
+
+
 if __name__ == "__main__":
     unittest.main()
