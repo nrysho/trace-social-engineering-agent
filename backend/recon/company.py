@@ -30,6 +30,19 @@ class Aspect:
     queries: list       # company-centric query templates, "{company}" filled in
     seed_paths: tuple   # paths on the company's own domain to read directly
     system: str         # the extraction prompt for this aspect
+    when: object = None  # optional callable(company, domain)->bool; None = always run
+
+
+# investor-name hints: only run the fund aspect when the company looks like an investor.
+# a short operating-company name (e.g. "Ramblr") otherwise fuzzy-matches a same-named
+# fund ("Rambler Investment Fund") and invents a wrong fact; a missed pretext is cheaper
+# than a wrong fact, so gate conservatively even if a keyword-less vc name slips through.
+INVESTOR_HINTS = ("ventures", "venture", "capital", "partners", "equity", "fund", "invest", "vc")
+
+
+def _looks_like_investor(company, domain):
+    blob = f"{company} {domain or ''}".lower()
+    return any(h in blob for h in INVESTOR_HINTS)
 
 
 # --- relationships: who the company works with --------------------------------
@@ -118,9 +131,11 @@ FUND_SYSTEM = (
     "{\"facts\": []}. Otherwise extract: the fund name, the investment stage(s) it backs "
     "(e.g. pre-seed, seed, Series A), the typical ticket or check size, and named portfolio "
     "companies. One short fact each, e.g. 'Writes EUR 0.5-2M seed checks' or 'Portfolio "
-    "includes Personio and Trade Republic'. source_url MUST be copied exactly from a result. "
-    "date is YYYY when stated, else \"\". confidence (0-1) is how sure you are it is a real "
-    "detail of this fund."
+    "includes Personio and Trade Republic'. Extract ONLY when the fund in the result IS the "
+    "company the user named, with the same name; if a result is about a differently-named fund "
+    "(even a close spelling), return nothing for it. source_url MUST be copied exactly from a "
+    "result. date is YYYY when stated, else \"\". confidence (0-1) is how sure you are it is a "
+    "real detail of this fund."
 )
 FUND = Aspect(
     category="network",
@@ -132,6 +147,7 @@ FUND = Aspect(
     ],
     seed_paths=("portfolio", "fund", "investments", "companies", "thesis"),
     system=FUND_SYSTEM,
+    when=_looks_like_investor,  # skip for operating companies, where it invents namesake facts
 )
 
 # every aspect the collector runs; a new kind of company fact is a new entry here
@@ -212,11 +228,13 @@ def collect(company, domain):
     # all company facts across the aspects; [] when there is nothing to go on
     if not company:
         return []
+    # run every aspect, minus any whose `when` gate says it does not apply to this company
+    aspects = [a for a in ASPECTS if a.when is None or a.when(company, domain)]
     # gather each aspect's pages in parallel (http), then extract sequentially (bounded llm)
-    with ThreadPoolExecutor(max_workers=len(ASPECTS)) as ex:
-        pools = list(ex.map(lambda a: _gather(company, domain, a.queries, a.seed_paths), ASPECTS))
+    with ThreadPoolExecutor(max_workers=len(aspects)) as ex:
+        pools = list(ex.map(lambda a: _gather(company, domain, a.queries, a.seed_paths), aspects))
     out = []
-    for aspect, pool in zip(ASPECTS, pools):
+    for aspect, pool in zip(aspects, pools):
         out += _extract_pool(company, pool, aspect.system, aspect.category)
     print(f"  {len(out)} company facts")
     return out
