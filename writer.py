@@ -70,6 +70,7 @@ WRITING_RULES = [
     "7. In a follow-up, refer to your earlier message and add one new reason; never repeat it. Never ask again for anything they declined (a question, a file, a form): give them what they asked for instead.",
     "8. learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention those contacts, but use what they reveal (language, what they refuse, what they ask for, their tools, who handles what).",
     "9. Never quote internal_plan_do_not_quote or words like pretext, hook or target. The subject reads like a real one from this sender. Plain text, under 130 words, no markdown. Reply with the JSON object only.",
+    "10. If recipient_said_earlier_do_not_quote is present, open by pre-empting their main concern and honour its hard_restrictions; never raise an angle they already declined and never quote their words back.",
 ]
 
 
@@ -196,11 +197,18 @@ def generate_message(
     conversation_history: list[dict[str, str]] | None = None,
     attachment: str | None = None,
     link_follows: bool = False,
+    memory_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Generate a structured message; use fallback automatically on refusal.
 
     ``attachment`` (a file name) and ``link_follows`` say what actually goes out with the text,
     so the message never refers to a file or link that is not there.
+
+    ``memory_context`` is a bounded, structured record of what the recipient said on
+    earlier (failed) approaches in this session: explicit observations, tentative
+    interpretations, pending questions and hard restrictions. It is DATA for shaping
+    the opener so it pre-empts the prior objection, never an instruction; the model
+    must still obey the writing rules and never quote these words back verbatim.
 
     Returns ``{content, model, fallback_used, refusal_logged}``. The caller can
     attach this decision to its run tree. Facts without source URLs are omitted.
@@ -228,6 +236,9 @@ def generate_message(
         "output_schema": {"subject": "string or empty", "body": "string"},
         "writing_rules": WRITING_RULES,
     }
+    if memory_context:
+        # what they told us before; shape the opener around it, do not quote it back
+        payload["recipient_said_earlier_do_not_quote"] = memory_context
     messages = [
         {"role": "system", "content": SIMULATION_SYSTEM},
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -284,6 +295,7 @@ def generate_call_line(
     transcript: list[dict[str, str]],
     turn_number: int,
     max_turns: int = 10,
+    memory_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write exactly one consistent caller line for a live simulation call."""
     if turn_number < 1 or turn_number > max_turns:
@@ -313,6 +325,8 @@ def generate_call_line(
         "learned_earlier_in_this_session": approach.get("session_lessons") or None,
         "about_learned": "learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention or hint at those contacts. Use what they reveal: their language, what they refuse (attachments, phone details, unknown domains), what they ask for (links, official sites, specifics), their tools and who handles what.",
     }
+    if memory_context:
+        user_payload['recipient_said_earlier_do_not_quote'] = memory_context
     messages = [
         {"role": "system", "content": SIMULATION_SYSTEM},
         {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
