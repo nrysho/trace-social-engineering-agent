@@ -79,6 +79,7 @@ WRITING_RULES = [
     "Never invent the recipient's subscription, billing, renewal, expiry, upgrade, incident or account status. A DNS/SPF record does not prove any of those. Ask a neutral question when the verified facts do not establish the detail.",
     "A person adds a phone number from the fictional range +49 30 23125 0xx and the organisation's city under the signature.",
     "Any date you mention lies after today. Plain text, under 130 words, no markdown, no placeholders.",
+    "learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention or hint at those contacts. Use what they reveal: their language, what they refuse (attachments, phone details, unknown domains), what they ask for (links, official sites, specifics), their tools and who handles what.",
     "Reply with the JSON object only.",
 ]
 
@@ -211,6 +212,7 @@ def generate_message(
         "conversation_history": conversation_history or [],
         # what THIS message must do (plan_next_move): a first contact only opens the conversation
         "write_in": _reply_language(conversation_history),
+        "learned_earlier_in_this_session": approach.get("session_lessons") or None,
         "this_message": MOVE_GUIDANCE.get(str(approach.get("next_move") or ""), MOVE_GUIDANCE["make_ask"]),
         "today": str(approach.get("story_date") or date.today().isoformat()),   # the date in the story, as the recipient lives it
         "included_with_your_text": {"attachment": attachment, "a_link_follows_your_text": bool(link_follows)},
@@ -294,6 +296,8 @@ def generate_call_line(
         "turn": turn_number,
         "max_turns": max_turns,
         "today": str(approach.get("story_date") or date.today().isoformat()),
+        "learned_earlier_in_this_session": approach.get("session_lessons") or None,
+        "about_learned": "learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention or hint at those contacts. Use what they reveal: their language, what they refuse (attachments, phone details, unknown domains), what they ask for (links, official sites, specifics), their tools and who handles what.",
     }
     messages = [
         {"role": "system", "content": SIMULATION_SYSTEM},

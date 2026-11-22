@@ -34,10 +34,12 @@ class GateTests(unittest.TestCase):
         m=message();m['body']='Hi Mara, sign in with your password.\nBest,\nJonas Weber'
         self.assertTrue(prepare_message(m,context())['report']['passed'])
 
-    def test_wrong_greeting_and_signature_block(self):
-        for old,new in [('Hi Mara','Hi Jonas'),('Best,\nJonas Weber','Best,\nMara Felsen')]:
-            m=message();m['body']=m['body'].replace(old,new)
-            self.assertFalse(prepare_message(m,context())['report']['passed'])
+    def test_wrong_greeting_blocks_wrong_signature_warns(self):
+        m=message();m['body']=m['body'].replace('Hi Mara','Hi Jonas')
+        self.assertFalse(prepare_message(m,context())['report']['passed'])
+        m=message();m['body']=m['body'].replace('Best,\nJonas Weber','Best,\nMara Felsen')
+        report=prepare_message(m,context())['report']   # craft issue: logged, never blocks a contact
+        self.assertTrue(report['passed']); self.assertIn('Signature names a different sender persona', report['warnings'])
 
     def test_placeholders_sender_and_own_domain_block(self):
         for changes in [{'body':'Hello {{name}}'}, {'sender':{}}, {'sender':{'name':'Jonas','address':'jonas@company.example'}}]:

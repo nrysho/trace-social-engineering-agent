@@ -177,6 +177,13 @@ def _next_business_morning(now):
 SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for an implausible one
 
 
+def _lesson(approach, node, reacted, said):
+    """one failed approach, as the next approach and the writer should see it."""
+    outcome = "ignored every contact" if not reacted else (node.outcome or "engaged, then the thread stalled")
+    return {"tried": f"{approach.get('pretext')} via {approach.get('channel')} from a {approach.get('sender_kind', 'outside')} sender",
+            "result": str(outcome)[:200], "they_said": [str(t)[:300] for t in said[-3:]]}
+
+
 def _switch_channel(approach, ranked, silent):
     """after a branch got no reaction at all on a channel, run the next pretext on its best
     other channel (ranked is sorted, so the first match is the best), if it has a plausible one."""
@@ -267,6 +274,8 @@ class Orchestrator:
         self.messages = []                   # sent messages, for the replay viewer bundle
         self.events = {}                     # reactions, for the replay viewer bundle
         self.reactions = 0                   # contacts the target reacted to at all (events or words on a call)
+        self.lessons = []                    # session memory: what each failed approach taught us about this person
+        self._said = []                      # the target's words in the current branch
         self.contact_count = 0               # drives sent_at pacing
         self.story_base = _next_business_morning(datetime.now(timezone.utc))   # people answer at 09:30, not 02:00
 
@@ -389,11 +398,15 @@ class Orchestrator:
 
     def _search(self, profile, sid, approaches, parent_id, ranked=()):
         silent = set()                       # channels a whole branch got no reaction on
-        for approach in approaches:
+        remaining = list(approaches)
+        while remaining:
+            approach = remaining.pop(0)
             if self.budget.exhausted():
                 return False
             approach = _switch_channel(approach, ranked, silent)
-            seen = self.reactions
+            # everything learned earlier in this session travels with the next approach
+            approach = dict(approach, session_lessons=list(self.lessons))
+            seen, self._said = self.reactions, []
             self.budget.new_branch()
             node = self.add_node(
                 "approach", "strategist",
@@ -407,8 +420,44 @@ class Orchestrator:
                 return True
             if self.reactions == seen:
                 silent.add(approach.get("channel"))
+            self.lessons.append(_lesson(approach, node, reacted=self.reactions > seen, said=self._said))
             print(f"  -- branch '{approach.get('pretext')}' stalled; pivoting\n")
+            remaining = self._replan(remaining, node)
         return False
+
+    def _replan(self, remaining, after_node):
+        """after a failed approach, let the model reorder what is left using this session's lessons
+        (who they ignored or refused, what they said about themselves). The rule-based order stays
+        the fallback; the model only reorders, it cannot add approaches or skip the budget."""
+        if not self.use_model or len(remaining) < 2 or not self.lessons:
+            return remaining
+        options = [{"i": i, "pretext": a.get("pretext"), "channel": a.get("channel"), "sender_kind": a.get("sender_kind"),
+                    "story": a.get("story"), "topic": a.get("hook")} for i, a in enumerate(remaining[:8])]
+        prompt = {"target": self._target_dict(), "lessons_from_this_session": self.lessons, "options": options,
+                  "task": "Order the options so the next contact is the most likely to end in an incident (a sign-in, "
+                          "an opened file, an action or internal information), given what failed and what the person "
+                          "said. Avoid repeating a sender kind or channel they refused or ignored; follow any preference "
+                          "they stated (a channel, links instead of files, a language); prefer their own topics. "
+                          'Reply JSON only: {"order": [option numbers], "why": "<one sentence>"}'}
+        try:
+            cfg = self._cfg()
+            raw = _retry_model(lambda: writer._completion(cfg, cfg.primary_model, [
+                {"role": "system", "content": writer.SIMULATION_SYSTEM},
+                {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}]))
+            out = _json_from(raw)
+            order = [i for i in dict.fromkeys(out.get("order", [])) if isinstance(i, int) and 0 <= i < len(options)]
+        except Exception as e:
+            print(f"     replan unavailable ({e}); keeping the ranked order")
+            return remaining
+        if not order:
+            return remaining
+        rest = [a for i, a in enumerate(remaining) if i not in order]
+        new = [remaining[i] for i in order] + rest
+        why = str(out.get("why", ""))[:300]
+        self.add_node("hook", "strategist", f"replan: next {new[0].get('pretext')} via {new[0].get('channel')}",
+                      why, after_node.id, status="active")
+        print(f"     replan: next {new[0].get('pretext')} via {new[0].get('channel')} ({why[:120]})")
+        return new
 
     def _run_branch(self, sid, approach, approach_node):
         """run one approach: a live-call channel goes through the conversation api,
@@ -500,6 +549,8 @@ class Orchestrator:
             self.events.setdefault(contact.id, []).extend(events)
             self.reactions += bool(events)
             reply = next((e.get("body", "") for e in events if e.get("type") == "reply"), "")
+            if reply:
+                self._said.append(reply)
             print(f"     <- {[e.get('type') for e in events] or ['ignored']}  "
                   f"({self.budget.used}/{self.budget.total} touches)")
 
@@ -621,6 +672,8 @@ class Orchestrator:
             heard = turn_r.get("persona_says", "")
             events = turn_r.get("events", [])
             self.events.setdefault(contact.id, []).extend(events)
+            if heard:
+                self._said.append(heard)
             transcript.append({"role": "us", "text": line})
             transcript.append({"role": "them", "text": heard})
             call_record['body'] = '\n'.join(f"{t['role']}: {t['text']}" for t in transcript)
@@ -727,7 +780,9 @@ class Orchestrator:
                 self._personas[key] = writer.generate_sender_persona(
                     self._cfg(), target={**self._target_dict(), "company_domain": self.profile.get("domain", "")},
                     approach=approach, facts=self.profile.get("facts", []),
-                    colleague=writer._first_colleague(self.profile),
+                    # a known coworker fits a favour, a meeting or a shared file; IT and HR staff are invented
+                    colleague=(writer._first_colleague(self.profile)
+                               if approach.get("pretext") not in ("it_helpdesk", "hr_policy") else ""),
                     avoid_names=[q["name"] for q in self._personas.values() if q],
                     tool=(writer.detect_vendor(approach.get("pretext", ""), writer._tool_vectors(self.profile)) or {}).get("brand", ""))
                 p = self._personas[key]
@@ -842,7 +897,7 @@ class Orchestrator:
         text = (text or "").strip()
         if len(text) < 40:                 # too short to carry internal detail
             return None, ""
-        public = [f.get("value", "") for f in self.profile.get("facts", []) if f.get("value")][:12]
+        public = [f.get("value", "")[:160] for f in self.profile.get("facts", []) if f.get("value")][:60]   # all of it: DNS tools are public too
         who = (self.profile.get("name") or "The target").split()[0]
         system = (
             "You review one reply a person sent inside an authorised revel8 security-awareness "
@@ -851,7 +906,8 @@ class Orchestrator:
             "or approval rule, a number (budget, cost, headcount), an internal plan or a colleague's "
             "responsibility. These do NOT count: anything in the public facts, anything the sender's "
             "own message already said, opinions, vague statements (\"costs are high\"), questions, "
-            "pleasantries or refusals, and generic product features anyone could name (an admin console, "
+            "pleasantries or refusals, corrections of the sender ('you are not from our IT', 'X is our CEO'), "
+            "the public roles of founders and executives, and generic product features anyone could name (an admin console, "
             "MFA, single sign-on, 'our IT team') unless they reveal how their company configured or uses them. "
             "Be strict: when unsure, it is not a disclosure. "
             'Reply JSON only: {"disclosure": true|false, "details": ["<each internal detail, one short '

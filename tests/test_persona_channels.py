@@ -131,7 +131,7 @@ class StoryGateTests(unittest.TestCase):
                  {"value": "raised a seed round of EUR 3M", "verified": False, "source_url": "https://c.example"}]
         self.assertEqual(profile_claim_checks("Hi Julius, I follow revel8 closely.", facts).errors, [])
         self.assertIn("Unverified profile fact stated as certain",
-                      profile_claim_checks("Congrats, you raised a seed round of EUR 3M.", facts).errors)
+                      profile_claim_checks("Congrats, you raised a seed round of EUR 3M.", facts).warnings)
 
 
 class EmployeePretextTests(unittest.TestCase):
@@ -158,6 +158,30 @@ class EmployeePretextTests(unittest.TestCase):
             lp = writer.build_landing(pretext, "nordhafen.de")
             page, _ = writer.render_landing_html(pretext=pretext, organization="Nordhafen", title=lp["title"], fields=lp["fields"])
             self.assertEqual(operational_claim_checks(page, []), [], pretext)
+
+
+class SessionMemoryTests(unittest.TestCase):
+    def agent(self):
+        with patch.object(runner, "Revel8Client", return_value=Mock()):
+            return runner.Orchestrator("tom", use_model=True)
+
+    def test_a_failed_branch_leaves_a_lesson_with_their_words(self):
+        node = Mock(outcome="Scepticism 8/10: asks for an official website")
+        lesson = runner._lesson(dict(pretext="investor_intro", channel="linkedin_message", sender_kind="outsider"),
+                                node, reacted=True, said=["I don't open PDFs from first-time contacts, send a link."])
+        self.assertIn("investor_intro", lesson["tried"])
+        self.assertIn("PDFs", lesson["they_said"][0])
+        silent = runner._lesson(dict(pretext="vendor_notice", channel="email"), node, reacted=False, said=[])
+        self.assertEqual(silent["result"], "ignored every contact")
+
+    def test_replan_follows_the_model_and_falls_back_on_failure(self):
+        agent = self.agent(); agent.lessons = [{"tried": "x", "result": "ignored every contact", "they_said": []}]
+        remaining = [dict(pretext="a"), dict(pretext="b"), dict(pretext="c")]
+        with patch.object(agent, "_cfg", return_value=Mock(primary_model="m")), \
+                patch.object(runner.writer, "_completion", return_value='{"order": [2, 0], "why": "they ignore mail"}'):
+            self.assertEqual([a["pretext"] for a in agent._replan(remaining, Mock(id="n1"))], ["c", "a", "b"])
+        with patch.object(agent, "_cfg", side_effect=RuntimeError("no key")):
+            self.assertEqual(agent._replan(remaining, Mock(id="n1")), remaining)
 
 
 class MaterialTests(unittest.TestCase):

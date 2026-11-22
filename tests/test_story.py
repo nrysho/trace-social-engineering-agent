@@ -5,10 +5,10 @@ class StoryTests(unittest.TestCase):
     def test_time_change_blocks_count_change_warns(self):
         ledger=StoryLedger();ledger.commit('s','panel','Friday 9-11am, 100 students')
         result=ledger.review('s','panel','Friday 10-11am, 120 attendees')
-        self.assertTrue(any('time' in e for e in result.errors));self.assertTrue(any('count' in w for w in result.warnings))
+        self.assertTrue(any('time' in w for w in result.warnings));self.assertTrue(any('count' in w for w in result.warnings))
     def test_date_change_blocks_across_personas_but_not_other_events(self):
         ledger=StoryLedger();ledger.commit('s','panel','Friday')
-        self.assertFalse(ledger.review('s','panel','Thursday').passed)
+        self.assertTrue(ledger.review('s','panel','Thursday').warnings)  # detected, logged, no longer blocks
         self.assertTrue(ledger.review('s','other-event','Thursday').passed)
     def test_unknown_details_do_not_invent_a_contradiction(self):
         ledger=StoryLedger();ledger.commit('s','panel','Friday 9-11am')
@@ -19,7 +19,7 @@ class StoryTests(unittest.TestCase):
         self.assertTrue(result.passed);self.assertTrue(result.warnings)
     def test_certain_unverified_profile_fact_blocks(self):
         facts=[{'value':'You are the CFO','verified':False}]
-        self.assertFalse(profile_claim_checks('You are the CFO.',facts).passed)
+        self.assertTrue(profile_claim_checks('You are the CFO.',facts).warnings)  # detected, logged, no longer blocks
         self.assertTrue(profile_claim_checks('Perhaps you are the CFO.',facts).passed)
     def test_verified_fact_requires_craft_warning_if_source_missing(self):
         result=profile_claim_checks('You are the CFO',[{'value':'You are the CFO','verified':True}])

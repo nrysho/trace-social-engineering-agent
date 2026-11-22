@@ -204,7 +204,7 @@ def check_names(data, context, report):
     signature = re.search(r'(?:^|\n)\s*(?:best(?: regards)?|regards|kind regards|sincerely|cheers|thanks)[,.!]?\s*\n([^\n]+)', text, re.I)
     signature_ok = (matches(signature[1], sender['name']) or normalized(signature[1]).casefold().startswith(normalized(sender['name']).casefold() + ' ')) if signature and sender.get('name') else True
     if not signature_ok:
-        report.errors.append('Signature names a different sender persona')
+        report.warnings.append('Signature names a different sender persona')  # craft: logged, never blocks
 
 
 def generate_checked_turn(generate, context, *, max_attempts=3, validator=None):

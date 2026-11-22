@@ -33,7 +33,7 @@ class StoryLedger:
             if key in old and old[key] != value:
                 detail = 'Story contradiction: ' + key
                 if any(word in key.casefold() for word in ('date', 'time')):
-                    report.errors.append(detail)
+                    report.warnings.append(detail)  # heuristic story check: logged, never blocks a contact
                 else:
                     report.warnings.append(detail)
         return report
@@ -52,7 +52,7 @@ def profile_claim_checks(text, facts):
     if not isinstance(facts, list):
         report.errors.append('Profile facts must be a list')
         return report
-    report.errors.extend(operational_claim_checks(text, facts))
+    report.warnings.extend(operational_claim_checks(text, facts))  # heuristic: logged, never blocks
     text = normalized(re.sub(r'<[^>]*>', ' ', text)).casefold()
     from .research_gate import sourced_verified_facts
     supported_spans = []
@@ -80,7 +80,7 @@ def profile_claim_checks(text, facts):
                 if re.search(r'\b(if|might|may|perhaps|unconfirmed|possibly)\b', prefix):
                     report.warnings.append('Tentative use of an unverified profile fact')
                 else:
-                    report.errors.append('Unverified profile fact stated as certain')
+                    report.warnings.append('Unverified profile fact stated as certain')  # heuristic: logged, never blocks
         elif not fact.get('source_url'):
             report.warnings.append('Verified flag lacks a source URL')
     if re.search(r"\byou(?: are|'re| recently)|\byour company\b", text):

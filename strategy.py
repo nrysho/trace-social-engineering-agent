@@ -477,8 +477,10 @@ def evaluate_reaction(
 # ---------------------------------------------------------------------------
 
 SCEPTICISM_ASK_MAX = 4        # at or below: trusting enough to make the ask now
-SCEPTICISM_REASSURE_MIN = 7   # at or above: real doubt; reassure once, then pivot
-SCEPTICISM_GIVE_UP = 9        # at or above: they called it a scam; reassuring only wastes a touch
+SCEPTICISM_REASSURE_MIN = 7   # at or above: real doubt; reassure before asking
+SCEPTICISM_GIVE_UP = 10       # an outright refusal ("this is a scam"): stop
+REASSURE_LIMIT = 2            # reassurances per branch: a live, doubtful thread beats a cold new one,
+                              # because the target remembers every failed pivot in the session
 
 # Cues from practice replies. Tom: "a few things don't match", "send it from your official
 # address", "I won't open the attachment until that's clear". Julius: "which date", "sounds interesting".
@@ -549,8 +551,8 @@ def plan_next_move(
         return {"stop": True, "reason": f"they rejected it outright (scepticism {scepticism}); pivot"}
     doubtful = last_state == "suspicious" or (scepticism is not None and scepticism >= SCEPTICISM_REASSURE_MIN)
     if doubtful:
-        if reassured >= 1:
-            return {"stop": True, "reason": f"still doubtful after reassuring once (scepticism {scepticism}); pivot"}
+        if reassured >= REASSURE_LIMIT:
+            return {"stop": True, "reason": f"still doubtful after reassuring {reassured} times (scepticism {scepticism}); pivot"}
         return {"intent": "reassure", "include_link": False, "reason": f"doubtful reply (scepticism {scepticism}); reassure before asking"}
     if last_state == "silent":
         if turn <= 2:
