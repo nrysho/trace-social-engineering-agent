@@ -674,8 +674,8 @@ def generate_sender_persona(config: "ModelConfig", *, target: dict[str, Any], ap
 # ----- the look: landing pages and vendor mails as the sender would really make them -----
 # revel8 renders every eval mail (~700 px) and page (~1200 px) in Chrome with scripts off and nothing
 # loaded from the network, then rates: fits the sender, right format, clean, details hold. So the HTML
-# is self-contained (inline styles, system fonts, no images): a text wordmark instead of a logo, a
-# footer, and every link shown with the address it really goes to.
+# is self-contained (inline styles, system fonts, and only registered local image assets): a
+# context-matched page heading, accessible form controls, and a consistent footer.
 _BRAND_COLOURS = ("#1a73e8", "#0b6e4f", "#5b3cc4", "#c2410c", "#0f766e", "#1e3a8a", "#9d174d", "#334155")
 _FIELD_LABELS = {"email": "Work email", "password": "Password", "name": "Full name", "availability": "Your availability",
                  "username": "Username", "phone": "Phone number", "company": "Company", "job_title": "Job title",
@@ -693,6 +693,52 @@ _PAGE_COPY = {   # heading, text, button: what this kind of page says (never the
     "recruiting": ("Candidate profile", "Sign in with your work account to view the candidate profile and CV.", "View profile"),
     "investor_intro": ("Data room", "Sign in with your work account to view our thesis, portfolio and the introduction deck.", "Enter data room"),
     "meeting_reschedule": ("Confirm the new time", "Sign in to confirm the updated meeting details.", "Confirm"),
+}
+_PAGE_COPY_DE = {
+    "security_alert": ("Anmeldung bestätigen", "Melden Sie sich an, um die Aktivität zu prüfen und Ihr Konto zu schützen.", "Weiter"),
+    "vendor_notice": ("Konto ansehen", "Melden Sie sich an, um Ihre Kontoinformationen aufzurufen.", "Anmelden"),
+    "document_share": ("Ein Dokument wurde geteilt", "Melden Sie sich mit Ihrem Arbeitskonto an, um das Dokument zu öffnen.", "Dokument öffnen"),
+    "invoice_approval": ("Rechnung 2026-1184 bestätigen", "Bestätigen Sie die Rechnung und nennen Sie uns die zuständige Ansprechperson.", "Rechnung bestätigen"),
+    "hr_policy": ("Aktualisierte Richtlinie bestätigen", "Melden Sie sich an, um die aktualisierte Richtlinie zu lesen und zu bestätigen.", "Anmelden"),
+    "it_helpdesk": ("Gerät bestätigen", "Melden Sie sich mit Ihrem Arbeitskonto an und geben Sie den VPN-Client Ihres Geräts an.", "Gerät bestätigen"),
+    "press_request": ("Zum Artikel anmelden", "Dieser Artikel ist für registrierte Leserinnen und Leser. Melden Sie sich an, um weiterzulesen.", "Weiterlesen"),
+    "speaker_invite": ("Rückmeldung zur Einladung", "Vielen Dank für Ihr Interesse. Teilen Sie uns mit, wann Sie verfügbar sind.", "Rückmeldung senden"),
+    "recruiting": ("Kandidatenprofil", "Melden Sie sich an, um das Kandidatenprofil und den Lebenslauf aufzurufen.", "Profil ansehen"),
+    "investor_intro": ("Datenraum", "Melden Sie sich an, um die Unterlagen und das Intro-Deck aufzurufen.", "Zum Datenraum"),
+    "meeting_reschedule": ("Neuen Termin bestätigen", "Melden Sie sich an, um die aktualisierten Termindetails zu bestätigen.", "Bestätigen"),
+}
+_PAGE_UI = {
+    "security_alert": ("ACCOUNT ACCESS", "Account security", "Sign-in details", "Account help", "Use the account associated with this service."),
+    "vendor_notice": ("SERVICE ACCOUNT", "Account", "Account details", "Account help", "Use the account associated with this service."),
+    "document_share": ("SHARED DOCUMENT", "Shared files", "Sign-in details", "Document access", "Use your work account to open the shared file."),
+    "invoice_approval": ("INVOICE REVIEW", "Invoices", "Approval contact", "Invoice details", "Confirm which person handles invoice approvals for your organisation."),
+    "hr_policy": ("PEOPLE PORTAL", "People", "Sign-in details", "Policy acknowledgement", "Review the policy and record your acknowledgement."),
+    "it_helpdesk": ("DEVICE CHECK", "IT services", "Device details", "Service desk", "Enter the details requested for this device check."),
+    "press_request": ("READER ACCESS", "Articles", "Reader sign-in", "Member access", "Sign in with your reader account for this publication."),
+    "speaker_invite": ("EVENT RSVP", "Events", "Your response", "About your response", "Share your availability so the events team can follow up."),
+    "recruiting": ("CANDIDATE PORTAL", "Candidates", "Candidate sign-in", "Candidate profile", "Use your account to view the candidate material."),
+    "investor_intro": ("INVESTOR DATA ROOM", "Data room", "Account sign-in", "Shared materials", "Sign in to view the shared materials."),
+    "meeting_reschedule": ("CALENDAR UPDATE", "Calendar", "Meeting details", "Updated meeting", "Review the details before confirming the change."),
+}
+_PAGE_UI_DE = {
+    "security_alert": ("KONTOZUGANG", "Kontosicherheit", "Anmeldedaten", "Kontohilfe", "Verwenden Sie das Konto, das mit diesem Dienst verknüpft ist."),
+    "vendor_notice": ("SERVICEKONTO", "Konto", "Kontodaten", "Kontohilfe", "Verwenden Sie das Konto, das mit diesem Dienst verknüpft ist."),
+    "document_share": ("GETEILTES DOKUMENT", "Geteilte Dateien", "Anmeldedaten", "Dokumentzugriff", "Verwenden Sie Ihr Arbeitskonto, um die geteilte Datei zu öffnen."),
+    "invoice_approval": ("RECHNUNGSPRÜFUNG", "Rechnungen", "Zuständige Ansprechperson", "Rechnungsdetails", "Geben Sie an, wer bei Ihnen für Rechnungsfreigaben zuständig ist."),
+    "hr_policy": ("PERSONALPORTAL", "Personal", "Anmeldedaten", "Richtlinienbestätigung", "Lesen Sie die Richtlinie und bestätigen Sie Ihre Kenntnisnahme."),
+    "it_helpdesk": ("GERÄTEPRÜFUNG", "IT-Service", "Gerätedaten", "Service Desk", "Geben Sie die für diese Geräteprüfung angefragten Informationen ein."),
+    "press_request": ("LESERZUGANG", "Artikel", "Leser-Anmeldung", "Mitgliederzugang", "Melden Sie sich mit Ihrem Konto für diese Publikation an."),
+    "speaker_invite": ("EVENT-RÜCKMELDUNG", "Veranstaltungen", "Ihre Rückmeldung", "Zu Ihrer Rückmeldung", "Teilen Sie Ihre Verfügbarkeit, damit sich das Event-Team bei Ihnen melden kann."),
+    "recruiting": ("BEWERBUNGSPORTAL", "Bewerbungen", "Kandidaten-Anmeldung", "Kandidatenprofil", "Melden Sie sich an, um die Bewerbungsunterlagen aufzurufen."),
+    "investor_intro": ("INVESTOREN-DATENRAUM", "Datenraum", "Konto-Anmeldung", "Geteilte Unterlagen", "Melden Sie sich an, um die geteilten Unterlagen aufzurufen."),
+    "meeting_reschedule": ("KALENDER-UPDATE", "Kalender", "Termindetails", "Aktualisierter Termin", "Prüfen Sie die Angaben, bevor Sie die Änderung bestätigen."),
+}
+_FIELD_LABELS_DE = {
+    "email": "Geschäftliche E-Mail-Adresse", "password": "Passwort", "name": "Vollständiger Name",
+    "availability": "Ihre Verfügbarkeit", "username": "Benutzername", "phone": "Telefonnummer",
+    "company": "Unternehmen", "job_title": "Position",
+    "internal_tool": "Welche Tools möchten Sie im Gespräch thematisieren?",
+    "approver": "Wer ist bei Ihnen für diese Rechnung zuständig?", "vpn_client": "VPN-Client auf diesem Gerät",
 }
 
 
@@ -753,31 +799,79 @@ def render_landing_html(*, pretext: str, organization: str, title: str, fields: 
     """A self-contained page for this sender and occasion. Returns (html, visible text)."""
     org = organization.strip() or "Account services"
     colour = _brand_colour(org)
-    heading, text, button = _PAGE_COPY.get(pretext, (title, "Please fill in the form below.", "Continue"))
+    copy = _PAGE_COPY_DE if german else _PAGE_COPY
+    ui_copy = _PAGE_UI_DE if german else _PAGE_UI
+    fallback_text = "Bitte füllen Sie das folgende Formular aus." if german else "Please fill in the form below."
+    fallback_button = "Weiter" if german else "Continue"
+    heading, text, button = copy.get(pretext, (title, fallback_text, fallback_button))
     brand = brand_of(org)
     tab_title = BRAND_TAB_TITLES.get(brand) if brand and "password" in fields else None
-    tab_title = tab_title or f"{title} – {org}"
-    # styled like links (the rating looks at a picture); no href, so nothing points at an unregistered page
-    labels = ["Privacy", "Terms", "Help"] + (["Imprint"] if german else [])
-    footer_links = "".join(f' · <span style="color:{colour};text-decoration:underline">{x}</span>' for x in labels)
-    font = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+    tab_title = (f"{heading} – {org}" if german else f"{title} – {org}") if not tab_title or german else tab_title
+    labels = ["Datenschutz", "Nutzungsbedingungen", "Hilfe", "Impressum"] if german else ["Privacy", "Terms", "Help"]
+    footer_links = " <span aria-hidden=\"true\">·</span> ".join(html.escape(x) for x in labels)
+    field_labels = _FIELD_LABELS_DE if german else _FIELD_LABELS
+    autocomplete = {"email": "username", "password": "current-password", "name": "name", "phone": "tel"}
     inputs = "".join(
-        f'<label style="display:block;font-size:14px;color:#374151;margin:16px 0 6px">'
-        f'{html.escape(_FIELD_LABELS.get(f, f.replace("_", " ").capitalize()))}</label>'
-        f'<input name="{html.escape(f, quote=True)}" type="{"password" if f == "password" else "email" if f == "email" else "text"}" '
-        f'style="width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;font-family:inherit">'
+        f'<label class="field"><span>{html.escape(field_labels.get(f, f.replace("_", " ").capitalize()))}</span>'
+        f'<input name="{html.escape(f, quote=True)}" type="{"password" if f == "password" else "email" if f == "email" else "tel" if f == "phone" else "text"}" '
+        f'autocomplete="{autocomplete.get(f, "off")}" aria-label="{html.escape(field_labels.get(f, f.replace("_", " ").capitalize()), quote=True)}"></label>'
         for f in fields[:20])
     year = date.today().year
+    locale = "de" if german else "en"
+    home = "Startseite" if german else "Home"
+    ui = ui_copy.get(pretext)
+    if ui:
+        browser_label, section, form_heading, help_label, help_text = ui
+    else:
+        browser_label = "SERVICE-ZUGANG" if german else "SERVICE ACCESS"
+        section = "Konto" if german else "Account"
+        form_heading = section
+        help_label = "Hilfe" if german else "Help"
+        help_text = ("Bei Fragen wenden Sie sich bitte an Ihre Ansprechperson." if german
+                     else "If you have questions, contact your usual point of contact.")
+    header_note = "Serviceportal" if german else "Service centre"
+    note = "Ihre Angaben werden für diese Anfrage verwendet." if german else "Your details are used for this request."
     page = (
-        f'<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{html.escape(tab_title)}</title></head>'
-        f'<body style="margin:0;background:#f3f4f6;font-family:{font};color:#111827">'
-        f'<div style="max-width:1200px;margin:0 auto;padding:28px 40px">{_wordmark(org, colour, logo_src=logo_src)}</div>'
-        f'<main style="max-width:440px;margin:24px auto 0;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:36px 40px">'
-        f'<h1 style="font-size:24px;margin:0 0 10px;font-weight:600">{html.escape(heading)}</h1>'
-        f'<p style="font-size:15px;line-height:1.55;color:#4b5563;margin:0">{html.escape(text)}</p>'
-        f'<form>{inputs}<button type="submit" style="margin-top:24px;width:100%;padding:12px;border:0;border-radius:8px;'
-        f'background:{colour};color:#fff;font-size:15px;font-weight:600;font-family:inherit">{html.escape(button)}</button></form></main>'
-        f'<footer style="text-align:center;font-size:12px;color:#6b7280;margin:32px 0">© {year} {html.escape(org)}{footer_links}</footer>'
+        f'<!doctype html><html lang="{locale}"><head><meta charset="utf-8">'
+        f'<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="{colour}">'
+        f'<title>{html.escape(tab_title)}</title><style>'
+        f':root{{--brand:{colour};--ink:#17212f;--muted:#647184;--line:#e3e8ef;--surface:#fff;--canvas:#f5f7fa}}'
+        '*{box-sizing:border-box}html,body{min-height:100%;margin:0}body{background:var(--canvas);color:var(--ink);'
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}'
+        '.site-header{background:#fff;border-bottom:1px solid var(--line)}'
+        '.header-inner{max-width:1120px;margin:auto;padding:20px 32px;display:flex;align-items:center;justify-content:space-between;gap:20px}'
+        '.header-note,.crumbs,.footer{font-size:13px;color:var(--muted)}.header-note{display:flex;align-items:center;gap:9px}'
+        '.dot{width:8px;height:8px;border-radius:50%;background:#24a06b;display:inline-block}'
+        '.page{max-width:1120px;margin:0 auto;padding:34px 32px 52px}.crumbs{display:flex;gap:9px;margin:0 0 24px}'
+        '.crumb-sep{color:#a0aaba}.content{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:stretch}'
+        '.card,.aside{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 26px rgba(24,39,60,.045)}'
+        '.card{max-width:720px;width:100%;padding:38px 42px}.eyebrow{color:var(--brand);font-size:12px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin:0 0 12px}'
+        'h1{font-size:28px;line-height:1.25;letter-spacing:-.025em;margin:0 0 11px;font-weight:650}.intro{font-size:15px;line-height:1.65;color:#556275;margin:0;max-width:590px}'
+        '.form-heading{font-size:14px;font-weight:650;margin:28px 0 0}.field{display:block;margin-top:17px;font-size:13px;font-weight:600;color:#344154}'
+        '.field input{display:block;width:100%;height:46px;margin-top:7px;padding:0 13px;border:1px solid #cbd3de;border-radius:7px;background:#fff;color:var(--ink);font-size:15px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s}'
+        '.field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(23,33,47,.10)}'
+        '.submit{width:100%;height:47px;margin-top:25px;border:0;border-radius:7px;background:var(--brand);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}'
+        '.submit:hover{filter:brightness(.95)}.form-note{display:flex;gap:9px;align-items:flex-start;margin:17px 0 0;color:var(--muted);font-size:12px;line-height:1.5}'
+        '.lock{width:11px;height:8px;margin:5px 2px 0;border:1.5px solid var(--brand);border-radius:2px;position:relative;flex:none}'
+        '.lock:before{content:"";position:absolute;width:5px;height:5px;left:1.5px;top:-6px;border:1.5px solid var(--brand);border-bottom:0;border-radius:4px 4px 0 0}'
+        '.aside{align-self:start;padding:27px 25px;display:flex;flex-direction:column;justify-content:center;min-height:0}'
+        '.aside-icon{width:40px;height:40px;border-radius:11px;background:#eef3fa;color:var(--brand);display:grid;place-items:center;font-size:18px;font-weight:700;margin-bottom:18px}'
+        '.aside h2{font-size:16px;margin:0 0 8px}.aside p{font-size:13px;line-height:1.6;color:var(--muted);margin:0}'
+        '.footer{max-width:1120px;margin:0 auto;padding:0 32px 26px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}'
+        '.footer-links{display:flex;gap:8px;flex-wrap:wrap}'
+        '@media(max-width:760px){.header-inner{padding:17px 20px}.page{padding:25px 20px 36px}.content{grid-template-columns:1fr}.card{max-width:none;padding:30px 25px}.aside{min-height:0;padding:22px}.footer{padding:0 20px 24px}h1{font-size:25px}}'
+        '@media(max-width:420px){.header-note{font-size:12px}.header-inner{gap:12px}.card{padding:26px 20px}.footer{font-size:12px}}'
+        '</style></head><body>'
+        f'<header class="site-header"><div class="header-inner">{_wordmark(org, colour, logo_src=logo_src)}'
+        f'<div class="header-note"><span class="dot" aria-hidden="true"></span>{header_note}</div></div></header>'
+        f'<main class="page"><nav class="crumbs" aria-label="Breadcrumb"><span>{home}</span><span class="crumb-sep">/</span><span>{section}</span></nav>'
+        f'<div class="content"><section class="card"><p class="eyebrow">{browser_label}</p>'
+        f'<h1>{html.escape(heading)}</h1><p class="intro">{html.escape(text)}</p>'
+        f'<form autocomplete="on"><p class="form-heading">{form_heading}</p>{inputs}'
+        f'<button class="submit" type="submit">{html.escape(button)}</button>'
+        f'<p class="form-note"><span class="lock" aria-hidden="true"></span><span>{note}</span></p></form></section>'
+        f'<aside class="aside"><div class="aside-icon" aria-hidden="true">?</div><h2>{help_label}</h2><p>{help_text}</p></aside></div></main>'
+        f'<footer class="footer"><span>© {year} {html.escape(org)}</span><span class="footer-links">{footer_links}</span></footer>'
         f'</body></html>')
     return page, f"{heading}. {text}"
 

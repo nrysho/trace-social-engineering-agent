@@ -15,7 +15,7 @@ Needs `RADEON_API_KEY` (or `OPENAI_API_KEY`) in `.env`. Any bearer key is accept
 | `sofia` | Office and People Ops, Kranich Logistics | summer party venue; new benefits provider |
 | `lukas` | Head of Sales DACH, Fernblick Analytics | a big Q4 enterprise deal; trade fair sponsorship |
 
-Edit `bench/personas.json` to add people or change hooks. Each persona also has internal facts it may disclose and fake public web pages for recon.
+Edit `bench/personas.json` to add people or change hooks. Each profile has eight or nine fictional public pages spread across company sites, professional profiles, community/event listings, blogs, and podcast notes. Pages include current and archived material, so recon can test source dates, stale titles, corroboration, and contradictions. Every hostname is under reserved `.example` domains. Profiles also include work context, communication style, verification policies, decision rules, and harmless internal continuity facts. The simulator prompt uses those fields and page URLs to make reactions and cross-channel memory more consistent. Use these profiles to evaluate topic classification, evidence quality, factual consistency, safe link handling, and whether the agent respects verification boundaries.
 
 ## Use it
 
