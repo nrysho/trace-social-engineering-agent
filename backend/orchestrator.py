@@ -233,7 +233,7 @@ def _echoes_sender(detail, sent):
     """does this 'detail' only repeat what we said? its distinctive words (names, products, numbers)
     all appear in our own messages."""
     marks = [w for w in re.findall(r"[A-Za-z0-9ÄÖÜäöüß][\w\-.]{2,}", str(detail))
-             if any(c.isupper() or c.isdigit() for c in w)]
+             if any(c.isupper() or c.isdigit() for c in w) and not re.fullmatch(r"[A-Z]{2,4}", w)]   # VPN, IT, CRM are generic
     said = str(sent or "").casefold()
     return bool(marks) and all(w.casefold() in said for w in marks)
 
