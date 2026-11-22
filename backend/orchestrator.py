@@ -602,7 +602,7 @@ class Orchestrator:
                     "story": a.get("story"), "topic": a.get("hook")} for i, a in enumerate(remaining[:8])]
         prompt = {"target": self._target_dict(), "lessons_from_this_session": self.lessons, "options": options,
                   "task": "Order the options so the next contact is the most likely to end in an incident (a sign-in, "
-                          "an opened file, an action or internal information), given what failed and what the person "
+                          "internal information, or an act such as approving or changing a detail; an opened file or link is only a step), given what failed and what the person "
                           "said. Avoid repeating a sender kind or channel they refused or ignored; follow any preference "
                           "they stated (a channel, links instead of files, a language); prefer their own topics. "
                           'Reply JSON only, "order" as a list of plain integers: {"order": [2, 0, 1], "why": "<one sentence>"}'}
@@ -1147,7 +1147,7 @@ class Orchestrator:
 
     def _note_judged(self, sid, node, kind, reason):
         """record a disclosure only our judge saw. It never ends the run: revel8 decides it at scoring,
-        and a confirmed incident (an opened file, a submitted page) is still worth chasing. On the bench
+        and a confirmed objective (a secret or an internal field submitted on a page) is still worth chasing. On the bench
         our judge flagged disclosures the bench did not count; stopping on them ended runs empty."""
         if not kind:
             return
