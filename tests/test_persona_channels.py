@@ -232,6 +232,17 @@ class LiveThreadTests(unittest.TestCase):
             self.assertTrue(agent._publicly_findable("Mira Hansen is the People & Culture contact"))
             self.assertFalse(agent._publicly_findable("Their VPN client is Cisco AnyConnect"))
 
+    def test_no_date_before_the_story_date(self):
+        self.assertEqual(writer._past_dates("Panel am 29. Oktober 2026 auf der it-sa", "2026-11-23"), ["29. Oktober 2026"])
+        self.assertEqual(writer._past_dates("Berlin, March 17-19, 2027", "2026-11-23"), [])
+        with self.assertRaises(ValueError):
+            writer.quality_gate({"subject": "", "body": "Hi Julius,\n\nthe panel is on 29.10.2026."}, today="2026-11-23")
+
+    def test_contacts_skip_the_weekend(self):
+        from datetime import datetime
+        days = [runner._business_day(datetime(2026, 11, 26, 8, 30), i).weekday() for i in range(6)]
+        self.assertTrue(all(d < 5 for d in days))
+
     def test_what_they_refuse_is_not_sent_again(self):
         self.assertEqual(runner._refused("I also don't open attachments or fill in forms from people I don't know."), {"files", "links"})
         self.assertEqual(runner._refused("Ich öffne keine Anhänge von Unbekannten."), {"files"})

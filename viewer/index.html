@@ -196,6 +196,7 @@ table.res tbody tr.click:hover { background: #17263b; }
   <select id="runPick" class="replay-only" aria-label="Run"></select>
   <div id="chips" class="chips replay-only"></div>
   <label class="toggle replay-only"><input type="checkbox" id="ghosts"> show rejected options</label>
+  <label class="toggle replay-only" title="Reload this run and the run list every 5 seconds while the agent is running"><input type="checkbox" id="live" checked> live</label>
 </header>
 <section id="results" class="page" aria-label="Results"></section>
 <section id="progress" class="page" aria-label="Progress"></section>
@@ -1067,6 +1068,35 @@ for (const [name, tab] of Object.entries(VIEWS)) $(tab).addEventListener("click"
 
 $("runPick").addEventListener("change", (e) => openRun(e.target.value));
 $("ghosts").addEventListener("change", () => { drawTree(); drawChips(); });
+
+// ---------- live: follow a run while the agent is still writing it ----------
+// The agent saves the run after every contact. Every 5 s, reload the open run; if it grew and you
+// were watching the latest step, jump to the newest node. New runs join the list every 15 s.
+let liveTick = 0;
+setInterval(async () => {
+  if (!$("live").checked || document.body.dataset.view !== "replay" || !run || timer) return;
+  const id = $("runPick").value;
+  liveTick += 1;
+  try {
+    if (liveTick % 3 === 0) {
+      const runs = await getJSON("/api/runs");
+      const known = new Set([...$("runPick").options].map((o) => o.value));
+      if (runs.some((r) => !known.has(r.id))) { await loadRuns(id); return; }
+    }
+    const fresh = await getJSON(`/api/runs/${encodeURIComponent(id)}`);
+    if ((fresh.nodes || []).length === run.nodes.length && JSON.stringify(fresh.events || {}) === JSON.stringify(run.events)) return;
+    const atEnd = step >= order.length;
+    const keep = selected?.id;
+    run = fresh; run.nodes = run.nodes || []; run.messages = run.messages || []; run.events = run.events || {};
+    order = [...run.nodes].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+    $("step").max = Math.max(1, order.length);
+    if (atEnd) setStep(order.length);
+    else select(order.find((n) => n.id === keep) || order[order.length - 1]);
+    const opt = [...$("runPick").options].find((o) => o.value === id);
+    const touches = run.nodes.filter((n) => n.level === "contact").length;
+    if (opt) opt.textContent = `${run.profile?.name || id} · ${touches} touch${touches === 1 ? "" : "es"}${run.nodes.some((n) => n.status === "incident") ? " · ★ incident" : ""} · live`;
+  } catch (e) { /* the run file is being rewritten; try again next tick */ }
+}, 5000);
 $("first").addEventListener("click", () => { stopPlay(); setStep(1); });
 $("prev").addEventListener("click", () => { stopPlay(); setStep(step - 1); });
 $("next").addEventListener("click", () => { stopPlay(); setStep(step + 1); });

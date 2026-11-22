@@ -218,7 +218,7 @@ def generate_message(
         "conversation_history": conversation_history or [],
         # what THIS message must do (plan_next_move): a first contact only opens the conversation
         "write_in": _reply_language([h.get("text", "") for h in (conversation_history or [])
-                                     if h.get("from") == target.get("name")], target.get("country", "")),
+                                     if h.get("from") == target.get("name")]),
         "learned_earlier_in_this_session": approach.get("session_lessons") or None,
         "this_message": MOVE_GUIDANCE.get(str(approach.get("next_move") or ""), MOVE_GUIDANCE["make_ask"]),
         "today": str(approach.get("story_date") or date.today().isoformat()),   # the date in the story, as the recipient lives it
@@ -244,6 +244,7 @@ def generate_message(
             forbidden_domains=[target.get("company_domain", "")],
             recipient_name=str(target.get("name", "")),
             sender_name=str(sender.get("name", "")),
+            today=str(approach.get("story_date") or ""),
         )
         return content
 
@@ -324,7 +325,8 @@ def generate_call_line(
         raw, model = primary_text, config.primary_model
     content = _parse_json(raw)
     content.setdefault("body", "")
-    quality_gate(content, sender_address=str(sender.get("email", "")), forbidden_domains=[target.get("company_domain", "")])
+    quality_gate(content, sender_address=str(sender.get("email", "")), forbidden_domains=[target.get("company_domain", "")],
+                 today=str(approach.get("story_date") or ""))
     return {"content": content, "model": model, "fallback_used": refused, "refusal_logged": refused}
 
 
@@ -339,6 +341,47 @@ INTERNAL_WORDING = (
 GREETING = re.compile(r"^\s*(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))\s+([A-ZÄÖÜ][\w'’-]+)", re.I)
 
 
+_MONTHS = {m: i for i, names in enumerate((
+    ("january", "januar", "jan"), ("february", "februar", "feb"), ("march", "märz", "maerz", "mar"), ("april", "apr"),
+    ("may", "mai"), ("june", "juni", "jun"), ("july", "juli", "jul"), ("august", "aug"),
+    ("september", "sep", "sept"), ("october", "oktober", "oct", "okt"), ("november", "nov"),
+    ("december", "dezember", "dec", "dez")), 1) for m in names}
+_MONTH_RE = "|".join(sorted(_MONTHS, key=len, reverse=True))
+_DATE_PATTERNS = (
+    re.compile(rf"\b(\d{{1,2}})\.?\s*(?:-\s*\d{{1,2}}\.?\s*)?({_MONTH_RE})\.?\s+(\d{{4}})", re.I),            # 29. Oktober 2026
+    re.compile(rf"\b({_MONTH_RE})\.?\s+(\d{{1,2}})(?:\s*[-–]\s*\d{{1,2}})?(?:st|nd|rd|th)?,?\s+(\d{{4}})", re.I),  # March 17-19, 2027
+    re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b"),                                                      # 29.10.2026
+    re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b"),                                                              # 2026-10-29
+)
+
+
+def _past_dates(text: str, today: str) -> list[str]:
+    """dates in the text that lie before today (the story date): an event that is already over."""
+    try:
+        now = date.fromisoformat(str(today)[:10]) if today else None
+    except ValueError:
+        now = None
+    if not now:
+        return []
+    found = []
+    for i, pat in enumerate(_DATE_PATTERNS):
+        for m in pat.finditer(text):
+            try:
+                if i == 0:
+                    d = date(int(m[3]), _MONTHS[m[2].casefold()], int(m[1]))
+                elif i == 1:
+                    d = date(int(m[3]), _MONTHS[m[1].casefold()], int(m[2]))
+                elif i == 2:
+                    d = date(int(m[3]), int(m[2]), int(m[1]))
+                else:
+                    d = date(int(m[1]), int(m[2]), int(m[3]))
+            except (ValueError, KeyError):
+                continue
+            if d < now:
+                found.append(m[0])
+    return found
+
+
 def quality_gate(
     message: dict[str, Any],
     *,
@@ -346,8 +389,12 @@ def quality_gate(
     forbidden_domains: list[str] | None = None,
     recipient_name: str = "",
     sender_name: str = "",
+    today: str = "",
 ) -> None:
     """Raise ValueError for common rule, placeholder, domain or addressing violations."""
+    past = _past_dates(f"{message.get('subject', '')}\n{message.get('body', '')}", today)
+    if past:
+        raise ValueError("quality gate rejected a date before today in the story: " + ", ".join(past))
     text = f"{message.get('subject', '')}\n{message.get('body', '')}"
     if not message.get("body", "").strip():
         raise ValueError("message body is empty")

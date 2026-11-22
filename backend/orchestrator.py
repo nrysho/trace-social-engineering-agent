@@ -165,6 +165,17 @@ def _material_name(reply, pretext):
     return FOLLOW_UP_ATTACHMENTS.get(pretext, "Details.pdf")
 
 
+def _business_day(base, n):
+    """the n-th working day after base (same time of day): contacts land Monday to Friday, never on
+    a weekend, where the twin says 'not on a Saturday'."""
+    day = base
+    for _ in range(max(0, n)):
+        day += timedelta(days=1)
+        while day.weekday() >= 5:
+            day += timedelta(days=1)
+    return day
+
+
 def _next_business_morning(now):
     """09:30 German time (08:30 UTC in winter) on the next weekday: the story's first contact.
     Contacts then follow a day apart, so no call reaches anyone in the middle of the night."""
@@ -565,7 +576,7 @@ class Orchestrator:
                                     f"contact on {approach.get('pretext')} ({plan.get('intent', '')})",
                                     plan.get("reason", ""), parent, status="active")
             try:
-                story_day = (self.story_base + timedelta(days=self.contact_count)).date().isoformat()
+                story_day = _business_day(self.story_base, self.contact_count).date().isoformat()
                 step = dict(approach, next_move=plan.get("intent", ""), story_date=story_day)
                 if plan.get("intent") == "make_ask" and approach.get("channel") == "email":
                     # the ask also carries the pretext's file: opening it is a one-click win (action)
@@ -594,7 +605,7 @@ class Orchestrator:
                 print("     stop branch: draft repeats the last message")
                 return False
             self.contact_count += 1
-            sent_at = (self.story_base + timedelta(days=self.contact_count - 1)).isoformat()
+            sent_at = _business_day(self.story_base, self.contact_count - 1).isoformat()
             print(f"     -> [{msg.channel}] {msg.subject or msg.body[:48]}")
 
             try:
@@ -666,13 +677,13 @@ class Orchestrator:
         well suited to a disclosure ask. writer.generate_call_line writes one line per turn."""
         if not self.budget.can_spend():
             return False
-        approach = dict(approach, story_date=(self.story_base + timedelta(days=self.contact_count)).date().isoformat())
+        approach = dict(approach, story_date=_business_day(self.story_base, self.contact_count).date().isoformat())
         comp = writer.compose(self.profile, approach)
         self._apply_persona(approach, comp)          # the caller is the same generated persona as on mail
         sender = {"name": comp["sender"]["name"], "address": comp["sender"]["address"]}
         caller = {k: comp["sender"][k] for k in ("name", "role", "organization") if comp["sender"].get(k)}
         self.contact_count += 1
-        sent_at = (self.story_base + timedelta(days=self.contact_count - 1)).isoformat()
+        sent_at = _business_day(self.story_base, self.contact_count - 1).isoformat()
         contact = self.add_node("contact", "caller", f"call on {approach.get('pretext')}",
                                 "", approach_node.id, status="active",
                                 evidence=list(approach.get("evidence", [])))
