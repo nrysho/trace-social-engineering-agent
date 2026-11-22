@@ -81,6 +81,17 @@ class CallFollowUpTests(unittest.TestCase):
         self.assertEqual(follow["attachment"], "Speaker_Briefing.pdf")
         self.assertIn("per Mail", seed["history"][0]["reply"])
 
+    def test_a_curt_call_that_asks_for_the_mail_still_gets_it(self):
+        with patch.object(runner, "Revel8Client", return_value=Mock()):
+            agent = runner.Orchestrator("robert", use_model=False)
+        transcript = [{"role": "them", "text": "Seilbeck."}, {"role": "us", "text": "Hallo Herr Seilbeck."},
+                      {"role": "them", "text": "Das entscheide ich nicht am Telefon."}, {"role": "us", "text": "Verstanden."},
+                      {"role": "them", "text": "Gut, schicken Sie es per Mail. Auf Wiederhören."}]
+        with patch.object(runner.strategy, "assess_scepticism", return_value={"score": 9, "reason": "curt"}), \
+                patch.object(agent, "_run_messages", return_value=False) as run:
+            agent._follow_up_call("s1", dict(pretext="speaker_invite", channel="phone_call"), Mock(), transcript)
+        self.assertLessEqual(run.call_args.kwargs["seed"]["scepticism"], runner.strategy.SCEPTICISM_ASK_MAX)
+
 
 class GuardLinkTests(unittest.TestCase):
     def test_uploaded_logo_is_not_an_unregistered_link(self):

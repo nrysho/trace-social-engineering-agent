@@ -656,9 +656,15 @@ class Orchestrator:
         follow = dict(approach, channel="email", attachment=FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext")))
         ours = " ".join(t["text"] for t in transcript if t["role"] == "us")
         theirs = " ".join(t["text"] for t in transcript if t["role"] == "them")
-        sc = strategy.assess_scepticism(theirs, judge=self._judge_scepticism if self.use_model else None)
+        last = next((t["text"] for t in reversed(transcript) if t["role"] == "them" and t["text"]), "")
+        # their final stance decides, not the whole call (curt at first, "send it by mail" at the end)
+        sc = strategy.assess_scepticism(last, judge=self._judge_scepticism if self.use_model else None)
+        score = sc["score"]
+        if re.search(r"\b(mail|e-mail|email|schick|send)\w*", last, re.I):
+            # they asked for the mail: the promised mail always goes out, then their reply decides
+            score = min(score if score is not None else 0, strategy.SCEPTICISM_ASK_MAX)
         seed = {"history": [{"message": f"(phone call) {ours}", "events": [], "reply": theirs}],
-                "scepticism": sc["score"]}
+                "scepticism": score}
         return self._run_messages(sid, follow, contact, seed=seed)
 
     def _check_contact_touches(self, response):
