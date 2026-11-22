@@ -1,6 +1,6 @@
 # Test bench: fictional personas behind a copy of the revel8 API
 
-Practise and measure the agent on people it has never seen, the way the scoring runs will. The bench answers the same `/v1` endpoints, fields, touch budgets and idempotency rules as the revel8 Target API, but the targets are four fictional people played by our model (`backend/llm.py`), each with hooks we planted.
+Practise and measure the agent on people it has never seen, the way the scoring runs will. The bench answers the same `/v1` endpoints, fields, touch budgets and idempotency rules as the revel8 Target API, but the targets are fourteen fictional people played by our model (`backend/llm.py`), each with hooks we planted.
 
 ```bash
 python3 -m bench.server          # from the repo root -> http://127.0.0.1:8770/v1
@@ -14,8 +14,18 @@ Needs `RADEON_API_KEY` (or `OPENAI_API_KEY`) in `.env`. Any bearer key is accept
 | `daniel` | CTO, Pixelweave (security-aware) | replacing the observability stack; a Kubernetes meetup talk |
 | `sofia` | Office and People Ops, Kranich Logistics | summer party venue; new benefits provider |
 | `lukas` | Head of Sales DACH, Fernblick Analytics | a big Q4 enterprise deal; trade fair sponsorship |
+| `nina` | Sustainability Programme Lead, Wiesenrad Mobility | impact report; mobility forum |
+| `omar` | Director of Product Design, Formfeld Studio | accessibility guide; design-systems talk |
+| `elise` | People Partner, Bergquell Foods | manager learning; onboarding guide |
+| `jonas` | IT Procurement Manager, Wolkenwerk Systems | supplier principles; procurement roundtable |
+| `freya` | Research Communications Coordinator, Isar Materials Lab | public science week; science media |
+| `tomas` | Community Partnerships Manager, Lichtbogen Energie | neighbourhood energy fair; public webinar |
+| `anna` | Executive Assistant, Alpenblick Travel Group | leadership events; admin peer workshop |
+| `ravi` | Data Science Manager, Komet Commerce | analytics roundtable; analyst hiring |
+| `mila` | Studio Operations Manager, Kieselberg Works | studio open house; public workshops |
+| `ben` | Sales Engineer, Nordspur Instruments | public demonstration; technical webinar |
 
-Edit `bench/personas.json` to add people or change hooks. Each profile has eight or nine fictional public pages spread across company sites, professional profiles, community/event listings, blogs, and podcast notes. Pages include current and archived material, so recon can test source dates, stale titles, corroboration, and contradictions. Every hostname is under reserved `.example` domains. Profiles also include work context, communication style, verification policies, decision rules, and harmless internal continuity facts. The simulator prompt uses those fields and page URLs to make reactions and cross-channel memory more consistent. Use these profiles to evaluate topic classification, evidence quality, factual consistency, safe link handling, and whether the agent respects verification boundaries.
+Edit `bench/personas.json` to add people or change hooks. Each profile has fictional public pages spread across company sites, professional profiles, community/event listings, blogs, and podcast notes. Pages include current and archived material, so recon can test source dates, stale titles, corroboration, and contradictions. Every hostname is under reserved `.example` domains. Profiles also include work context, communication style, verification policies, decision rules, and harmless internal continuity facts. The simulator prompt uses those fields and page URLs to make reactions and cross-channel memory more consistent. Use these profiles to evaluate topic classification, evidence quality, factual consistency, safe link handling, and whether the agent respects verification boundaries.
 
 ## Use it
 
