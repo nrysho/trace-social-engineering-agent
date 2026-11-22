@@ -196,6 +196,18 @@ _DECLINE = re.compile(r"(public|öffentlich|website|not (on|over) the phone|won'
                       r"nicht (am telefon|weiter)|no need|not going to|nicht nötig)", re.I)
 
 
+_WANTS_OUT = re.compile(
+    r"(per (e-?)?mail|by (e-?)?mail|send (me|it|the|that)|schick|schicken sie|schriftlich|in writing|"
+    r"not (on|over) the phone|on a call|am telefon|won'?t (go through|share|give|confirm|discuss)|"
+    r"ich (gebe|bestätige|sage) .{0,30}nicht|can'?t place you|kenne (sie|dich) .{0,15}nicht|"
+    r"verify|überprüf|official (site|website|channel))", re.I)
+
+
+def _wants_out(heard):
+    """the person on the phone declined, wants it in writing or asks for verification."""
+    return bool(_WANTS_OUT.search(heard or ""))
+
+
 def _sentences(text):
     return [x.strip() for x in re.split(r"(?<=[.!?])\s+|\n+", text or "") if x.strip()]
 
