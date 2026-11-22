@@ -112,7 +112,7 @@ MOVE_GUIDANCE = {
     "nudge": "They did not answer. A short, friendly follow-up that adds one new, concrete reason; no pressure and no repeat of the first message.",
     "answer_build": "They replied with some doubt. Answer their questions concretely, add one detail that makes you more credible, and keep the ask small.",
     "reassure": "They are doubtful. Address the doubt directly and calmly with something they can check about you or your organisation (your role, the publication or event, an official next step); make no new ask. Never invent a past meeting, call or referral.",
-    "make_ask": "They engaged. Make the one ask that serves the plan now, clearly and naturally, building on what they said.",
+    "make_ask": "They engaged. Now ask one direct question whose honest answer is an internal detail the plan needs (which tool or VPN client they use, who approves or decides, a number, an internal process), framed as something your story genuinely needs, so they can answer in one line of their reply. If a file is included, mention it in one sentence. Build on what they said.",
     "push_complete": "They opened the link but did not finish. Briefly help them complete it, as the sender would.",
 }
 
@@ -284,7 +284,7 @@ def generate_call_line(
             "1. You are exactly the sender (name, role, organisation); keep every detail consistent. "
             "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
             "3. Dates you mention lie after today. "
-            "4. Answer their question briefly, then move toward the goal with one clear ask. "
+            "4. Answer their question briefly, then ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need for your story. "
             "5. If they want it in writing, agree, say what you will send today, and close politely."
         ),
         "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
