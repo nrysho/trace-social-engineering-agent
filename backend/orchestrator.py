@@ -177,6 +177,22 @@ def _next_business_morning(now):
 SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for an implausible one
 
 
+def _read_order(raw, n):
+    """the option order from a model answer: proper JSON, or the integers inside its "order" list
+    when the model wrote it loosely ([option 2, option 0])."""
+    try:
+        out = _json_from(raw)
+        candidates = out.get("order", [])
+    except (ValueError, AttributeError):
+        out = {"why": ""}
+        m = re.search(r'"order"\s*:\s*\[([^\]]*)\]', raw or "")
+        candidates = [int(x) for x in re.findall(r"\d+", m.group(1))] if m else []
+        why = re.search(r'"why"\s*:\s*"([^"]*)"', raw or "")
+        out["why"] = why.group(1) if why else ""
+    order = [i for i in dict.fromkeys(candidates) if isinstance(i, int) and 0 <= i < n]
+    return out, order
+
+
 def _lesson(approach, node, reacted, said):
     """one failed approach, as the next approach and the writer should see it."""
     outcome = "ignored every contact" if not reacted else (node.outcome or "engaged, then the thread stalled")
@@ -438,16 +454,27 @@ class Orchestrator:
                           "an opened file, an action or internal information), given what failed and what the person "
                           "said. Avoid repeating a sender kind or channel they refused or ignored; follow any preference "
                           "they stated (a channel, links instead of files, a language); prefer their own topics. "
-                          'Reply JSON only: {"order": [option numbers], "why": "<one sentence>"}'}
+                          'Reply JSON only, "order" as a list of plain integers: {"order": [2, 0, 1], "why": "<one sentence>"}'}
+        messages = [{"role": "system", "content": writer.SIMULATION_SYSTEM},
+                    {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}]
+        order, out, problems = [], {}, []
         try:
             cfg = self._cfg()
-            raw = _retry_model(lambda: writer._completion(cfg, cfg.primary_model, [
-                {"role": "system", "content": writer.SIMULATION_SYSTEM},
-                {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}]))
-            out = _json_from(raw)
-            order = [i for i in dict.fromkeys(out.get("order", [])) if isinstance(i, int) and 0 <= i < len(options)]
+            models = (cfg.primary_model, cfg.fallback_model)
         except Exception as e:
-            print(f"     replan unavailable ({e}); keeping the ranked order")
+            models, problems = (), [str(e)]
+        for model in models:                 # the backup model gets a turn if the first answer is unreadable
+            try:
+                raw = _retry_model(lambda m=model: writer._completion(cfg, m, messages))
+            except Exception as e:
+                problems.append(f"{model}: {e}")
+                continue
+            out, order = _read_order(raw, len(options))
+            if order:
+                break
+            problems.append(f"{model}: no readable order in {raw[:80]!r}")
+        if not order:
+            print(f"     replan unavailable ({'; '.join(problems)[:200]}); keeping the ranked order")
             return remaining
         if not order:
             return remaining
