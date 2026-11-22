@@ -470,5 +470,18 @@ class GermanPortalRefusalTests(unittest.TestCase):
         self.assertGreater(runner.MAX_APPROACHES_EVAL, 3)
 
 
+class RepeatEvalRunTests(unittest.TestCase):
+    def test_a_story_that_failed_on_this_person_goes_last(self):
+        import json, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = runner.Path(d)
+            (root / "run_jonas_1.json").write_text(json.dumps({"mode": "eval", "profile": {"name": "Jonas Richter"},
+                "nodes": [{"level": "approach", "decision": "run approach: recruiting -> x"}]}))
+            (root / "run_jonas_2.json").write_text(json.dumps({"mode": "eval", "profile": {"name": "Jonas Ebert"},
+                "nodes": [{"level": "approach", "decision": "run approach: speaker_invite -> x"}]}))
+            with patch.object(runner, "RUNS", root):
+                self.assertEqual(runner.tried_before("jonas", "Jonas Richter"), {"recruiting"})
+
+
 if __name__ == "__main__":
     unittest.main()

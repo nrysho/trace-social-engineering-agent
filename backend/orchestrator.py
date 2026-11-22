@@ -239,6 +239,23 @@ def _echoes_sender(detail, sent):
     return bool(marks) and all(w.casefold() in said for w in marks)
 
 
+def tried_before(target_id, name):
+    """pretexts earlier eval runs already used on this same person (run bundles in runs/)."""
+    tried = set()
+    for path in RUNS.glob(f"run_{target_id}_*.json"):
+        try:
+            b = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if b.get("mode") != "eval" or (b.get("profile") or {}).get("name") != name:
+            continue
+        for n in b.get("nodes", []):
+            m = re.match(r"run approach: (\w+)", str(n.get("decision") or "")) if n.get("level") == "approach" else None
+            if m:
+                tried.add(m.group(1))
+    return tried
+
+
 REPLAN_BAND = 0.25   # the model may reorder close options, never lift one the ranking scored far lower
 
 
@@ -459,7 +476,16 @@ class Orchestrator:
             return self.run_id, self.nodes
 
         ranked = strategy.rank_approaches(profile)        # message and live-call approaches both run
-        approaches = _dedupe_by_pretext(ranked)[:self.max_approaches]   # one per pretext, capped: do not spam one session
+        approaches = _dedupe_by_pretext(ranked)
+        if self.eval_mode:
+            # several eval sessions per target: a story that already failed on this person goes last.
+            # each session is a clean slate for the twin, so only the order changes, never what is said
+            tried = tried_before(self.target_id, self.profile.get("name", ""))
+            if tried:
+                approaches = [a for a in approaches if a.get("pretext") not in tried] + \
+                             [a for a in approaches if a.get("pretext") in tried]
+                print(f"  earlier eval runs on this target tried: {', '.join(sorted(tried))}; those go last")
+        approaches = approaches[:self.max_approaches]   # one per pretext, capped: do not spam one session
         if not approaches:
             print("  no viable approaches from strategy")
             self._save_tree()
