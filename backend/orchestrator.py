@@ -138,6 +138,7 @@ def _slug(text):
 FOLLOW_UP_ATTACHMENTS = {
     "speaker_invite": "Speaker_Briefing.pdf", "press_request": "Interview_Questions.pdf",
     "investor_intro": "Fund_Overview.pdf", "customer_question": "Requirements_Overview.pdf",
+    "solution_offer": "Proposal_and_Options.pdf",
     "recruiting": "Candidate_Profile.pdf", "internal_favor": "Details.pdf",
     "document_share": "Q1_Planning_Update.pdf", "vendor_notice": "Renewal_Summary.pdf",
     "invoice_approval": "Invoice_2026-1184.pdf", "hr_policy": "Updated_Policy_2026.pdf", "exec_request": "Approval_List.pdf",
@@ -312,7 +313,9 @@ def load_profile(target_id, name, company, use_mock=False):
             return prof
     if profiler is None:
         raise RuntimeError("no cached profile, mock not requested, and recon profiler unavailable")
-    prof = profiler.build(name, company).to_dict()
+    # against the local bench the personas are fictional: recon reads their bench pages, not the web
+    bench = target_id if _on_bench() else None
+    prof = profiler.build(name, "" if bench else company, bench_target=bench).to_dict()
     prof["target_id"] = target_id
     return prof
 

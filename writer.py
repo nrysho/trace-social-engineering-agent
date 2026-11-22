@@ -336,7 +336,7 @@ INTERNAL_WORDING = (
     "link added below", "added below your text", "link below your text",
     "speaker_invite", "press_request", "customer_question", "document_share", "meeting_reschedule",
     "vendor_notice", "security_alert", "internal_favor", "investor_intro",
-    "invoice_approval", "hr_policy", "it_helpdesk", "exec_request",
+    "invoice_approval", "hr_policy", "it_helpdesk", "exec_request", "solution_offer",
 )
 GREETING = re.compile(r"^\s*(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))\s+([A-ZÄÖÜ][\w'’-]+)", re.I)
 
@@ -1028,6 +1028,8 @@ def _first_colleague(profile: dict[str, Any]) -> str:
 # Natural subject and opening per pretext for compose(), the no-model fallback. Never the internal
 # story text: that read "Question about a known vendor or tool" and got ignored by the twins.
 FALLBACK_COPY = {
+    "solution_offer": ("Re: your request",
+                       "I saw your recent post and think we can help with exactly that. Could I ask two quick questions so I can send you a concrete proposal?"),
     "speaker_invite": ("Speaking invitation: security awareness panel",
                        "We're putting together a short panel on how fast-growing teams handle security awareness, and your name came up. Would you be open to joining us? The outline and dates are below."),
     "press_request": ("Interview request",

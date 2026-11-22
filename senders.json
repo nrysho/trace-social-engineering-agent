@@ -187,6 +187,13 @@
       "role": "",
       "domain": "{brand}-team.com",
       "page": null
+    },
+    "solution_offer": {
+      "technique": "invented_third_party",
+      "sender_name": "Miriam Kolb",
+      "role": "account manager",
+      "domain": "kolb-partners.de",
+      "page": null
     }
   }
 }
