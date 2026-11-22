@@ -524,6 +524,7 @@ class Orchestrator:
         if seed:                                       # continuing a thread, e.g. the mail promised on a call
             history = list(seed["history"])
             turn, engaged, last_state, scepticism = 1, 1, "engaged", seed.get("scepticism")
+            nudged = 1   # after a call: the promised mail and one nudge, not two (they only talked, never wrote)
         while not self.budget.exhausted():            # the session's total budget is the hard limit
             # pivot a cold branch after the per-branch cap, but stay on one that is engaging:
             # keep answering and pushing the ask while the target keeps replying
