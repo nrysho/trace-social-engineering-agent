@@ -32,7 +32,7 @@ import strategy
 import writer
 from . import config
 from .budget import TouchBudget
-from .outcomes import (classify_incident, SECRET_MARKER, CREDENTIAL_FIELDS,
+from .outcomes import (classify_incident, steps as event_steps, SECRET_MARKER, CREDENTIAL_FIELDS,
                        DISCLOSURE_FIELDS, SECRET_HINTS, _filled, _is_secret)
 from .revel8 import Revel8Client
 from quality.guarded_client import GuardedClient
@@ -473,7 +473,7 @@ class Orchestrator:
             if not self._search(profile, sid, approaches, hook_node.id, ranked):
                 print("\n  no confirmed incident: budget or approaches exhausted")
                 for d in self.judged_disclosures:
-                    print(f"  judged disclosure (revel8 decides at scoring): touch {d['touch']} in {d['session']}: {d['reason']}")
+                    print(f"  judged {d.get('kind', 'disclosure')} (revel8 decides at scoring): touch {d['touch']} in {d['session']}: {d['reason']}")
         finally:
             self._save_tree()
             print(f"  saved {len(self.nodes)} nodes to runs/trees/{self.run_id}.json\n")
@@ -738,7 +738,9 @@ class Orchestrator:
                   f"({self.budget.used}/{self.budget.total} touches)")
 
             incident_type, incident_reason = classify_incident(events)
-            if not incident_type and reply:            # a reply may disclose internal info: noted, never a stop
+            for step in event_steps(events):
+                print(f"     ~ step, not an objective: {step}")
+            if not incident_type and reply:            # a reply may disclose something or report an act: noted, never a stop
                 self._note_judged(sid, contact, *self._judge_disclosure(
                     reply, sent="\n\n".join(h["message"] for h in history) + "\n\n" + _plain(msg.body)))
             verdict = strategy.evaluate_reaction(
@@ -874,7 +876,9 @@ class Orchestrator:
             self._save_tree()
             print(f"     you: {line[:48]} | persona: {heard[:48]}")
             incident_type, incident_reason = classify_incident(events)
-            if not incident_type and heard:            # the persona may disclose internal info on the call: noted, the call goes on
+            for step in event_steps(events):
+                print(f"     ~ step, not an objective: {step}")
+            if not incident_type and heard:            # the persona may disclose or agree to act on the call: noted, the call goes on
                 self._note_judged(sid, contact, *self._judge_disclosure(heard, sent=(
                     f"Caller: {sender['name']} <{sender['address']}>\n"
                     + "\n".join(t["text"] for t in transcript if t["role"] == "us"))))
@@ -1131,17 +1135,19 @@ class Orchestrator:
             return
         grade = "concrete" if str(reason).startswith("[concrete]") else "soft"
         self.judged_disclosures.append({"touch": self.budget.used, "session": sid, "node": node.id,
-                                        "grade": grade, "reason": reason})
-        node.outcome = (str(node.outcome or "") + f" | judged disclosure (revel8 decides): {reason}").strip(" |")
-        print(f"     ~ judged disclosure, not a stop (revel8 decides at scoring): {reason}")
+                                        "kind": kind, "grade": grade, "reason": reason})
+        node.outcome = (str(node.outcome or "") + f" | judged {kind} (revel8 decides): {reason}").strip(" |")
+        print(f"     ~ judged {kind}, not a stop (revel8 decides at scoring): {reason}")
 
     def _judge_disclosure(self, text, sent=""):
         """an llm judge: does this reply reveal INTERNAL, non-public information (a disclosure
         win)? strict, since the jury confirms every win and a false claim scores nothing. it
         must name each internal detail; public facts, what we told them, and vague talk do
-        not count. returns ("disclosure", plain-language summary) or (None, "")."""
+        not count. it also catches an act done for the sender (revel8's action objective: approving,
+        changing a payment detail, granting access), which a short "Approved." can carry.
+        returns ("disclosure" | "action", plain-language summary) or (None, "")."""
         text = (text or "").strip()
-        if len(text) < 40:                 # too short to carry internal detail
+        if len(text) < 6:                  # too short to carry a detail or an act
             return None, ""
         public = [f.get("value", "")[:160] for f in self.profile.get("facts", []) if f.get("value")][:60]   # all of it: DNS tools are public too
         who = (self.profile.get("name") or "The target").split()[0]
@@ -1159,8 +1165,14 @@ class Orchestrator:
             'Also grade it: concrete = a specific internal system or tool, a number (budget, cost, headcount), '
             'a date of an unpublished plan, or a process step with who owns it; soft = only a colleague\'s name, '
             'or only that a policy, list or team exists. '
+            'Separately, decide whether the reply says they DID something for the sender: approved or signed off '
+            'something, confirmed or made a change of payment or bank details, granted or shared access, forwarded '
+            'something internally or changed a setting. Only a completed or firmly committed act counts '
+            '("approved", "I have forwarded it to finance", "access granted", "I changed the details"); '
+            'willingness, plans to check, or asking someone else first do not. '
             'Reply JSON only: {"disclosure": true|false, "concrete": true|false, "details": ["<each internal detail, one short '
-            'phrase>"], "why": "<one sentence: why these are not public>"}.'
+            'phrase>"], "why": "<one sentence: why these are not public>", "action": true|false, '
+            '"action_done": "<what they did, one short phrase, or empty>"}.'
         )
         user = ("Public facts (repeating these is not disclosure):\n- " + "\n- ".join(public)
                 + "\n\nWhat the sender already told them (including the sender's own name, organisation and "
@@ -1174,6 +1186,9 @@ class Orchestrator:
             out = _json_from(raw)
         except Exception:
             return None, ""                # if the judge is unavailable, do not claim a win
+        did = str(out.get("action_done") or "").strip()
+        if out.get("action") is True and did:
+            return "action", f"[concrete] {who} acted for the sender: {did}"[:400]
         details = [str(d).strip() for d in out.get("details") or [] if str(d).strip()]
         if out.get("disclosure") is True and details:
             # a detail anyone can find on the web is not a disclosure (a colleague's role on LinkedIn).

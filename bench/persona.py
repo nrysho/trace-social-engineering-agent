@@ -26,7 +26,8 @@ REACTION_FORMAT = """Reply with one JSON object only, no other text:
   "open_attachments": ["exact file names you open"],
   "reply": "your reply text, or an empty string to not reply",
   "reply_channel": "channel you reply on, normally the same one",
-  "disclosed": ["ids of internal facts your reply reveals"]
+  "disclosed": ["ids of internal facts your reply reveals"],
+  "did_for_sender": "what you actually did for the sender with this reply (approved, confirmed a change, granted access, forwarded something internally), or an empty string"
 }"""
 
 TURN_FORMAT = """Reply with one JSON object only, no other text:
@@ -36,7 +37,8 @@ TURN_FORMAT = """Reply with one JSON object only, no other text:
   "suspicion": 0-10,
   "say": "what you say next, in one or two short spoken sentences",
   "hang_up": true or false,
-  "disclosed": ["ids of internal facts you just revealed"]
+  "disclosed": ["ids of internal facts you just revealed"],
+  "did_for_sender": "what you actually did for the caller just now (approved, confirmed a change, granted access), or an empty string"
 }"""
 
 

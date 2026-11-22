@@ -37,9 +37,10 @@ def _is_secret(name):
 
 
 def classify_incident(events):
-    """return (incident_type, reason) or (None, "").
-    a submitted secret is credentials, an internal field is disclosure, an opened
-    attachment is an action; name/email alone is only a step, not a win."""
+    """return (incident_type, reason) or (None, ""), by revel8's event rules: a submitted secret is
+    credentials and a submitted internal field is disclosure. An opened link, an opened file and a
+    form with basic details only are steps, not objectives (see steps()). An action (approving,
+    changing a payment detail, granting access) has no event of its own: it shows in what they say."""
     for e in events:
         if str(e.get("type")) != "page.submitted":
             continue
@@ -48,9 +49,20 @@ def classify_incident(events):
             return "credentials", "secret field submitted"
         if names & DISCLOSURE_FIELDS:
             return "disclosure", "internal field submitted"
-    for e in events:
-        if str(e.get("type")) == "attachment.opened":
-            return "action", f"attachment opened: {e.get('filename', '')}"
     return None, ""
+
+
+def steps(events):
+    """what the person went along with that is not an objective: opened links and files, basic forms."""
+    out = []
+    for e in events:
+        kind = str(e.get("type"))
+        if kind == "attachment.opened":
+            out.append(f"opened {e.get('filename', 'a file')}")
+        elif kind == "link.opened":
+            out.append("opened the link")
+        elif kind == "page.submitted" and not classify_incident([e])[0]:
+            out.append("filled in basic details")
+    return out
 
 

@@ -360,9 +360,10 @@ class JudgedDisclosureTests(unittest.TestCase):
 
     def test_a_judged_disclosure_does_not_end_the_run(self):
         reply = [{"type": "reply", "body": "Bei uns entscheidet Mira Hansen aus People & Culture."}]
-        opened = [{"type": "attachment.opened", "filename": "Proposal.pdf"}]
-        agent, won = self.mail_run([reply, opened], [("disclosure", "named the decider"), (None, "")])
-        self.assertTrue(won)                                     # the opened file ended it, not the judge
+        signed_in = [{"type": "page.submitted", "fields": ["email", "password"],
+                      "values": {"email": "tom@x.example", "password": "(entered, not shown)"}}]
+        agent, won = self.mail_run([reply, signed_in], [("disclosure", "named the decider"), (None, "")])
+        self.assertTrue(won)                                     # the typed secret ended it, not the judge
         self.assertEqual(agent.client.send_message.call_count, 2)
         self.assertEqual(len(agent.judged_disclosures), 1)
         self.assertEqual(agent.judged_disclosures[0]["touch"], 1)
@@ -399,6 +400,22 @@ class ConcreteIncidentTests(unittest.TestCase):
         agent._note_judged("s1", node, "disclosure", "[soft] Tom revealed internal details: Mira Hansen")
         agent._note_judged("s1", node, "disclosure", "[concrete] Tom revealed internal details: ServiceNow")
         self.assertEqual([d["grade"] for d in agent.judged_disclosures], ["soft", "concrete"])
+
+
+class NewObjectiveRulesTests(JudgedDisclosureTests):
+    def test_an_opened_file_is_a_step_and_the_run_goes_on(self):
+        opened = [{"type": "attachment.opened", "filename": "Proposal.pdf"}]
+        reply = [{"type": "reply", "body": "Freigegeben, bitte reservieren Sie den Termin."}]
+        agent, won = self.mail_run([opened, reply], [("action", "[concrete] Tom acted for the sender: approved")])
+        self.assertFalse(won)                                    # neither the file nor a judged act ends it
+        self.assertEqual(agent.client.send_message.call_count, 2)
+        self.assertEqual([d["kind"] for d in agent.judged_disclosures], ["action"])
+
+    test_a_judged_disclosure_does_not_end_the_run = None
+
+    def test_the_bench_scores_by_the_new_rules(self):
+        from bench import server
+        self.assertNotIn("attachment.opened\" else []", open(server.__file__).read())
 
 
 if __name__ == "__main__":

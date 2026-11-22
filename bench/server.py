@@ -14,6 +14,7 @@ the real API does not have:
 Send an X-Bench-Label header (e.g. the agent version) with POST /v1/sessions to group results.
 """
 import json
+import os
 import pathlib
 import re
 import statistics
@@ -25,9 +26,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from bench import persona as engine
+from backend.outcomes import classify_incident
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-PERSONAS = {p["id"]: p for p in json.loads(pathlib.Path(__file__).with_name("personas.json").read_text())}
+# BENCH_PERSONAS points at another personas file (e.g. a larger set under review) without editing this one
+PERSONAS = {p["id"]: p for p in json.loads(pathlib.Path(os.environ.get("BENCH_PERSONAS") or
+                                                        pathlib.Path(__file__).with_name("personas.json")).read_text())}
 STORE = ROOT / "runs" / "bench"
 # Same fields as revel8's GET /v1/channels: id, kind, group, body, arrives_as, rendered.
 CHANNELS = [
@@ -215,9 +219,12 @@ def send_message(s, body):
 
     private_ids = {f["id"] for f in p["private_facts"]}
     disclosed = [d for d in reaction.get("disclosed") or [] if d in private_ids]
-    incidents = (["credentials"] if submitted else []) + \
-                (["action"] if any(e["type"] == "attachment.opened" for e in events) else []) + \
-                (["disclosure"] if disclosed else [])
+    # revel8's rules: an opened link or file, and a form with basic details only, are steps. An objective
+    # needs something given or done: a secret typed in, internal information, or an act for the sender.
+    forms = [classify_incident([e])[0] for e in events if e["type"] == "page.submitted"]
+    incidents = (["credentials"] if "credentials" in forms else []) + \
+                (["disclosure"] if disclosed or "disclosure" in forms else []) + \
+                (["action"] if str(reaction.get("did_for_sender") or "").strip() else [])
     topic = reaction.get("topic") if reaction.get("topic") in {h["id"] for h in p["hooks"]} else "none"
     record_contact(s, {**entry, "voided": False, "topic": topic, "hook_hit": topic != "none",
                        "suspicion": reaction.get("suspicion"), "thought": reaction.get("thought", ""),
@@ -304,10 +311,14 @@ def take_turn(s, call, body):
     entry["thought"] = reaction.get("thought", entry["thought"])
     private_ids = {f["id"] for f in p["private_facts"]}
     entry["disclosed"] = sorted(set(entry["disclosed"]) | {d for d in reaction.get("disclosed") or [] if d in private_ids})
-    if entry["disclosed"] and "disclosure" not in entry["incidents"]:
-        entry["incidents"].append("disclosure")
-        if s["first_incident_touch"] is None:
-            s["first_incident_touch"] = entry["touch"]
+    did = str(reaction.get("did_for_sender") or "").strip()
+    if did:
+        entry["did_for_sender"] = did
+    for kind, hit in (("disclosure", bool(entry["disclosed"])), ("action", bool(did))):
+        if hit and kind not in entry["incidents"]:
+            entry["incidents"].append(kind)
+            if s["first_incident_touch"] is None:
+                s["first_incident_touch"] = entry["touch"]
     if hang_up or call["turns_used"] >= MAX_TURNS:
         end_call(call)
     save(s)

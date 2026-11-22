@@ -17,10 +17,18 @@ class ScoringEvidenceTests(unittest.TestCase):
     def test_actual_secret_internal_and_action_events_remain_candidates(self):
         for event,expected in [({'type':'page.submitted','fields':['password']},'credentials'),
                                ({'type':'page.submitted','fields':['one_time_code']},'credentials'),
-                               ({'type':'page.submitted','fields':['vpn_client']},'disclosure'),
-                               ({'type':'attachment.opened','filename':'Agenda.pdf'},'action')]:
+                               ({'type':'page.submitted','fields':['vpn_client']},'disclosure')]:
             self.assertEqual(classify_incident([event])[0],expected)
             self.assertEqual(metrics({'events':{'n1':[event]}})['incidents'],[expected])
+
+    def test_opened_files_and_links_are_steps_not_objectives(self):
+        # revel8 rule update: an opened link or file is recorded, but is no objective
+        from backend.outcomes import steps
+        for event in ({'type':'attachment.opened','filename':'Agenda.pdf'}, {'type':'link.opened','url':'https://x.example'}):
+            self.assertIsNone(classify_incident([event])[0])
+            self.assertEqual(metrics({'events':{'n1':[event]}})['incidents'],[])
+        self.assertEqual(steps([{'type':'attachment.opened','filename':'Agenda.pdf'},{'type':'page.submitted','fields':['name']}]),
+                         ['opened Agenda.pdf', 'filled in basic details'])
 
     def test_rule_change_preserves_legacy_orchestrator_import(self):
         from backend.orchestrator import classify_incident as old_entrypoint
