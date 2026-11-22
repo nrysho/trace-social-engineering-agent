@@ -22,6 +22,7 @@ import json
 import math
 import pathlib
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -507,6 +508,108 @@ def assess_scepticism(reply_text: str, judge: Callable[[str], dict] | None = Non
     score = max(0, min(10, 3 + sum(w for _, w in hits)))
     reason = ", ".join(f"'{cue}'" for cue, _ in hits) or "no strong cues"
     return {"score": score, "reason": f"cues: {reason}", "source": "cues"}
+
+
+# ---------------------------------------------------------------------------
+# reply classification: an OBSERVATION of what the twin explicitly said.
+#
+# phrase-based and bilingual (practice/eval targets are German founders). it is
+# deliberately conservative: negation, quotation and conditionals downgrade a
+# match to tentative, because treating "I didn't say I'm not interested" as a
+# decline would wrongly burn a pretext. uncertain cases stay tentative.
+# ---------------------------------------------------------------------------
+
+# explicit "stop ALL contact" (session stop). english + german.
+_STOP_PHRASES = (
+    "stop contacting me", "stop emailing me", "stop messaging me", "stop reaching out",
+    "do not contact me", "don't contact me", "dont contact me", "do not email me",
+    "don't email me", "do not message me", "don't message me", "never contact me again",
+    "don't contact me again", "lose my number", "remove me from your list",
+    "take me off your list", "unsubscribe", "leave me alone",
+    "kontaktieren sie mich nicht mehr", "kontaktiere mich nicht mehr",
+    "schreiben sie mir nicht mehr", "schreib mir nicht mehr",
+    "melden sie sich nicht mehr", "keine weiteren nachrichten", "nehmen sie mich aus",
+    "lassen sie mich in ruhe",
+)
+
+# explicit decline of THIS offer/topic family (not a session stop). english + german.
+_DECLINE_PHRASES = (
+    "not interested", "no interest", "not for us", "not for me", "please don't pitch",
+    "not looking for a job", "not looking for a new job", "not looking for a new role",
+    "not looking for a new position", "not looking to change jobs", "not looking to move",
+    "no interest in the role", "not the right role",
+    "kein interesse", "nicht interessiert", "suche keine neue stelle", "suche keine stelle",
+    "suche keinen neuen job", "ich suche nichts neues", "keine neue stelle",
+)
+
+# a timing constraint: tentative, never a permanent rejection. english + german.
+_TIMING_PHRASES = (
+    "not this week", "not right now", "not at the moment", "after the holidays",
+    "next quarter", "too busy this week", "swamped this", "can't this week",
+    "nicht diese woche", "gerade keine zeit", "im moment nicht", "zur zeit nicht",
+    "zurzeit nicht", "nach den feiertagen",
+)
+
+# words just before a match that FLIP it, so it is not an explicit decline/stop.
+_NEGATORS = (
+    "didn't say", "did not say", "didnt say", "never said", "not saying", "wasn't saying",
+    "don't think i said", "nicht gesagt", "habe nicht gesagt", "nie gesagt", "nicht, dass",
+)
+_CONDITIONALS = ("if ", "unless ", "whenever ", "falls ", "wenn ich ", "sollte ich ")
+
+
+def _normalise(text: str) -> str:
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", text or "")).strip()
+
+
+def _flipped(low: str, idx: int) -> bool:
+    """is the match at ``idx`` negated, quoted or conditional (so not a real decline)?"""
+    window = low[max(0, idx - 45):idx]
+    if any(neg in window for neg in _NEGATORS):
+        return True
+    if any(cond in window for cond in _CONDITIONALS):
+        return True
+    # quoted: an odd number of quotation marks before the match means it sits inside a
+    # quote. only real quote characters, never the apostrophe in contractions like "I'm".
+    if sum(window.count(q) for q in '"“”„«»') % 2:
+        return True
+    return False
+
+
+def classify_reply(reply_text: str) -> dict[str, Any]:
+    """Classify one twin reply into a structured observation.
+
+    Returns ``{kind, certainty, excerpt}`` where ``kind`` is ``session_stop``
+    (stop all contact), ``approach_decline`` (turned down this topic), ``timing``
+    (a tentative constraint) or ``none``. ``certainty`` is ``explicit`` only for a
+    clear, un-negated statement; everything else is ``tentative``. ``excerpt`` is
+    the twin's own words, so a lesson built from it stays checkable."""
+    from backend.lessons import _excerpt  # local import: avoid a module import cycle at load
+    raw = reply_text or ""
+    low = _normalise(raw).casefold()
+    if not low:
+        return {"kind": "none", "certainty": "tentative", "excerpt": ""}
+
+    def first_hit(phrases):
+        best_idx, best = -1, ""
+        for phrase in phrases:
+            pos = low.find(phrase)
+            if pos != -1 and (best_idx == -1 or pos < best_idx):
+                best_idx, best = pos, phrase
+        return best_idx, best
+
+    for kind, phrases, explicit in (
+        ("session_stop", _STOP_PHRASES, True),
+        ("approach_decline", _DECLINE_PHRASES, True),
+        ("timing", _TIMING_PHRASES, False),
+    ):
+        idx, phrase = first_hit(phrases)
+        if idx == -1:
+            continue
+        certainty = "explicit" if (explicit and not _flipped(low, idx)) else "tentative"
+        return {"kind": kind if certainty == "explicit" or kind == "timing" else "none",
+                "certainty": certainty, "excerpt": _excerpt(raw, phrase)}
+    return {"kind": "none", "certainty": "tentative", "excerpt": ""}
 
 
 # message stages for a persistent thread; the drafter has matching guidance.
