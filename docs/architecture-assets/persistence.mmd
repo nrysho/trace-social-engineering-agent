@@ -1,13 +1,14 @@
 flowchart TB
- A["READ THE REACTION"]
- A -->|engaged| C["ANSWER<br/>Respond to the question<br/>Keep the same story"]
- A -->|doubt or silence| D["BOUND THE EFFORT<br/>Reassure or follow up<br/>Then close if stalled"]
- A -->|explicit rejection| E["RECORD THE OBJECTION<br/>Keep the recipient quote<br/>Constrain the next approach"]
- A -->|stop request| F["END CONTACT<br/>No further call turns<br/>No channel pivot"]
- C --> G["SAVE THE LOOP: response + decision + reason + next move"]
- D --> G
- E --> G
- F --> G
- classDef default fill:#f3f6fa,stroke:#c0ccd9,color:#152638,stroke-width:1px;
- classDef stop fill:#fff0e9,stroke:#b95b31,color:#823b1b,stroke-width:2px;
- class F stop;
+ D["READ THE RESPONSE"]
+ D -->|engaged| A["ANSWER<br/>Stay in the same story"]
+ D -->|doubt or silence| B["BOUND THE EFFORT<br/>Reassure or follow up"]
+ D -->|explicit rejection| C["CLOSE THE BRANCH<br/>Record the objection"]
+ A --> M["SAVE THE LESSON<br/>Inform the next step"]
+ B --> M
+ C --> M
+ D -->|stop requested| S["END CONTACT"]
+ classDef default fill:#f2f5f8,stroke:#c6d1dc,color:#1a3047,stroke-width:1.2px;
+ classDef memory fill:#e6f3ee,stroke:#2c7964,color:#1b5948,stroke-width:1.5px;
+ classDef stop fill:#fff0e8,stroke:#ba623c,color:#8c4226,stroke-width:1.5px;
+ class M memory;
+ class S stop;
