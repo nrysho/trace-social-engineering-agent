@@ -142,6 +142,7 @@ FOLLOW_UP_ATTACHMENTS = {
     "recruiting": "Candidate_Profile.pdf", "internal_favor": "Details.pdf",
     "document_share": "Q1_Planning_Update.pdf", "vendor_notice": "Renewal_Summary.pdf",
     "invoice_approval": "Invoice_2026-1184.pdf", "hr_policy": "Updated_Policy_2026.pdf", "exec_request": "Approval_List.pdf",
+    "meeting_reschedule": "Updated_Agenda.pdf",
 }
 _MATERIAL = re.compile(r"\b(agenda|programme|program|article|articles|pieces|link|links|deck|profile|cv|brief|lineup|line-up|"
                        r"questions|overview|speakers|"
@@ -1128,7 +1129,9 @@ class Orchestrator:
         our judge flagged disclosures the bench did not count; stopping on them ended runs empty."""
         if not kind:
             return
-        self.judged_disclosures.append({"touch": self.budget.used, "session": sid, "node": node.id, "reason": reason})
+        grade = "concrete" if str(reason).startswith("[concrete]") else "soft"
+        self.judged_disclosures.append({"touch": self.budget.used, "session": sid, "node": node.id,
+                                        "grade": grade, "reason": reason})
         node.outcome = (str(node.outcome or "") + f" | judged disclosure (revel8 decides): {reason}").strip(" |")
         print(f"     ~ judged disclosure, not a stop (revel8 decides at scoring): {reason}")
 
@@ -1153,7 +1156,10 @@ class Orchestrator:
             "the public roles of founders and executives, and generic product features anyone could name (an admin console, "
             "MFA, single sign-on, 'our IT team') unless they reveal how their company configured or uses them. "
             "Be strict: when unsure, it is not a disclosure. "
-            'Reply JSON only: {"disclosure": true|false, "details": ["<each internal detail, one short '
+            'Also grade it: concrete = a specific internal system or tool, a number (budget, cost, headcount), '
+            'a date of an unpublished plan, or a process step with who owns it; soft = only a colleague\'s name, '
+            'or only that a policy, list or team exists. '
+            'Reply JSON only: {"disclosure": true|false, "concrete": true|false, "details": ["<each internal detail, one short '
             'phrase>"], "why": "<one sentence: why these are not public>"}.'
         )
         user = ("Public facts (repeating these is not disclosure):\n- " + "\n- ".join(public)
@@ -1176,7 +1182,8 @@ class Orchestrator:
             if not details:
                 print("     judge: the details are publicly findable; not a disclosure, the run continues")
                 return None, ""
-            summary = f"{who} revealed internal details: " + "; ".join(details)
+            grade = "concrete" if out.get("concrete") is True else "soft"
+            summary = f"[{grade}] {who} revealed internal details: " + "; ".join(details)
             if out.get("why"):
                 summary += f". {str(out['why']).strip()}"
             return "disclosure", summary[:400]

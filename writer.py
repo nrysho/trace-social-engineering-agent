@@ -118,8 +118,8 @@ MOVE_GUIDANCE = {
     "nudge": "They did not answer. A short, friendly follow-up that adds one new, concrete reason; no pressure and no repeat of the first message.",
     "answer_build": "They replied with some doubt. Answer their questions concretely, add one detail that makes you more credible, and keep the ask small.",
     "reassure": "They are doubtful. Address the doubt directly and calmly with something they can check about you or your organisation (your role, the publication or event, an official next step); make no new ask. Never invent a past meeting, call or referral, and never claim a link to their own talks, events, employer or contacts.",
-    "deliver": "This mail is the one you promised on the call. Deliver exactly what they asked for: what included_with_your_text really carries (the file, the link) plus your full details; give one concrete reason, tied to the need they spoke about, to open it now. Ask no internal question in this mail; at most one light question about their need itself (timing, size, what matters most). Never say a link or page is included when a_link_follows_your_text is false.",
-    "make_ask": "They engaged. Now ask one direct question whose honest answer is an internal detail the plan needs (which tool or VPN client they use, who approves or decides, a number, an internal process), framed as something your story genuinely needs, so they can answer in one line of their reply. If a file is included, mention it in one sentence. Build on what they said.",
+    "deliver": "This mail is the one you promised on the call. Deliver exactly what they asked for: what included_with_your_text really carries (the file, the link) plus your full details; give one concrete reason, tied to the need they spoke about, to open it now. Ask no internal question in the text; if a link follows, say in one sentence that the page takes two details to tailor the options. At most one light question about their need itself (timing, size, what matters most). Never say a link or page is included when a_link_follows_your_text is false.",
+    "make_ask": "They engaged. Now ask one direct question whose honest answer is an internal detail the plan needs (which tool or VPN client they use, who approves or decides, a number, an internal process), framed as something your story genuinely needs. Make it a closed question with two or three concrete options (e.g. 'Jira or ServiceNow?', 'above or below 20k?', 'does finance or the team lead sign off?'), so the answer is a specific name, number or date in one line. If a file or link is included, say in one sentence what they get from it. Build on what they said.",
     "push_complete": "They opened the link but did not finish. Briefly help them complete it, as the sender would.",
 }
 
@@ -296,7 +296,7 @@ def generate_call_line(
             "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
             "3. Keep details light until asked; dates you mention lie after today. "
             "4. Your first line (turn 1): who you are and why you call, tied to their public topic or need, then one open question about that topic or need itself (what they look for, when, how big); nothing internal yet, since a stranger who opens with internal questions sounds like fishing. "
-            "Later lines: answer their question briefly; once they have shown interest, ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need to make your offer fit. "
+            "Later lines: answer their question briefly; once they have shown interest, ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need to make your offer fit, as a closed question with two or three concrete options ('Jira or ServiceNow?', 'above or below 20k?'), so the answer is a specific name, number or date. "
             "5. If they want it in writing, agree, name exactly what they asked for (a link, a page, an agenda, your details) as what you will send today, and close politely. Never repeat a question they declined. "
             "6. If you give a phone number, it is exactly sender.phone."
         ),
@@ -776,7 +776,17 @@ _FIELD_LABELS = {"email": "Work email", "password": "Password", "name": "Full na
                  "username": "Username", "phone": "Phone number", "company": "Company", "job_title": "Job title",
                  "internal_tool": "Tools currently in place on your side (helps our moderator prepare)",
                  "approver": "Who approves this invoice on your side?", "vpn_client": "VPN client on this device"}
+# a field's label when this kind of page asks it: the same internal detail, worded for the story
+_PRETEXT_FIELD_LABELS = {
+    "solution_offer": {"internal_tool": "Which tools or providers do you use for this today?",
+                       "approver": "Who signs off on this on your side?"},
+}
+_PRETEXT_FIELD_LABELS_DE = {
+    "solution_offer": {"internal_tool": "Welche Tools oder Anbieter nutzen Sie dafür heute?",
+                       "approver": "Wer gibt das bei Ihnen frei?"},
+}
 _PAGE_COPY = {   # heading, text, button: what this kind of page says (never the internal plan)
+    "solution_offer": ("Your proposal", "Two details and we tailor the options to your setup; your proposal opens right after.", "Show my options"),
     "security_alert": ("Verify it's you", "We noticed a sign-in from a new device. Sign in to review the activity and keep your account secure.", "Continue"),
     "vendor_notice": ("Review your account", "Sign in to review your account and keep your subscription running without interruption.", "Sign in"),
     "document_share": ("A document was shared with you", "Sign in with your work account to open the document.", "Open document"),
@@ -790,6 +800,7 @@ _PAGE_COPY = {   # heading, text, button: what this kind of page says (never the
     "meeting_reschedule": ("Confirm the new time", "Sign in to confirm the updated meeting details.", "Confirm"),
 }
 _PAGE_COPY_DE = {
+    "solution_offer": ("Ihr Angebot", "Zwei Angaben, dann passen wir die Optionen an Ihre Situation an; Ihr Angebot öffnet sich direkt danach.", "Meine Optionen ansehen"),
     "security_alert": ("Anmeldung bestätigen", "Melden Sie sich an, um die Aktivität zu prüfen und Ihr Konto zu schützen.", "Weiter"),
     "vendor_notice": ("Konto ansehen", "Melden Sie sich an, um Ihre Kontoinformationen aufzurufen.", "Anmelden"),
     "document_share": ("Ein Dokument wurde geteilt", "Melden Sie sich mit Ihrem Arbeitskonto an, um das Dokument zu öffnen.", "Dokument öffnen"),
@@ -904,7 +915,8 @@ def render_landing_html(*, pretext: str, organization: str, title: str, fields: 
     tab_title = (f"{heading} – {org}" if german else f"{title} – {org}") if not tab_title or german else tab_title
     labels = ["Datenschutz", "Nutzungsbedingungen", "Hilfe", "Impressum"] if german else ["Privacy", "Terms", "Help"]
     footer_links = " <span aria-hidden=\"true\">·</span> ".join(html.escape(x) for x in labels)
-    field_labels = _FIELD_LABELS_DE if german else _FIELD_LABELS
+    field_labels = dict(_FIELD_LABELS_DE if german else _FIELD_LABELS,
+                        **(_PRETEXT_FIELD_LABELS_DE if german else _PRETEXT_FIELD_LABELS).get(pretext, {}))
     autocomplete = {"email": "username", "password": "current-password", "name": "name", "phone": "tel"}
     inputs = "".join(
         f'<label class="field"><span>{html.escape(field_labels.get(f, f.replace("_", " ").capitalize()))}</span>'

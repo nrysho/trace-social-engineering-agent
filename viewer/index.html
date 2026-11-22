@@ -760,7 +760,8 @@ function inspect(item, keepFocus = false) {
       el("div", { class: "why" }, el("div", { class: "k", text: "Why it was not chosen" }), el("div", { text: item.r.reason })),
       el("p", { class: "muted", text: `Chosen instead: ${item.of.decision}` }));
   }
-  const n = item, m = messageFor(n.id), events = run.events[n.id];
+  // a reaction shows the conversation it reacts to (its parent contact holds the message or call transcript)
+  const n = item, m = messageFor(n.id) || (n.level === "reaction" ? messageFor(n.parent_id) : undefined), events = run.events[n.id];
   const parts = [tools];
   if (n.level === "target") {
     parts.push(outcomeBanner(), ...judgingPanel(), ...profilePanel());

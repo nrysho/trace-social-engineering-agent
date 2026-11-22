@@ -368,5 +368,38 @@ class JudgedDisclosureTests(unittest.TestCase):
         self.assertEqual(agent.judged_disclosures[0]["touch"], 1)
 
 
+class ConcreteIncidentTests(unittest.TestCase):
+    def test_the_proposal_page_asks_the_internal_details_as_fields(self):
+        import writer
+        from backend import outcomes
+        landing = writer.compose({"name": "Anna Berg", "domain": "nordhafen.de"}, dict(pretext="solution_offer", channel="email"))["landing_page"]
+        self.assertTrue(set(landing["fields"]) & outcomes.DISCLOSURE_FIELDS)   # a submitted field is an API event
+        page, _ = writer.render_landing_html(pretext="solution_offer", organization="Kolb Partners",
+                                             title="Your proposal", fields=landing["fields"])
+        self.assertIn("Who signs off on this on your side?", page)
+
+    def test_the_proposal_link_waits_until_they_engage(self):
+        self.assertFalse(runner._is_lure_goal(strategy._PRETEXTS_BY_KEY["solution_offer"].incident_goal))
+
+    def test_every_story_has_a_file_to_open(self):
+        for p in strategy.PRETEXTS:
+            if p.key in ("security_alert", "it_helpdesk"):          # sign-in lures: the page is the event
+                continue
+            self.assertIn(p.key, runner.FOLLOW_UP_ATTACHMENTS, p.key)
+
+    def test_a_submitted_internal_field_is_a_confirmed_disclosure(self):
+        from backend import outcomes
+        events = [{"type": "page.submitted", "fields": {"name": "Anna", "approver": "Finance lead"}}]
+        kind, _ = outcomes.classify_incident(events)
+        self.assertEqual(kind, "disclosure")
+
+    def test_judged_disclosures_carry_a_grade(self):
+        agent = agent_for("tom")
+        node = Mock(id="n_9", outcome="")
+        agent._note_judged("s1", node, "disclosure", "[soft] Tom revealed internal details: Mira Hansen")
+        agent._note_judged("s1", node, "disclosure", "[concrete] Tom revealed internal details: ServiceNow")
+        self.assertEqual([d["grade"] for d in agent.judged_disclosures], ["soft", "concrete"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -193,7 +193,16 @@
       "sender_name": "Miriam Kolb",
       "role": "account manager",
       "domain": "kolb-partners.de",
-      "page": null
+      "page": {
+        "domain": "kolb-partners.de",
+        "path": "/proposal/options",
+        "title": "Your proposal",
+        "fields": [
+          "name",
+          "internal_tool",
+          "approver"
+        ]
+      }
     }
   }
 }
