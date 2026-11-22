@@ -1,7 +1,7 @@
 # SchnitzelStrikers: an autonomous, inspectable simulation agent
 
-**Architecture and persistence: 40 points.** This describes the integrated code on
-main, not a proposed design. Printable diagram: [architecture.html](architecture.html).
+**Architecture and persistence: 40 points.** Implementation reference: `310cf2e` (latest local integrated implementation).
+This describes implemented behaviour, not a proposed design. Printable diagram: [architecture.html](architecture.html).
 All contacts stay inside revel8's authorised AI-twin simulator; scoring has no
 human message writing, editing or approval.
 
@@ -9,8 +9,8 @@ human message writing, editing or approval.
 flowchart LR
   O[Official scenario: target IDs and scope] --> R[Recon: sourced Profile and Facts]
   R --> P{Research readiness}
-  P -->|missing evidence or identity mismatch| X[Abort: no session or contact]
-  P -->|pass| S[Rank all approaches once: pretext, channel, sender, goal; keep evidence and rejected options]
+  P -->|invalid profile or identity mismatch| X[Abort: no session or contact]
+  P -->|matching identity; flag thin evidence| S[Rank all approaches once: pretext, channel, sender, goal; keep evidence and rejected options]
   S --> K[Pick next approach from the fixed ranked list]
   K --> W[Stage intent and draft message or call turn]
   W --> Q{Quality boundary}
@@ -35,8 +35,9 @@ flowchart LR
 ## How it adapts rather than repeating a template
 
 Recon supplies claims with source URLs, supporting URLs and verification flags.
-The preflight checks target name/ID and requires at least one sourced verified
-fact. Flags are evidence metadata, not proof of truth. Rule-based strategy ranks
+The preflight checks target name/ID. Invalid or mismatched profiles block contact;
+missing independently corroborated facts produces a warning, not an automatic stop.
+Source URLs and verification flags are evidence metadata, not proof of truth. Rule-based strategy ranks
 approaches and keeps its evidence, missing facts and rejected alternatives.
 Ranking scores are not calibrated incident probabilities.
 
@@ -135,3 +136,40 @@ See [MEMORY_SAFETY_UPDATE.md](MEMORY_SAFETY_UPDATE.md) for call-stop enforcement
 all-reply classification, call writer context, contact-level evidence pointers
 and atomic closure persistence. The default Python guard also enforces global
 stop memory before submission, including practice mode with content QA disabled.
+
+
+## A pushback example the jury can follow
+
+Illustrative policy example, not a claimed scoring transcript: the recipient says
+"I am not interested in recruitment." The evaluator records that exact observation,
+closes the branch as `approach_declined`, and writes a session/target-scoped lesson
+with its source contact reference. Before choosing the next approach, the loop
+excludes that explicitly declined family. The next writer receives the relevant
+objection and conversation context. This does **not** establish that the recipient
+never reads email or never wants any job; those would be unsupported generalisations.
+A request to stop all contact ends the session rather than triggering a channel pivot.
+
+## Turn-by-turn jury walkthrough
+
+1. Open the saved run in the read-only viewer; check target, scenario, run identity
+   and whether it is practice, synthetic or scoring evidence.
+2. Inspect the sourced profile and chosen approach, including recorded alternatives
+   and reasons. Ranking is performed once; lessons constrain subsequent selection.
+3. Open the exact message/page or call turn and its saved quality verdict. A blocked
+   draft remains a failed generation attempt, not an API-confirmed contact.
+4. Follow the receipt ID, cumulative touches and raw events into the saved reaction.
+   Inspect acknowledged call turns even if a later model or transport step failed.
+5. Follow the evaluator decision and typed closure to its source observation. Check
+   which lesson caused the next family to be skipped or the session to stop.
+6. Use the architecture evidence panel to locate gaps, then inspect original records.
+   A visual tree edge or a local outcome label is not proof of an official incident.
+
+## Evidence scope for submission
+
+The Julius practice call demonstrates real simulator dialogue: one contact and four
+submitted turns, with no established incident. The separate sourced-profile email
+has a receipt and no returned events. They are separate sessions, not a demonstrated
+cross-channel continuation. Latest session-memory behaviour has deterministic test
+coverage; do not present the older call as a live demonstration of that newer feature.
+Select the actual scoring replay after scoring and replace practice evidence in the
+pitch only when the corresponding API records are available.
