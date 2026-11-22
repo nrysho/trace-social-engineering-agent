@@ -19,12 +19,15 @@ flowchart LR
   T --> E[API receipt, cumulative touches and raw events]
   E --> A[Interpret reply and scepticism; choose next move]
   A -->|answer or reassure once within this branch| W
-  A -->|branch stalled: pivot, no branch lessons carried| K
+  A -->|branch closed: record a typed lesson| M[Lesson memory: the twin's explicit words, append-only]
+  M -->|skip a declined family, down-weight a soft stall, stop on an explicit stop| K
+  M -->|hand the next opener what to pre-empt| W
   A -->|candidate incident, refusal or budget exhausted| Z[Stop and save]
   T -->|uncertain delivery| U[Stop; reconcile original request]
   Q --> L[QA sidecars, tree decisions, API journal and replay bundle]
   E --> L
   A --> L
+  M --> L
   L --> V[Read-only Replay, Results and Progress]
   C[Offline email/page craft renders] --> V
 ```
@@ -45,6 +48,31 @@ The run budget is authoritative and syncs to returned cumulative touches; eval
 is capped at ten. One acknowledged call is one touch, with up to ten turns.
 This is bounded search over ranked approaches and staged dialogue, not an
 unlimited planner or a trained policy that improves itself during scoring.
+
+## Closed loop: carrying a lesson forward
+
+When a branch ends it closes with one typed reason (declined, stop requested,
+persistent doubt, silence, budget, quality block, uncertain delivery, incident or
+internal failure) and records an append-only **lesson**: the reason, whether it is
+explicit or only tentatively inferred, the twin's own quoted words, and the
+scepticism score. Lessons live in the run bundle, keyed by (session, target) then
+pretext family, with a stable id so reprocessing the same reply never duplicates
+one. Classification is bilingual and conservative: negation, quotation and a
+timing constraint stay tentative rather than burning a pretext.
+
+Before the next branch the search consults that memory. An explicit decline of a
+pretext family (or an outright scam call-out) excludes that family; a soft stall
+only down-weights the hook or channel; an explicit "stop contacting me" stops the
+whole session, and a link-open or form touch in the same reply does not override
+it. The next writer is handed a bounded, structured context of what the twin said
+so its opener pre-empts the prior objection. The twin's quoted words are treated
+as data for phrasing, never as instructions, and never clear a restriction. The
+tree records, in plain words, which lesson drove each skip or pivot.
+
+Honest scope: the agent preserves what the twin **explicitly said** and records how
+that evidence changed the next decision. It does not claim to know the target's
+true preferences, silence is not treated as proof a channel fails, and none of this
+guarantees an incident.
 
 ## What survives failure
 
