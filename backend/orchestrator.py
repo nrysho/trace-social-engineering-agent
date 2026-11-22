@@ -74,7 +74,7 @@ PROFILE_DIRS = [RUNS / "profiles", ROOT / "mock"]
 EVAL_BUDGET = 10
 PRACTICE_BUDGET = 30
 PER_BRANCH = 3                             # cap one approach before pivoting
-MAX_APPROACHES_EVAL = 3                    # with only 10 touches, go deep on a few, do not spray
+MAX_APPROACHES_EVAL = 5                    # the 10 touches cap it; 3 left 4 of Jonas's 10 contacts unused
 MAX_APPROACHES_PRACTICE = 6
 DEFAULT_COMPANY = "revel8"
 
@@ -192,7 +192,8 @@ SWITCH_MIN_FIT = 0.45                        # never trade a silent channel for 
 
 _NEGATION = re.compile(r"\b(not|don'?t|do not|won'?t|will not|never|no|nicht|keine?n?|kein|zu)\b|vorerst nicht|lasse ich", re.I)
 _FILE_WORDS = re.compile(r"\b(attachments?|pdfs?|files?|briefing|anh[äa]nge?n?|dateien?)\b", re.I)
-_LINK_WORDS = re.compile(r"\b(links?|forms?|formulare?s?|rsvp|click\w*|klick\w*|sign[ -]?in|anmelde\w*)\b", re.I)
+_LINK_WORDS = re.compile(r"\b(links?|forms?|formulare?s?|rsvp|click\w*|klick\w*|sign[ -]?in|anmelde\w*|portals?|portale|"
+                         r"log[ -]?in\w*|einlogg\w*|melde\b[^.,;!?]{0,30}\ban)\b", re.I)   # "ich melde mich nicht in einem Portal an"
 # a refusal is judged per clause: "not sure who you are, but email me the link" asks for the link
 _CLAUSE = re.compile(r",\s*|;\s*|\s+(?:but|aber|however|jedoch|and then|und dann)\s+", re.I)
 _DECLINE = re.compile(r"(public|öffentlich|website|not (on|over) the phone|won'?t (share|discuss|go through|give)|"

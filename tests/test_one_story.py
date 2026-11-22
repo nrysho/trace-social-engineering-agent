@@ -459,5 +459,16 @@ class LiveReconPathTests(unittest.TestCase):
             self.assertFalse(runner._on_bench())
 
 
+class GermanPortalRefusalTests(unittest.TestCase):
+    def test_a_portal_refusal_stops_the_link(self):
+        heard = ("Ich melde mich aber nicht in einem Portal an, um Profile anzusehen, und öffne auch keine Anhänge "
+                 "von Agenturen, mit denen wir keinen Vertrag haben.")
+        self.assertEqual(runner._refused(heard), {"files", "links"})
+        self.assertEqual(runner._refused("Wie gesagt: Ich nutze kein Portal und öffne keine Anhänge."), {"files", "links"})
+
+    def test_eval_keeps_trying_while_contacts_remain(self):
+        self.assertGreater(runner.MAX_APPROACHES_EVAL, 3)
+
+
 if __name__ == "__main__":
     unittest.main()
