@@ -483,5 +483,14 @@ class RepeatEvalRunTests(unittest.TestCase):
                 self.assertEqual(runner.tried_before("jonas", "Jonas Richter"), {"recruiting"})
 
 
+class WarmBoundaryTests(unittest.TestCase):
+    def test_a_commitment_with_a_boundary_is_warm(self):
+        jonas = ("vielen Dank, jetzt sind die Eckdaten klar. Ich stimme mich intern mit Kalender und Marketing ab und "
+                 "gebe Ihnen vor dem 5. Dezember per Mail Bescheid. Formulare und Anhänge öffne ich dafür nicht.")
+        self.assertTrue(runner._warm_boundary(jonas))
+        self.assertFalse(runner._warm_boundary("Das ist Phishing, ich melde das der IT-Security."))
+        self.assertFalse(runner._warm_boundary("Bitte kontaktieren Sie mich nicht mehr."))
+
+
 if __name__ == "__main__":
     unittest.main()

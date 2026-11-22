@@ -239,8 +239,21 @@ def _echoes_sender(detail, sent):
     return bool(marks) and all(w.casefold() in said for w in marks)
 
 
+_COMMITS = re.compile(r"(gebe ihnen[^.!?]{0,60}bescheid|melde mich|schaue (ich )?(mir )?(das|die|sie)?[^.!?]{0,20}an|"
+                      r"habe ich notiert|notiert|stimme mich[^.!?]{0,40}ab|kläre (das|ich)|"
+                      r"i'?ll (get back|confirm|check|let you know|review)|noted|will (get back|confirm|let you know))", re.I)
+_HOSTILE = re.compile(r"(phishing|scam|betrug|fake|spam|melde (das|dies)[^.!?]{0,30}(it|security|sicherheit)|"
+                      r"nicht mehr (kontaktieren|schreiben)|do not contact|stop (contacting|writing))", re.I)
+
+
+def _warm_boundary(reply):
+    """a reply that commits to something and does not call us fake: warm, even with a boundary in it."""
+    return bool(_COMMITS.search(reply or "")) and not _HOSTILE.search(reply or "")
+
+
 def tried_before(target_id, name):
-    """pretexts earlier eval runs already used on this same person (run bundles in runs/)."""
+    """pretexts earlier eval runs used on this same person and that went nowhere (run bundles in runs/).
+    A story the person engaged with (two or more engaged replies) is not counted: it is worth another go."""
     tried = set()
     for path in RUNS.glob(f"run_{target_id}_*.json"):
         try:
@@ -249,9 +262,27 @@ def tried_before(target_id, name):
             continue
         if b.get("mode") != "eval" or (b.get("profile") or {}).get("name") != name:
             continue
-        for n in b.get("nodes", []):
+        nodes = b.get("nodes", [])
+        kids = {}
+        for n in nodes:
+            kids.setdefault(n.get("parent_id"), []).append(n)
+        events = b.get("events") or {}
+        def warm(node_id):
+            # the person committed to something under this story ("ich gebe Ihnen vor dem 5. Dezember Bescheid")
+            stack, seen = [node_id], set()
+            while stack:
+                nid = stack.pop()
+                if nid is None or nid in seen:
+                    continue
+                seen.add(nid)
+                for c in kids.get(nid, []):
+                    if any(e.get("type") == "reply" and _warm_boundary(e.get("body", "")) for e in events.get(c.get("id"), [])):
+                        return True
+                    stack.append(c.get("id"))
+            return False
+        for n in nodes:
             m = re.match(r"run approach: (\w+)", str(n.get("decision") or "")) if n.get("level") == "approach" else None
-            if m:
+            if m and not warm(n.get("id")):
                 tried.add(m.group(1))
     return tried
 
@@ -795,6 +826,10 @@ class Orchestrator:
             # how doubtful the reply sounds decides whether the next message asks or reassures
             sc = strategy.assess_scepticism(reply, judge=self._judge_scepticism if self.use_model else None)
             scepticism = sc["score"]
+            if scepticism is not None and _warm_boundary(reply):
+                # "I'll get back to you before 5 December. No forms or attachments." is a warm thread with a
+                # boundary, not a refusal: the judge rated Jonas's reply 10/10 and the agent dropped it
+                scepticism = min(scepticism, strategy.SCEPTICISM_ASK_MAX)
             if scepticism is not None:
                 reason = (reason.rstrip(". ") + ". " if reason else "") + f"Scepticism {scepticism}/10: {sc['reason']}"
                 if scepticism >= strategy.SCEPTICISM_REASSURE_MIN and state == "engaged":
