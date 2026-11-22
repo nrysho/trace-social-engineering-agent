@@ -132,6 +132,25 @@ def _github(name, company, role, domain, results):
         return []
 
 
+_MAIL_PROVIDERS = {"google": ("google workspace", "gmail"), "microsoft": ("microsoft 365", "office 365", "outlook", "exchange online")}
+
+
+def _clean(facts, company):
+    """facts that would make a message say something wrong:
+    - a bare company name is not a fact about the person ("revel8" on its own)
+    - when DNS records name two mail providers (MX says Google, SPF says Microsoft), neither may be
+      stated as certain: the target notices a wrong provider at once."""
+    co = str(company or "").strip().casefold()
+    kept = [f for f in facts if not (co and f.value.strip().strip(".").casefold() in (co, f"works at {co}"))]
+    named = {p: [f for f in kept if f.category == "vendors_and_tools" and any(k in f.value.casefold() for k in keys)]
+             for p, keys in _MAIL_PROVIDERS.items()}
+    if all(named.values()):
+        for group in named.values():
+            for f in group:
+                f.verified = False
+    return kept
+
+
 def build(name, company, role="", bench_target=None):
     env = config.load_env()
     domain = ""
@@ -162,8 +181,8 @@ def build(name, company, role="", bench_target=None):
             for j in jobs:
                 facts += j.result()
 
-    # 3. verify across domains, propose hooks, score exposure
-    facts = verify.verify(facts)
+    # 3. verify across domains, drop facts that would make us say something wrong, propose hooks
+    facts = _clean(verify.verify(facts), company)
     ranked = hooks.propose(name, company, facts)
     sc, breakdown = exposure.score(facts, ranked)
     print(f"  {len(facts)} facts after verify, {len(ranked)} hooks")

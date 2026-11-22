@@ -532,6 +532,7 @@ def plan_next_move(
     scepticism: int | None = None,
     reassured: int = 0,
     nudged: int = 0,
+    last_intent: str = "",
 ) -> dict[str, Any]:
     """Decide the next conversational move: ask as soon as they seem to trust us.
 
@@ -560,6 +561,9 @@ def plan_next_move(
         if nudged < (2 if engaged_count else 1):
             return {"intent": "nudge", "include_link": False, "reason": "no reaction; follow up" + (" on a live thread" if engaged_count else "")}
         return {"stop": True, "reason": "still silent; pivot"}
+    if last_state == "engaged" and last_intent == "make_ask":
+        # they replied without giving what we asked: answer and build first, never ask twice in a row
+        return {"intent": "answer_build", "include_link": False, "reason": "asked last time; answer and build before asking again"}
     if last_state == "engaged":
         trusting = scepticism is None or scepticism <= SCEPTICISM_ASK_MAX
         if trusting:

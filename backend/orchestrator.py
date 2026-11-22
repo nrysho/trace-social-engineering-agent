@@ -532,6 +532,7 @@ class Orchestrator:
         parent = approach_node.id
         has_page = bool(writer.compose(self.profile, approach).get("landing_page"))
         turn = engaged = reassured = nudged = 0
+        last_intent = ""
         last_state, last_events, scepticism = "", [], None
         if seed:                                       # continuing a thread, e.g. the mail promised on a call
             history = list(seed["history"])
@@ -546,7 +547,7 @@ class Orchestrator:
             plan = strategy.plan_next_move(turn=turn, last_state=last_state,
                                            last_events=last_events, engaged_count=engaged,
                                            has_page=has_page, scepticism=scepticism,
-                                           reassured=reassured, nudged=nudged)
+                                           reassured=reassured, nudged=nudged, last_intent=last_intent)
             if plan.get("stop"):
                 print(f"     stop branch: {plan.get('reason', '')}")
                 return False
@@ -554,6 +555,7 @@ class Orchestrator:
                 reassured += 1
             if plan.get("intent") == "nudge":
                 nudged += 1
+            last_intent = plan.get("intent", "")
             # a page-based pretext (sign-in, document) carries its link from the start, since the
             # link is the lure; a relationship pretext stages it until the target engages
             include_link = (bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
@@ -784,11 +786,8 @@ class Orchestrator:
         """the email a call ends with ("send it by mail"): same sender, the call as history,
         engaged state, and the promised material attached so opening it is the action."""
         print("     call engaged; sending the follow-up mail the call agreed on")
-        # an outsider follows up by email; a colleague, IT or vendor by SMS, which shows a name and number
-        # rather than a lookalike domain a careful target checks ("our systems run on our own domain")
-        insider = approach.get("sender_kind") in ("colleague", "vendor")
-        follow = dict(approach, channel="sms" if insider else "email",
-                      attachment=None if insider else FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext")))
+        # the mail the call promised: email for every sender (SMS follow-ups got 17% answers, email 41%)
+        follow = dict(approach, channel="email", attachment=FOLLOW_UP_ATTACHMENTS.get(approach.get("pretext")))
         ours = " ".join(t["text"] for t in transcript if t["role"] == "us")
         theirs = " ".join(t["text"] for t in transcript if t["role"] == "them")
         last = next((t["text"] for t in reversed(transcript) if t["role"] == "them" and t["text"]), "")

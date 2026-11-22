@@ -63,7 +63,7 @@ SIMULATION_SYSTEM = (
 WRITING_RULES = [
     "1. You are you_are. Write in their organisation's normal tone for this channel and in the recipient's language (write_in; for a first contact, what their facts and country suggest). Address the recipient as this sender would and keep one form of address (in German the formal Sie, unless they use du). Sign off using exactly you_are.name: a person adds role, organisation, a phone number from the fictional range +49 30 23125 0xx and the city; a company or team signs as the team.",
     "2. Do what this_message says, with at most one ask. Never ask for something your sender would already know.",
-    "3. Be concrete inside your own story: invented people of your own organisation with realistic full names and roles, real cities and venues, dates after today; reference numbers, once given, stay the same. Never name real outside companies or real people as participants, partners or references: the recipient can check those. If asked who someone is, give names; if asked how you found them, it is their public work (a talk, a post, the company site).",
+    "3. Keep details light until asked: say only what the recipient needs to decide (who you are, the topic, roughly when). Give names, numbers, references or agendas only when they ask, and then concretely: invented people of your own organisation with realistic full names and roles, real cities and venues, dates after today; a reference, once given, stays the same. Never name real outside companies or real people as participants, partners or references: the recipient can check those. If asked who someone is, give names; if asked how you found them, it is their public work (a talk, a post, the company site).",
     "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation.",
     "5. Mention a file or link only if included_with_your_text has it; if they asked for it and it is included, send it now. A link is appended after your text: refer to it naturally, never write a URL or a placeholder.",
     "6. Stay calm and believable: real-world timing is fine (an RSVP closes Friday), no alarm words, threats, audits or suspensions.",
@@ -290,7 +290,7 @@ def generate_call_line(
             "Write the caller's next spoken line as JSON {\"body\": \"...\"}, in the language given as speak_in. "
             "1. You are exactly the sender (name, role, organisation); keep every detail consistent, including one form of address (in German the formal Sie, unless they use du). "
             "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
-            "3. Dates you mention lie after today. "
+            "3. Keep details light until asked; dates you mention lie after today. "
             "4. Answer their question briefly, then ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need for your story. "
             "5. If they want it in writing, agree, say what you will send today, and close politely. Never repeat a question they declined."
         ),
