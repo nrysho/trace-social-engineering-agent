@@ -266,7 +266,7 @@ def generate_call_line(
     user_payload = {
         "instruction": (
             "Write only the caller's next spoken line as JSON {\"body\": \"...\"}. Speak the language the other party speaks. "
-            "Keep the sender persona and established details consistent. Answer the other party's last question briefly, then make at most one clear ask. "
+            "Introduce yourself exactly as the sender (name, role, organisation) and keep established details consistent. Answer the other party's last question briefly, then make at most one clear ask. "
             "Calls are short: by your second line, move to the concrete next step that serves the goal, and never let the call end without one. "
             "The natural next step is that you email the material right after the call (name what you will send, e.g. the programme, the questions, the profile); "
             "get their agreement and ask one specific question that the email will build on. If they say to send it by mail, agree warmly, "
@@ -656,15 +656,15 @@ _FIELD_LABELS = {"email": "Work email", "password": "Password", "name": "Full na
                  "approver": "Who approves this invoice on your side?", "vpn_client": "VPN client on this device"}
 _PAGE_COPY = {   # heading, text, button: what this kind of page says (never the internal plan)
     "security_alert": ("Verify it's you", "We noticed a sign-in from a new device. Sign in to review the activity and keep your account secure.", "Continue"),
-    "vendor_notice": ("Review your account", "Confirm your details to keep your subscription running without interruption.", "Continue"),
+    "vendor_notice": ("Review your account", "Sign in to review your account and keep your subscription running without interruption.", "Sign in"),
     "document_share": ("A document was shared with you", "Sign in with your work account to open the document.", "Open document"),
     "invoice_approval": ("Confirm invoice 2026-1184", "Confirm the invoice and tell us who approves it on your side, so payment is not delayed.", "Confirm invoice"),
     "hr_policy": ("Acknowledge the updated policy", "Sign in with your work account to read and acknowledge the updated policy.", "Sign in"),
     "it_helpdesk": ("Confirm your device", "Sign in with your work account and tell us which VPN client your device uses, so we can finish the update.", "Confirm device"),
     "press_request": ("Sign in to keep reading", "This article is for registered readers. Sign in with your work account to read the full piece.", "Continue reading"),
     "speaker_invite": ("Speaker RSVP", "Thank you for your interest. Tell us when you are available and we will send the full programme.", "Send RSVP"),
-    "recruiting": ("Candidate profile", "Enter your work email to open the candidate profile.", "View profile"),
-    "investor_intro": ("Introduction deck", "Enter your email and we will send you the deck right away.", "Get the deck"),
+    "recruiting": ("Candidate profile", "Sign in with your work account to view the candidate profile and CV.", "View profile"),
+    "investor_intro": ("Data room", "Sign in with your work account to view our thesis, portfolio and the introduction deck.", "Enter data room"),
     "meeting_reschedule": ("Confirm the new time", "Sign in to confirm the updated meeting details.", "Confirm"),
 }
 

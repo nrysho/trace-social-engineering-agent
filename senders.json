@@ -47,9 +47,10 @@
       "page": {
         "domain": "feld-talent-search.de",
         "path": "/candidate",
-        "title": "Candidate profile",
+        "title": "Candidate portal sign-in",
         "fields": [
-          "email"
+          "email",
+          "password"
         ]
       }
     },
@@ -68,9 +69,10 @@
       "page": {
         "domain": "benn-capital-partners.de",
         "path": "/deck",
-        "title": "Intro deck",
+        "title": "Data room sign-in",
         "fields": [
-          "email"
+          "email",
+          "password"
         ]
       }
     },
@@ -84,7 +86,8 @@
         "path": "/open",
         "title": "Shared document",
         "fields": [
-          "email"
+          "email",
+          "password"
         ]
       }
     },
@@ -96,9 +99,10 @@
       "page": {
         "domain": "workspace-billing.net",
         "path": "/account",
-        "title": "Account billing",
+        "title": "Account sign-in",
         "fields": [
-          "email"
+          "email",
+          "password"
         ]
       }
     },

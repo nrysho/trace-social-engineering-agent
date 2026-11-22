@@ -157,7 +157,7 @@ def _asks_for_material(reply):
 def _material_name(reply, pretext):
     """a file name for what they asked for, else the pretext's usual follow-up material."""
     text = reply.casefold()
-    for words, name in ((("article", "pieces", "samples", "portfolio"), "Recent_Articles.pdf"),
+    for words, name in ((("article", "pieces", "clips"), "Recent_Articles.pdf"),
                         (("agenda", "programme", "program", "programm", "speakers"), "Programme_and_Speakers.pdf"),
                         (("deck",), "Introduction_Deck.pdf"), (("cv", "profile"), "Candidate_Profile.pdf")):
         if any(w in text for w in words):
@@ -450,6 +450,7 @@ class Orchestrator:
             # a page-based pretext (sign-in, document) carries its link from the start, since the
             # link is the lure; a relationship pretext stages it until the target engages
             include_link = (bool(plan.get("include_link")) or _is_lure_goal(approach.get("incident_goal"))
+                            or (plan.get("intent") == "reassure" and has_page)   # doubt is met with something to check
                             or bool(history and has_page and re.search(r"\blinks?\b|\burl\b|\bpage\b", history[-1].get("reply", ""), re.I)))
             contact = self.add_node("contact", "writer",
                                     f"contact on {approach.get('pretext')} ({plan.get('intent', '')})",

@@ -51,21 +51,21 @@ class Pretext:
 # required_facts use the canonical categories from schemas.FACT_CATEGORIES so
 # coverage is checked against real profiles.
 PRETEXTS: tuple[Pretext, ...] = (
-    Pretext("speaker_invite", "Invitation to speak or join a panel", ("interests", "upcoming_events"), ("email", "linkedin_message", "calendar_invite", "phone_call"), "get a clear expression of interest or availability"),
-    Pretext("press_request", "Journalist or host requests an interview", ("media", "recent_activity"), ("email", "linkedin_message", "phone_call"), "get a reply with interview availability"),
-    Pretext("customer_question", "Prospective customer asks a product question", ("role", "company"), ("email", "linkedin_message", "teams_chat"), "start a substantive product conversation"),
-    Pretext("recruiting", "Candidate asks about a real open role", ("hiring", "role"), ("email", "linkedin_message"), "get a reply about the hiring process"),
+    Pretext("speaker_invite", "Invitation to speak or join a panel", ("interests", "upcoming_events"), ("email", "linkedin_message", "calendar_invite", "phone_call"), "get them to name the tools or processes their team uses (for the moderator's prep), or to read the attached briefing"),
+    Pretext("press_request", "Journalist or host requests an interview", ("media", "recent_activity"), ("email", "linkedin_message", "phone_call"), "get them to describe internal tools, numbers or processes for the piece, or to log in to read the article"),
+    Pretext("customer_question", "Prospective customer asks a product question", ("role", "company"), ("email", "linkedin_message", "teams_chat"), "get them to describe internal processes, tools, prices or plans that are not on their website"),
+    Pretext("recruiting", "Candidate asks about a real open role", ("hiring", "role"), ("email", "linkedin_message"), "get them to say who decides on the hire and which internal tools the team uses, or to read the candidate file"),
     Pretext("document_share", "Known collaborator shares a relevant document", ("network", "recent_activity"), ("email", "shared_document", "teams_chat"), "get the recipient to open a registered simulation page", "colleague"),
-    Pretext("meeting_reschedule", "Known collaborator proposes a meeting change", ("network", "upcoming_events"), ("email", "calendar_invite", "teams_chat", "whatsapp", "teams_call"), "get a reply confirming a meeting detail", "colleague"),
-    Pretext("vendor_notice", "Question about a known vendor or tool", ("vendors_and_tools", "role"), ("email", "teams_chat"), "start a conversation about the known tool", "vendor"),
+    Pretext("meeting_reschedule", "Known collaborator proposes a meeting change", ("network", "upcoming_events"), ("email", "calendar_invite", "teams_chat", "whatsapp", "teams_call"), "get them to accept the changed meeting or share an internal detail (attendees, internal dial-in, room)", "colleague"),
+    Pretext("vendor_notice", "Question about a known vendor or tool", ("vendors_and_tools", "role"), ("email", "teams_chat"), "get them to log in to their account or name who manages the tool internally", "vendor"),
     Pretext("security_alert", "Account or sign-in notice for a tool they use", ("vendors_and_tools", "role"), ("email", "sms", "teams_chat", "voicemail", "phone_call"), "get the recipient to open a registered sign-in page", "vendor"),
-    Pretext("internal_favor", "Colleague requests a small, plausible work favour", ("network", "communication_style"), ("email", "teams_chat", "slack", "whatsapp", "phone_call", "teams_call", "voicemail"), "get a reply or a harmless simulated action", "colleague"),
+    Pretext("internal_favor", "Colleague requests a small, plausible work favour", ("network", "communication_style"), ("email", "teams_chat", "slack", "whatsapp", "phone_call", "teams_call", "voicemail"), "get them to act for a colleague (forward, approve, change something) or share an internal detail (tool, approver, process)", "colleague"),
     # pretexts for ordinary employees (finance, HR, staff): the scoring targets are not founders
     Pretext("invoice_approval", "A supplier asks to confirm an invoice or its payment details", ("role", "company"), ("email", "phone_call"), "get the recipient to open the invoice or name who approves it", "vendor"),
     Pretext("hr_policy", "HR asks staff to acknowledge an updated policy or benefits form", ("company", "role"), ("email", "teams_chat"), "get the recipient to sign in on a registered HR page", "colleague"),
     Pretext("it_helpdesk", "IT support follows up on a ticket, device or VPN update", ("company", "vendors_and_tools"), ("phone_call", "teams_call", "teams_chat", "email"), "get the recipient to name their VPN client or sign in on a registered page", "colleague"),
     Pretext("exec_request", "A senior leader asks for a quick, discreet favour", ("network", "company"), ("whatsapp", "teams_chat", "sms", "email"), "get the recipient to act for them (open, forward, approve) or name who approves payments", "colleague"),
-    Pretext("investor_intro", "Someone introduces an investor or partner", ("recent_activity", "network"), ("email", "linkedin_message"), "start an investor or partnership thread"),
+    Pretext("investor_intro", "Someone introduces an investor or partner", ("recent_activity", "network"), ("email", "linkedin_message"), "get them to share internal numbers (revenue, headcount, runway, pipeline) or log in to the data room"),
 )
 
 _PRETEXTS_BY_KEY = {p.key: p for p in PRETEXTS}
