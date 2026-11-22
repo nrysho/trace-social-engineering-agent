@@ -586,30 +586,26 @@ def classify_reply(reply_text: str) -> dict[str, Any]:
     the twin's own words, so a lesson built from it stays checkable."""
     from backend.lessons import _excerpt  # local import: avoid a module import cycle at load
     raw = reply_text or ""
-    low = _normalise(raw).casefold()
-    if not low:
-        return {"kind": "none", "certainty": "tentative", "excerpt": ""}
-
-    def first_hit(phrases):
-        best_idx, best = -1, ""
-        for phrase in phrases:
-            pos = low.find(phrase)
-            if pos != -1 and (best_idx == -1 or pos < best_idx):
-                best_idx, best = pos, phrase
-        return best_idx, best
-
+    # Classify every sentence/occurrence; an earlier quoted/conditional mention
+    # must not hide a later direct stop. Retain source text for evidence checks.
+    sentences = re.split(r'(?<=[.!?])\s+|\n+', raw)
+    tentative = None
     for kind, phrases, explicit in (
         ("session_stop", _STOP_PHRASES, True),
         ("approach_decline", _DECLINE_PHRASES, True),
         ("timing", _TIMING_PHRASES, False),
     ):
-        idx, phrase = first_hit(phrases)
-        if idx == -1:
-            continue
-        certainty = "explicit" if (explicit and not _flipped(low, idx)) else "tentative"
-        return {"kind": kind if certainty == "explicit" or kind == "timing" else "none",
-                "certainty": certainty, "excerpt": _excerpt(raw, phrase)}
-    return {"kind": "none", "certainty": "tentative", "excerpt": ""}
+        for sentence in sentences:
+            low = _normalise(sentence).casefold().replace("\u2019", "'")
+            for phrase in phrases:
+                for match in re.finditer(re.escape(phrase),low):
+                    direct = explicit and not _flipped(low,match.start())
+                    observation = {"kind": kind if direct or kind == "timing" else "none",
+                                   "certainty": "explicit" if direct else "tentative",
+                                   "excerpt": sentence.strip()[:500]}
+                    if direct: return observation
+                    if tentative is None: tentative = observation
+    return tentative or {"kind":"none","certainty":"tentative","excerpt":""}
 
 
 # message stages for a persistent thread; the drafter has matching guidance.

@@ -22,6 +22,7 @@ import re
 import sys
 import time
 import uuid
+import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -378,6 +379,7 @@ class Orchestrator:
                        approved_sender_domains=sorted(senders), approved_link_hosts=sorted(links),
                        known_organisation_domains=sorted(forbidden - {''}), approved_sender_addresses=[])
         self.client = GuardedClient(self.client, context, enabled=self.quality_enabled)
+        self.client.session_stop_check = lambda sid: self.lessons.session_stop(sid,self.target_id)
 
     def _draft_checked(self, approach, sid, node_id, history, include_link, memory_context=None):
         if not self.quality_enabled:
@@ -502,6 +504,20 @@ class Orchestrator:
             observation = strategy.classify_reply(reply)
         lesson = make_lesson(session_id=sid, target_id=self.target_id, approach=approach,
                              close_reason=close_reason, observation=observation, scepticism=scepticism)
+        by_id = {n.id:n for n in self.nodes}
+        def belongs(message):
+            current, seen = message.get('node_id'), set()
+            while current and current not in seen:
+                if node and current == node.id: return True
+                seen.add(current)
+                current = by_id[current].parent_id if current in by_id else None
+            return False
+        source_contact = next((m for m in reversed(self.messages)
+                               if m.get('session_id') == sid and belongs(m)),None)
+        lesson['branch_node_id'] = node.id if node else None
+        if source_contact:
+            lesson['source'] = {key:source_contact.get(key) for key in
+                ('node_id','message_id','conversation_id','idempotency_key') if source_contact.get(key)}
         self.lessons.add(lesson)
         if node is not None:
             gist = f"branch closed: {close_reason}"
@@ -510,6 +526,7 @@ class Orchestrator:
             node.outcome = node.outcome or gist
             if node.status in ("active", "proposed"):
                 node.status = "incident" if incident else ("exhausted" if close_reason == "budget_exhausted" else "failed")
+        self._save_tree()  # close/lesson must reach disk before any next branch
         return BranchResult(close_reason, incident=incident)
 
     def _run_branch(self, sid, approach, approach_node, memory_context=None):
@@ -517,7 +534,7 @@ class Orchestrator:
         any other channel through the message path."""
         self.client.story_scope = approach.get('story_id') or approach.get('pretext') or 'session'
         if approach.get("channel") in LIVE_CHANNELS:
-            return self._run_call(sid, approach, approach_node)
+            return self._run_call(sid, approach, approach_node, memory_context=memory_context)
         return self._run_messages(sid, approach, approach_node, memory_context=memory_context)
 
     def _run_messages(self, sid, approach, approach_node, seed=None, memory_context=None):
@@ -608,7 +625,7 @@ class Orchestrator:
                                       message_id=result['message_id'], touches_used=result.get('touches_used')))
             self.events.setdefault(contact.id, []).extend(events)
             self.reactions += bool(events)
-            reply = next((e.get("body", "") for e in events if e.get("type") == "reply"), "")
+            reply = "\n".join(str(e.get("body", "")) for e in events if e.get("type") == "reply")
             print(f"     <- {[e.get('type') for e in events] or ['ignored']}  "
                   f"({self.budget.used}/{self.budget.total} touches)")
 
@@ -667,7 +684,7 @@ class Orchestrator:
         return self._close_branch(sid, approach, approach_node, "budget_exhausted",
                                   reply=reply, scepticism=scepticism, observation=last_cls or None)
 
-    def _run_call(self, sid, approach, approach_node):
+    def _run_call(self, sid, approach, approach_node, memory_context=None):
         """a live call: one touch for the whole call, up to 10 turns. cheap and fast, and
         well suited to a disclosure ask. writer.generate_call_line writes one line per turn."""
         if not self.budget.can_spend():
@@ -718,13 +735,17 @@ class Orchestrator:
         incident_type = incident_reason = None
         max_turns = 10
         for turn in range(1, max_turns + 1):
+            classification = strategy.classify_reply(heard)
+            if classification.get('certainty') == 'explicit' and classification.get('kind') in {'session_stop','approach_decline'}:
+                break
             try:
                 def draft_line(feedback):
                     extra = [{'role':'quality-feedback','text':json.dumps(feedback)}] if feedback else []
                     gen = _retry_model(lambda: writer.generate_call_line(
                         self._cfg(), target=self._target_dict(), approach=approach,
                         sender=caller, verified_facts=self.profile.get('facts', []),
-                        transcript=transcript + extra, turn_number=turn, max_turns=max_turns))
+                        transcript=transcript + extra, turn_number=turn, max_turns=max_turns,
+                        memory_context=memory_context))
                     return {'say':(gen.get('content') or {}).get('body','')}
                 if self.quality_enabled:
                     line = generate_checked_turn(draft_line, self.client.context, max_attempts=3,
@@ -762,7 +783,9 @@ class Orchestrator:
             self.client.end_conversation(cid)
         except Exception:
             pass
-        state = "incident" if incident_type else "engaged"
+        classification = strategy.classify_reply(heard)
+        stopped = classification.get('certainty') == 'explicit' and classification.get('kind') in {'session_stop','approach_decline'}
+        state = "incident" if incident_type else "declined" if stopped else "engaged"
         contact.status = state
         contact.outcome = incident_reason or f"call ended, {len(transcript)} lines"
         self.add_node("reaction", "evaluator", f"call {state}",
@@ -773,6 +796,9 @@ class Orchestrator:
             print(f"     *** INCIDENT ({incident_type}): {incident_reason} ***")
             return self._close_branch(sid, approach, approach_node, "candidate_incident",
                                       reply=heard, observation=strategy.classify_reply(heard), incident=True)
+        if stopped:
+            reason = 'contact_stop_requested' if classification['kind'] == 'session_stop' else 'approach_declined'
+            return self._close_branch(sid,approach,approach_node,reason,reply=heard,observation=classification)
         said = [t["text"] for t in transcript[1:] if t["role"] == "them" and t["text"]]
         if said and not self.budget.exhausted():
             # they talked to us: send the material the call promised, in the same thread, instead of pivoting
@@ -793,7 +819,8 @@ class Orchestrator:
         sc = strategy.assess_scepticism(theirs, judge=self._judge_scepticism if self.use_model else None)
         seed = {"history": [{"message": f"(phone call) {ours}", "events": [], "reply": theirs}],
                 "scepticism": sc["score"]}
-        return self._run_messages(sid, follow, contact, seed=seed)
+        return self._run_messages(sid, follow, contact, seed=seed,
+                                  memory_context=writer_memory(self.lessons,sid,self.target_id))
 
     def _check_contact_touches(self, response):
         used = response.get('touches_used')
@@ -1014,9 +1041,22 @@ class Orchestrator:
             "lessons": self.lessons.list(),   # closed-loop memory: why branches ended, append-only
         }
         RUNS.mkdir(parents=True, exist_ok=True)
-        (RUNS / f"{self.run_id}.json").write_text(json.dumps(bundle, indent=2))
+        _atomic_json(RUNS / f"{self.run_id}.json",bundle)
         TREE_DIR.mkdir(parents=True, exist_ok=True)
-        (TREE_DIR / f"{self.run_id}.json").write_text(json.dumps([n.to_dict() for n in self.nodes], indent=2))
+        _atomic_json(TREE_DIR / f"{self.run_id}.json",[n.to_dict() for n in self.nodes])
+
+
+def _atomic_json(path, data):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',dir=path.parent,
+                                         prefix=path.name+'.',suffix='.tmp',delete=False) as stream:
+            temporary=Path(stream.name)
+            json.dump(data,stream,indent=2)
+            stream.flush();os.fsync(stream.fileno())
+        os.replace(temporary,path)
+    finally:
+        if temporary is not None: temporary.unlink(missing_ok=True)
 
 
 def _rejected_options(approach):

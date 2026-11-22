@@ -128,3 +128,10 @@ ancestor approach and recorded reaction; it counts source URLs and linked
 follow-ups, and explicitly flags missing evidence. Parent links alone do not
 prove useful adaptation, and supplied receipt IDs are not authenticated by this
 inventory. Use the panel to navigate the original evidence, not as another score.
+
+## Memory safety follow-up
+
+See [MEMORY_SAFETY_UPDATE.md](MEMORY_SAFETY_UPDATE.md) for call-stop enforcement,
+all-reply classification, call writer context, contact-level evidence pointers
+and atomic closure persistence. The default Python guard also enforces global
+stop memory before submission, including practice mode with content QA disabled.

@@ -269,6 +269,7 @@ def generate_call_line(
     transcript: list[dict[str, str]],
     turn_number: int,
     max_turns: int = 10,
+    memory_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write exactly one consistent caller line for a live simulation call."""
     if turn_number < 1 or turn_number > max_turns:
@@ -291,6 +292,8 @@ def generate_call_line(
         "turn": turn_number,
         "max_turns": max_turns,
     }
+    if memory_context:
+        user_payload['recipient_said_earlier_do_not_quote'] = memory_context
     messages = [
         {"role": "system", "content": SIMULATION_SYSTEM},
         {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},

@@ -99,14 +99,13 @@ class LessonStoreTests(unittest.TestCase):
         store.add(self._lesson(reply="Please stop contacting me.", close="contact_stop_requested"))
         self.assertIsNotNone(store.session_stop("s1", "mara"))
 
-    def test_scam_call_out_is_explicit_and_excluding(self):
-        # a high-scepticism persistent_doubt (scam call-out) must exclude the family
+    def test_high_scepticism_without_source_is_not_an_explicit_statement(self):
         l = make_lesson(session_id="s1", target_id="mara",
                         approach={"pretext": "security_alert", "channel": "email"},
                         close_reason="persistent_doubt", observation=None, scepticism=9)
-        self.assertEqual(l["certainty"], "explicit")
+        self.assertEqual(l["certainty"], "tentative")
         store = LessonStore(); store.add(l)
-        self.assertIn("security_alert", store.excluded_pretexts("s1", "mara"))
+        self.assertNotIn("security_alert", store.excluded_pretexts("s1", "mara"))
 
     def test_writer_memory_is_bounded_and_keeps_restrictions(self):
         store = LessonStore()

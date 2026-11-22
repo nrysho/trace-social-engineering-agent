@@ -77,16 +77,14 @@ def make_lesson(*, session_id: str, target_id: str, approach: dict[str, Any],
     """build one structured lesson. ``observation`` is ``classify_reply``'s output
     (kind/certainty/excerpt); ``close_reason`` is how the branch ended.
 
-    certainty is "explicit" when either the observation is explicit or the branch
-    closed for a reason that is itself unambiguous (a flat decline or stop)."""
+    certainty is explicit only for an explicit observation with supporting text;
+    a closure reason or scepticism estimate cannot establish a stated preference."""
     obs = observation or {}
     excerpt = str(obs.get("excerpt", "") or "")
     obs_explicit = obs.get("certainty") == "explicit"
-    # a flat decline or stop is unambiguous; so is an outright scam call-out, which shows
-    # as very high scepticism (>= strategy.SCEPTICISM_GIVE_UP, 9). both exclude the family.
-    hard = close_reason in {"approach_declined", "contact_stop_requested"} or (
-        close_reason == "persistent_doubt" and isinstance(scepticism, (int, float)) and scepticism >= 9)
-    certainty = "explicit" if (obs_explicit or hard) else "tentative"
+    # A classifier score/closure label is not a recipient statement. Preserve
+    # inference as tentative unless actual explicit source text was supplied.
+    certainty = "explicit" if (obs_explicit and excerpt.strip()) else "tentative"
     pretext = str(approach.get("pretext", "") or "")
     lesson = {
         "session_id": str(session_id),

@@ -40,6 +40,7 @@ class GuardedClient:
         self.story = StoryLedger()
         self._use_heuristic_story = True
         self.story_scope = "session"
+        self.session_stop_check = None  # trusted runner policy; not supplied by a draft
 
     def scenarios(self): return self.client.scenarios()
     def channels(self): return self.client.channels()
@@ -102,6 +103,11 @@ class GuardedClient:
         if sid not in self.sessions:
             raise QualityBlocked(QualityReport(errors=['Session not authorised']))
 
+    def _contact_scope(self, sid):
+        self._scope(sid)
+        if self.session_stop_check and self.session_stop_check(sid):
+            raise QualityBlocked(QualityReport(errors=['Recipient requested no further contact in this session']))
+
     def _emit(self, sid, operation, report, node_id=None):
         self.last_report = deepcopy(report)
         entry = dict(kind='quality', operation=operation, node_id=node_id, qa=deepcopy(report), report=deepcopy(report))
@@ -125,7 +131,7 @@ class GuardedClient:
         return prepared
 
     def send_message(self, message, sent_at=None):
-        snapshot = plain(message); sid = snapshot.get('session_id'); self._scope(sid)
+        snapshot = plain(message); sid = snapshot.get('session_id'); self._contact_scope(sid)
         try:
             prepared = self.check_message(snapshot) if self.enabled else None
             report = prepared['report'] if prepared else self._bypass()
@@ -147,7 +153,7 @@ class GuardedClient:
         return result
 
     def register_page(self, sid, page):
-        self._scope(sid)
+        self._contact_scope(sid)
         payload, report = prepare_page(page, self.context)
         verdict = report.to_dict() if self.enabled else self._bypass()
         self._emit(sid, 'page', verdict)
@@ -157,7 +163,7 @@ class GuardedClient:
         return response
 
     def start_conversation(self, sid, to, channel, sender=None, *, idem_key=None, sent_at=None):
-        self._scope(sid)
+        self._contact_scope(sid)
         if to not in self.context['authorized_targets'] or channel not in LIVE_CHANNELS:
             raise QualityBlocked(QualityReport(errors=['Conversation target/channel outside run scope']))
         snapshot = plain(sender)
@@ -182,7 +188,7 @@ class GuardedClient:
         return report.to_dict()
 
     def say(self,cid,line,*,sid,idem_key=None,sent_at=None):
-        self._scope(sid)
+        self._contact_scope(sid)
         if self.conversations.get(cid) != sid: raise QualityBlocked(QualityReport(errors=['Conversation outside session scope']))
         try:
             if self.enabled:
