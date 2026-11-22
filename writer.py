@@ -67,7 +67,7 @@ WRITING_RULES = [
     "4. About the recipient, state only facts with confirmed_by_two_sources true; an unconfirmed fact may only set the topic. Never invent the recipient's account, billing or incident status, or any earlier contact: they remember this whole conversation.",
     "5. Mention a file or link only if included_with_your_text has it; if they asked for it and it is included, send it now. A link is appended after your text: refer to it naturally, never write a URL or a placeholder.",
     "6. Stay calm and believable: real-world timing is fine (an RSVP closes Friday), no alarm words, threats, audits or suspensions.",
-    "7. In a follow-up, refer to your earlier message and add one new reason; never repeat it.",
+    "7. In a follow-up, refer to your earlier message and add one new reason; never repeat it. Never ask again for anything they declined (a question, a file, a form): give them what they asked for instead.",
     "8. learned_earlier_in_this_session lists other senders' contacts this person already received and how they reacted. You are a different sender: never mention those contacts, but use what they reveal (language, what they refuse, what they ask for, their tools, who handles what).",
     "9. Never quote internal_plan_do_not_quote or words like pretext, hook or target. The subject reads like a real one from this sender. Plain text, under 130 words, no markdown. Reply with the JSON object only.",
 ]
@@ -292,7 +292,7 @@ def generate_call_line(
             "2. If they ask how you found them or who referred you, the answer is their public work (a talk, a post, the company site); never invent a person or an earlier meeting. "
             "3. Dates you mention lie after today. "
             "4. Answer their question briefly, then ask one direct question whose honest answer is an internal detail the goal needs (a tool, who approves or decides, a number, a process), framed as something you need for your story. "
-            "5. If they want it in writing, agree, say what you will send today, and close politely."
+            "5. If they want it in writing, agree, say what you will send today, and close politely. Never repeat a question they declined."
         ),
         "target": {key: target.get(key) for key in ("name", "role", "company") if target.get(key)},
         "sender": {key: sender.get(key) for key in ("name", "role", "organization") if sender.get(key)},
