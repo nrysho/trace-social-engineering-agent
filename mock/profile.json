@@ -1,0 +1,104 @@
+{
+  "name": "Jana Albrecht",
+  "role": "Co-Founder & Co-CEO, Nordwacht (business and go-to-market)",
+  "company": "Nordwacht",
+  "domain": "nordwacht.example",
+  "facts": [
+    {
+      "category": "role",
+      "value": "Co-Founder and Co-CEO of Nordwacht, business and go-to-market",
+      "source_url": "https://nordwacht.example/team",
+      "source_title": "Nordwacht - Team",
+      "confidence": 0.95,
+      "verified": true,
+      "supporting_urls": ["https://linkedin.example/in/jana-albrecht/"]
+    },
+    {
+      "category": "interests",
+      "value": "Speaks regularly on security awareness and social engineering",
+      "source_url": "https://conference.example/speakers/jana-albrecht",
+      "source_title": "Example Conf - Speakers",
+      "confidence": 0.8,
+      "verified": true,
+      "supporting_urls": ["https://podcast.example.com/ep/jana"]
+    },
+    {
+      "category": "recent_activity",
+      "value": "Announced a new funding round in October",
+      "source_url": "https://news.example.com/nordwacht-seed",
+      "source_title": "Nordwacht raises seed round",
+      "confidence": 0.7,
+      "verified": false,
+      "supporting_urls": []
+    },
+    {
+      "category": "upcoming_events",
+      "value": "Mentioned December is packed with travel",
+      "source_url": "https://linkedin.example/in/jana-albrecht/",
+      "source_title": "Jana Albrecht - LinkedIn",
+      "confidence": 0.5,
+      "verified": false,
+      "supporting_urls": []
+    },
+    {
+      "category": "vendors_and_tools",
+      "value": "Company uses Google Workspace for mail",
+      "source_url": "https://mxtoolbox.example/nordwacht.example",
+      "source_title": "MX lookup nordwacht.example",
+      "confidence": 0.9,
+      "verified": true,
+      "supporting_urls": ["https://dns.example/nordwacht.example"]
+    },
+    {
+      "category": "network",
+      "value": "Co-founders Felix Brandt and Sara Lindner",
+      "source_url": "https://nordwacht.example/team",
+      "source_title": "Nordwacht - Team",
+      "confidence": 0.95,
+      "verified": true,
+      "supporting_urls": []
+    },
+    {
+      "category": "communication_style",
+      "value": "Warm and direct, short paragraphs, asks for specifics before committing",
+      "source_url": "https://linkedin.example/in/jana-albrecht/",
+      "source_title": "Jana Albrecht - LinkedIn posts",
+      "confidence": 0.6,
+      "verified": false,
+      "supporting_urls": []
+    }
+  ],
+  "hooks": [
+    {
+      "topic": "Invitation to speak at a Q1 security conference",
+      "probability": 0.6,
+      "evidence": [
+        "Speaks regularly on security awareness and social engineering",
+        "Announced a new funding round in October"
+      ],
+      "rationale": "Speaks often and the company is raising its profile after the round.",
+      "angle": "their_topic"
+    },
+    {
+      "topic": "Warm intro to an investor or partner",
+      "probability": 0.45,
+      "evidence": ["Announced a new funding round in October"],
+      "rationale": "Just raised, likely still in fundraising and partnership mode.",
+      "angle": "own_angle"
+    }
+  ],
+  "exposure_score": 62.0,
+  "exposure_breakdown": {
+    "public_talks": 25.0,
+    "social_activity": 20.0,
+    "company_news": 17.0
+  },
+  "sources": [
+    "https://nordwacht.example/team",
+    "https://conference.example/speakers/jana-albrecht",
+    "https://news.example.com/nordwacht-seed",
+    "https://linkedin.example/in/jana-albrecht/",
+    "https://mxtoolbox.example/nordwacht.example"
+  ],
+  "generated_at": "2026-11-21T14:00:00Z"
+}

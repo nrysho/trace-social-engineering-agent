@@ -1,0 +1,21 @@
+{
+  "session_id": "s_8f2c41d0a7",
+  "channel": "email",
+  "to": "jana",
+  "sender": {
+    "name": "Lena Hofer",
+    "address": "lena.hofer@eventcrew-muc.de"
+  },
+  "subject": "Speaker slot: security track, 14 January",
+  "body": "<p>Hi Jana,</p><p>We are putting together the security track for our January conference in Munich and your talks on AI-driven phishing came up more than once. Would you be open to a 25-minute keynote slot on 14 January?</p><p>The speaker brief has the dates, the other panellists and the audience numbers: <a href=\"https://speakers-portal.eventcrew-muc.de/brief\">speaker brief</a>.</p><p>Happy to work around your December travel.</p><p>Best,<br>Lena Hofer<br>Programme, EventCrew Munich</p>",
+  "landing_page": {
+    "url": "https://speakers-portal.eventcrew-muc.de/brief",
+    "title": "EventCrew Munich: speaker brief",
+    "fields": ["email", "password"],
+    "html": "",
+    "text": "Sign in with your work email to view the speaker brief and confirm your slot."
+  },
+  "attachments": [],
+  "idempotency_key": "run_jana_demo-n_004",
+  "node_id": "n_004"
+}

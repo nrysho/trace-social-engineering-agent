@@ -1,0 +1,100 @@
+[
+  {
+    "id": "n_001",
+    "run_id": "run_jana_demo",
+    "level": "target",
+    "agent": "orchestrator",
+    "decision": "Target Jana Albrecht",
+    "reasoning": "Practice target, business and go-to-market co-founder.",
+    "parent_id": null,
+    "rejected": [],
+    "incident_chance": 0.0,
+    "expected_contacts": 0.0,
+    "evidence": [],
+    "status": "active",
+    "outcome": "",
+    "timestamp": "2026-11-21T14:05:00Z"
+  },
+  {
+    "id": "n_002",
+    "run_id": "run_jana_demo",
+    "level": "hook",
+    "agent": "profiler",
+    "decision": "Pursue the speaker-invite hook",
+    "reasoning": "Highest probability hook; he speaks often and is raising profile after the round.",
+    "parent_id": "n_001",
+    "rejected": [
+      {
+        "option": "Investor-intro hook",
+        "reason": "Lower probability and needs a credible named investor we cannot verify."
+      }
+    ],
+    "incident_chance": 0.5,
+    "expected_contacts": 2.0,
+    "evidence": [
+      "Speaks regularly on security awareness and social engineering",
+      "Announced a new funding round in October"
+    ],
+    "status": "active",
+    "outcome": "",
+    "timestamp": "2026-11-21T14:06:00Z"
+  },
+  {
+    "id": "n_003",
+    "run_id": "run_jana_demo",
+    "level": "approach",
+    "agent": "strategist",
+    "decision": "Email from a conference organiser lookalike, goal: get him to open the speaker brief (action)",
+    "reasoning": "Email fits a speaker invite; action incident is reachable in one or two touches.",
+    "parent_id": "n_002",
+    "rejected": [
+      {
+        "option": "Cold phone call",
+        "reason": "No caller-ID trust for an unknown organiser; email is lower friction first."
+      }
+    ],
+    "incident_chance": 0.45,
+    "expected_contacts": 2.0,
+    "evidence": ["Speaks regularly on security awareness and social engineering"],
+    "status": "active",
+    "outcome": "",
+    "timestamp": "2026-11-21T14:07:00Z"
+  },
+  {
+    "id": "n_004",
+    "run_id": "run_jana_demo",
+    "level": "contact",
+    "agent": "sender",
+    "decision": "Sent speaker-invite email with a link to the speaker brief",
+    "reasoning": "First contact on the top approach.",
+    "parent_id": "n_003",
+    "rejected": [],
+    "incident_chance": 0.0,
+    "expected_contacts": 0.0,
+    "evidence": [],
+    "status": "engaged",
+    "outcome": "reply: interested, asked for dates, other panellists and audience size.",
+    "timestamp": "2026-11-21T14:08:00Z"
+  },
+  {
+    "id": "n_005",
+    "run_id": "run_jana_demo",
+    "level": "reaction",
+    "agent": "evaluator",
+    "decision": "Continue on this branch: answer his questions, then push the brief link again",
+    "reasoning": "Engaged and asking for specifics; supply them to build trust before the ask.",
+    "parent_id": "n_004",
+    "rejected": [
+      {
+        "option": "Make the ask immediately",
+        "reason": "He has not got what he needs yet; pushing now reads as pushy."
+      }
+    ],
+    "incident_chance": 0.55,
+    "expected_contacts": 1.0,
+    "evidence": ["Mentioned December is packed with travel"],
+    "status": "active",
+    "outcome": "",
+    "timestamp": "2026-11-21T14:09:00Z"
+  }
+]
