@@ -12,7 +12,7 @@ No dependencies beyond Python 3. The run list shows:
 - `bench-…`: bench sessions from `runs/bench/`, as a timeline of contacts and reactions. Each reaction shows the persona's private thought, whether it hit a planted hook, and its suspicion.
 - `chat-…`: your `chat.py` conversations with the revel8 twins from `runs/chat/`, with the events revel8 returned
 - `sample`: `viewer/sample_run.json`, a branching demo run on a fictional target (failed hook, a call, pivot, incident on touch 4)
-- `mock`: Mavis's `mock/profile.json`, `mock/tree.json` and `mock/message.json`
+- `mock`: the fictional demo data in `mock/profile.json`, `mock/tree.json` and `mock/message.json`
 
 Use it: click a node to inspect it; ◀ ▶ (or the arrow keys) step through the run in time order; Play replays it; untick "show rejected options" to hide the dashed alternatives. Link to a run or a node with `?run=sample&node=n12`.
 

@@ -9,7 +9,7 @@ Serves viewer/index.html and lists runs:
   - bench sessions in runs/bench/*.json, with ground truth (see bench/)
   - chat.py conversations with the revel8 twins in runs/chat/*.jsonl
   - "sample": viewer/sample_run.json (a branching demo run)
-  - "mock":   Mavis's mock/profile.json + mock/tree.json + mock/message.json
+  - "mock":   the fictional demo data in mock/profile.json + mock/tree.json + mock/message.json
 /api/results summarises all of them for the results table.
 Only GET requests exist. Nothing here can contact a target.
 """

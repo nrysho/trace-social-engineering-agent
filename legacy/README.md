@@ -8,9 +8,9 @@ them back.
 
 | File | Author | What it did | What replaced it |
 |---|---|---|---|
-| `backend/run.py` | Mavis | The first end-to-end loop: research → contact → read the reaction → decide, with placeholder agents | `backend/orchestrator.py`, the full tree search |
-| `backend/eval_run.py` | Mavis, Theja | One command per scoring run | `python -m backend.orchestrator <target> --eval` |
-| `backend/resume.py` | Mavis | Crash resume: find a session after a crash and reload it from the API log | Not replaced; the orchestrator ends a run on a crash |
+| `backend/run.py` | Chye Yu En | The first end-to-end loop: research → contact → read the reaction → decide, with placeholder agents | `backend/orchestrator.py`, the full tree search |
+| `backend/eval_run.py` | Chye Yu En, Theja | One command per scoring run | `python -m backend.orchestrator <target> --eval` |
+| `backend/resume.py` | Chye Yu En | Crash resume: find a session after a crash and reload it from the API log | Not replaced; the orchestrator ends a run on a crash |
 | `quality/craft.py` | Theja | Offline comparison of writer output with heuristic craft scores | – |
 | `quality/demo.py` | Theja | Synthetic offline walkthrough of the quality checks (screenshots, video) | – |
 | `quality/acceptance.py` | Theja | One-command local acceptance check for teammates | – |

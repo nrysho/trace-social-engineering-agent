@@ -143,7 +143,7 @@ def checked_message(message, context):
 
 
 def as_shared_message(prepared):
-    """Rebuild the shared Message for Mavis's public client; final guard rechecks it."""
+    """Rebuild the shared Message for Chye Yu En's API client; final guard rechecks it."""
     from schemas import message_from_dict
     body = deepcopy(prepared['payload'])
     return message_from_dict({'session_id': prepared['session_id'], 'channel': body['channel'],

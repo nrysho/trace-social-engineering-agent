@@ -1,4 +1,4 @@
-"""Exercise Mavis's actual client with a fake HTTP session; network forbidden."""
+"""Exercise Chye Yu En's actual API client (backend/revel8.py) with a fake HTTP session; network forbidden."""
 import json
 from pathlib import Path
 import tempfile

@@ -37,7 +37,7 @@ class CraftTests(unittest.TestCase):
         self.assertTrue(report['passed'])
         self.assertTrue(any('Sender name not found' in w for w in report['warnings']))
 
-    def test_mavis_log_calls_and_touch_association(self):
+    def test_client_log_calls_and_touch_association(self):
         rows = [
             {'kind': 'session.create', 'scenario_id': 'practice'},
             {'kind': 'sent', 'message_id': 'm1', 'touches_used': 3, 'message': {'body': 'Not used for metrics'}},
