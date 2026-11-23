@@ -46,7 +46,7 @@ PYTHONUNBUFFERED=1 python -m backend.orchestrator <target_id>
 PYTHONUNBUFFERED=1 python -m backend.orchestrator <target_id> --eval
 ```
 
-Each `--eval` run uses one eval session. The eval allows 3 sessions per target.
+Each `--eval` run uses one eval session (revel8 allowed 5 per target in the final rules; the best two counted).
 
 > **Do not use `--mock` on new targets.** When no cached profile exists, `--mock` loads the demo
 > profile in `mock/profile.json`, which is about someone else. Without it, the agent uses the profile
@@ -72,7 +72,7 @@ Or keep the raw log: append `2>&1 | tee run_<target>.log` to the step 3 command.
 ## 5. Local bench (fictional personas with ground truth)
 
 ```bash
-python -m bench.server                                   # terminal 1: personas mara, daniel, sofia, lukas
+python -m bench.server                                   # terminal 1: 14 fictional personas (bench/personas.json)
 python -m backend.recon --bench lukas                    # profile a persona from its bench pages
 REVEL8_API_URL=http://127.0.0.1:8770/v1 PYTHONUNBUFFERED=1 python -m backend.orchestrator lukas --eval
 ```
