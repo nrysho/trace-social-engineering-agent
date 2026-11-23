@@ -27,7 +27,7 @@ except ImportError:
 
 # Set REVEL8_API_URL=http://127.0.0.1:8770/v1 to practise on the local bench personas instead.
 API = os.environ.get("REVEL8_API_URL", "https://target-api.apps.01.cf.eu01.stackit.cloud/v1")
-ROOT = pathlib.Path(__file__).resolve().parent
+ROOT = pathlib.Path(__file__).resolve().parent.parent  # repo root (this file lives in scripts/)
 LOG_DIR = ROOT / "runs" / "chat"
 SUBJECT_CHANNELS = {"email", "calendar_invite", "shared_document"}
 MAX_TURNS = 10

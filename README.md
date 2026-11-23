@@ -114,7 +114,7 @@ More commands and flags: [`RUNNING.md`](RUNNING.md).
 | `quality/` | Checks before sending, checked API client, research gate |
 | `bench/` | Local test bench with fictional personas and ground truth |
 | `viewer/` | Read-only replay viewer |
-| `chat.py` | Manual practice console (practice only, never for scoring) |
+| `scripts/chat.py` | Manual practice console (practice only, never for scoring) |
 | `legacy/` | Earlier code superseded during the hackathon, kept for reference |
 
 ## Team

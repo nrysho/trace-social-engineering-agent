@@ -30,7 +30,7 @@ Edit `bench/personas.json` to add people or change hooks. Each profile has ficti
 ## Use it
 
 - **Agent:** use `http://127.0.0.1:8770/v1` as the API base. Scenarios `practice` (30 touches) and `eval` (10 touches) both list the bench personas. Send `X-Bench-Label: <agent version>` with `POST /v1/sessions` to group results.
-- **By hand:** `REVEL8_API_URL=http://127.0.0.1:8770/v1 python3 chat.py`
+- **By hand:** `REVEL8_API_URL=http://127.0.0.1:8770/v1 python3 scripts/chat.py`
 - **Recon:** `GET /bench/osint/<target>` returns the persona's public pages, since these people are not on the real web.
 
 ## What the agent sees

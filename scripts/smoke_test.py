@@ -15,7 +15,7 @@ RADEON = "https://radeon-global.anruicloud.com/api/v1"
 MODEL = "Qwen3.8-27B"
 
 
-def load_env(path=pathlib.Path(__file__).with_name(".env")):
+def load_env(path=pathlib.Path(__file__).resolve().parent.parent / ".env"):  # .env is at the repo root, one level up from scripts/
     env = {}
     for line in path.read_text().splitlines():
         line = line.strip()
