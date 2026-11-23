@@ -119,6 +119,6 @@ More commands and flags: [`RUNNING.md`](RUNNING.md).
 
 ## Team
 
-Built in 24 hours by the SchnitzelStrikers: Mavis (agent loop, API client, schemas), Sherwin (recon),
-Izen (strategy, writing), Theja (quality gate, architecture, pitch), Neryss (test bench, replay viewer,
-strategy and conversation engine) and Yu En.
+Built in 24 hours by the SchnitzelStrikers: Mavis / Chye Yu En (agent loop, API client, schemas),
+Sherwin (recon), Izen (strategy, writing), Theja (quality gate, architecture, pitch) and Neryss
+(test bench, replay viewer, strategy and conversation engine).
