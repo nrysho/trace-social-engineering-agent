@@ -74,7 +74,7 @@ PROFILE_DIRS = [RUNS / "profiles", ROOT / "mock"]
 EVAL_BUDGET = 10
 PRACTICE_BUDGET = 30
 PER_BRANCH = 3                             # cap one approach before pivoting
-MAX_APPROACHES_EVAL = 5                    # the 10 touches cap it; 3 left 4 of Jonas's 10 contacts unused
+MAX_APPROACHES_EVAL = 5                    # the 10 touches cap it; a cap of 3 left 4 of an eval run's 10 contacts unused
 MAX_APPROACHES_PRACTICE = 6
 DEFAULT_COMPANY = "revel8"
 
@@ -828,7 +828,7 @@ class Orchestrator:
             scepticism = sc["score"]
             if scepticism is not None and _warm_boundary(reply):
                 # "I'll get back to you before 5 December. No forms or attachments." is a warm thread with a
-                # boundary, not a refusal: the judge rated Jonas's reply 10/10 and the agent dropped it
+                # boundary, not a refusal: the judge rated such a reply 10/10 in an eval run and the agent dropped it
                 scepticism = min(scepticism, strategy.SCEPTICISM_ASK_MAX)
             if scepticism is not None:
                 reason = (reason.rstrip(". ") + ". " if reason else "") + f"Scepticism {scepticism}/10: {sc['reason']}"
@@ -1117,8 +1117,8 @@ class Orchestrator:
         """asset://… of the real logo when the sender is a known brand, uploaded once per api
         and reused; "" for an invented organisation or if the upload fails (then a text wordmark)."""
         brand = writer.brand_of(organization)
-        if not brand:
-            return ""
+        if not brand or not (writer.LOGO_DIR / writer.BRAND_STYLE[brand][0]).exists():
+            return ""                   # no logo files in this repo: the page uses the text wordmark
         from .revel8 import BASE
         key = f"{BASE}|{writer.BRAND_STYLE[brand][0]}"
         try:

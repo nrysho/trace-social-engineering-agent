@@ -1,123 +1,124 @@
-# START Hack Munich 2026 
-## revel8: Agentic Social Engineer
+# TRACE: an autonomous social-engineering agent for security-awareness simulations
 
-> **Person 5 / team integration: [Start with PERSON5_README.md](PERSON5_README.md).** It explains what is implemented, what is not connected yet, how to test it, and exactly what Mavis, Izen, Sherwin, Neryss and Theja need to do.
+**🥈 2nd place and best pitch, revel8 challenge, START Hack Munich 2026** · team SchnitzelStrikers
 
-An autonomous agent for the revel8 challenge at START Hack League Munich 2026. It
-researches a target, works out what they are open to right now, and tries to reach
-an "incident" (credentials, an action, or a disclosure) with the target's revel8
-**AI twin**, across channels, with no human in the loop.
+[revel8](https://revel8.ai) trains employees against AI-powered social engineering. Their challenge:
+build an agent that researches a person and, **fully autonomously**, gets that person's **AI twin**
+to give something away (a password, internal information, or an action done for the attacker) in as
+few contacts as possible.
 
-> Everything runs inside the revel8 simulation against AI twins. No real people, no
-> real channels, no real malware. This repo exists only for the hackathon.
+> **Scope.** This agent only talks to AI twins inside revel8's authorised simulation, through
+> revel8's API (it needs a team key that revel8 issues for the event). It never contacts real people
+> or real channels, sends no malware (attachments are file names only), and every sender domain is
+> checked to be unregistered, never a real organisation's own. It was built for a security-awareness
+> exercise and is published as a portfolio piece.
 
-## How it works
+## What it does
 
-The agent runs one loop per target, in three stages:
-
-1. **Research**: gather what is public about the target and build a profile.
-2. **Contact**: reach the target's AI twin through the revel8 API: pick a channel
-   and sender, then write live in text.
-3. **Adapt**: read each returned event (reply, opened link, submitted page, opened
-   file, or silence), judge what worked, keep the story consistent, and decide the
-   next move.
-
-Everything the agent does is recorded so a run can be replayed turn by turn.
-
-## Setup
-
-Prerequisites: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
-
-```bash
-uv sync
-cp .env.example .env
+```
+public research  →  sourced profile  →  ranked stories  →  calls and mails  →  read the reaction  →  adapt
 ```
 
-Then fill in `.env`:
+1. **Recon** (`backend/recon/`). Web search (Tavily + Serper, DuckDuckGo as fallback), the public
+   LinkedIn profile (Bright Data), GitHub and the company's DNS records. An LLM extracts short, dated
+   facts; every fact keeps its source URL, facts found by two sources are marked verified, and
+   contradicted ones are dropped. It also proposes what the person is open to right now ("hooks").
+2. **Strategy** (`strategy.py`). Scores every story × channel against the profile in plain code, so
+   every choice can be traced. A need the person stated publicly ("looking for…", an open role) wins:
+   the strongest story is one they started. Stories that don't fit the person (a fake request from
+   "your CEO" to a founder) are penalised.
+3. **Sender** (`writer.py`). Invents a believable sender for the story: name, role, organisation,
+   an unregistered domain (checked by DNS), a fixed phone number. A real colleague keeps their real
+   role; one sender never mixes brands.
+4. **Conversation** (`backend/orchestrator.py`). Phone calls first (one contact, up to 10 turns),
+   then the mail the call promised: it delivers what the person asked for before asking anything.
+   Internal questions are closed ("Jira or ServiceNow?") so answers are concrete. A call-back follows
+   an unanswered mail.
+5. **Quality gate** (`quality/`, `writer.quality_gate`). Every mail and every call line is checked
+   in code before it is sent: no real or misspelt domains, no placeholders or URLs in text, no dates
+   in the past, no AI-directed wording. A failing draft is rewritten (at most twice) or not sent.
+6. **Reading the reaction.** An LLM judge rates scepticism and spots disclosures or acts; code
+   double-checks it (a "disclosure" that repeats our own words is discarded, an "action" must be a
+   completed act in their own words, a polite boundary with a commitment is not hostility).
+   Opened files and links are *steps*; only a typed secret, internal information or a completed act
+   counts as an objective.
+7. **Adapting.** Doubt is answered once or twice, silence gets one follow-up, a refusal switches to a
+   different story. In practice every story gets a fresh session; across scoring runs on the same
+   person, stories that already failed are tried last.
+8. **Replay** (`viewer/`). Every decision is saved with its reasoning, score and rejected
+   alternatives, so a whole run can be replayed turn by turn in the browser.
 
-- `REVEL8_API_KEY`: team key for the revel8 target API (docs are on the API's start page).
-- `RADEON_API_KEY`: key for the model provider used to generate messages.
+Models: DeepSeek-V4-Flash writes and judges (Qwen3.8-27B as fallback); recon extraction uses
+GPT-4.1-mini when an OpenAI key is set, otherwise Qwen3.8-27B (as in our runs). All are called
+through OpenAI-compatible endpoints.
 
-Both are read from `.env` at startup; nothing is committed (see `.gitignore`).
+The architecture diagram is in [`docs/architecture.pdf`](docs/architecture.pdf).
 
-## Practice chat
+## Results, honestly
 
-`chat.py` lets you talk to the practice twins (Julius, Robert, Tom) by hand from the
-terminal. It needs only `REVEL8_API_KEY` in `.env` and the `requests` package.
+- On the hidden scoring targets, one of three (a VC partner) volunteered the same internal detail
+  about his firm on the **first contact in all four sessions**, each time to a different invented
+  sender. The other two engaged in long threads but gave nothing internal.
+- Between scoring runs the agent adapted on its own: on one target, the run after a failed one led
+  with a different story on his own topic and got a firm commitment to reply by a set date.
+- No target typed a credential or approved anything for us.
+
+What we learned: careful people don't fall for clever messages, they fall for **relevant** ones; and
+every mistake the agent made (a typo domain, a reused phone number, a claimed shared event) is a
+red flag employees can learn to spot.
+
+## Running it
+
+Python 3.11+.
 
 ```bash
-pip install requests     # once, if it is missing
-python3 chat.py          # Windows: python chat.py
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # add the keys you have; see below
+python -m pytest -q           # offline tests, no API calls
 ```
 
-1. Pick a twin.
-2. Pick **New session** (they remember nothing) or continue an open one. The list shows
-   the whole team's open sessions with who was contacted and the last message.
-3. Confirm or change the sender name and address.
-4. Pick a channel.
-5. Type a message and press **Enter** to send. The twin's reaction (reply, opened link,
-   submitted page, opened file, or silence) appears below.
+The agent needs `REVEL8_API_KEY` (from revel8, for their simulation API) and `RADEON_API_KEY` (the
+model endpoint); recon also uses `OPENAI_API_KEY`, `TAVILY_API_KEY`, `SERPER_API_KEY` and
+`BRIGHTDATA_API_KEY` when set.
+Keys are read from `.env` only and never committed.
 
-| Command | What it does |
+```bash
+python -m backend.recon "Full Name" "Company" "Role"     # research a target → runs/profiles/
+python -m backend.orchestrator <target_id>               # practice run
+python -m backend.orchestrator <target_id> --eval        # scoring run: one session, 10 contacts
+python viewer/serve.py 8766                              # replay viewer → http://127.0.0.1:8766
+```
+
+Without revel8's API, the **local test bench** plays 14 fictional personas behind a copy of the API,
+with hidden ground truth (topic hits, suspicion, what they disclosed):
+
+```bash
+python -m bench.server                                   # http://127.0.0.1:8770/v1
+python -m backend.recon --bench lukas
+REVEL8_API_URL=http://127.0.0.1:8770/v1 python -m backend.orchestrator lukas --eval
+```
+
+More commands and flags: [`RUNNING.md`](RUNNING.md).
+
+## Repository layout
+
+| Path | What |
 |---|---|
-| `/edit` | Write a longer message in a text editor; it sends when you save and close |
-| `/to` | Switch twin |
-| `/channel` | Switch channel |
-| `/from` | Change sender name and address |
-| `/attach NAME` | Attach a file name to the next message |
-| `/page` | Register a landing page; put its exact URL in your message |
-| `/call` | Start a live call or chat, one line per turn; `/hangup` ends it |
-| `/history` | Show the whole session again |
-| `/new` | Start a fresh session |
-| `/quit` | Leave; the session stays open |
+| `backend/orchestrator.py` | The agent loop: sessions, approaches, calls, mails, judging, adapting |
+| `backend/recon/` | Research pipeline: search, LinkedIn, GitHub, DNS, extraction, verification, hooks |
+| `backend/revel8.py` | API client with idempotency keys, retries and per-session logs |
+| `backend/outcomes.py` | What counts as an objective versus a step |
+| `strategy.py` | Story library, ranking, stated needs, next-move rules |
+| `writer.py` | Sender invention, message and call-line writing, landing pages |
+| `quality/` | Checks before sending, checked API client, research gate |
+| `bench/` | Local test bench with fictional personas and ground truth |
+| `viewer/` | Read-only replay viewer |
+| `chat.py` | Manual practice console (practice only, never for scoring) |
+| `legacy/` | Earlier code superseded during the hackathon, kept for reference |
 
-Every message costs one touch (30 per practice session); a whole call costs one touch.
-Your side of each session is also saved in `runs/chat/<session>.jsonl`. Writing by hand
-is for practice only: scoring runs must be fully autonomous.
+## Team
 
-## Project structure
-
-```
-.
-├── backend/     # agent loop + revel8 API client
-├── frontend/    # read-only run replay
-├── .env.example # required keys
-└── README.md
-```
-
-## Rules we build around
-
-From the challenge brief, breaking any of the first three voids a scoring run:
-
-- Attack the person, not the AI: no message addresses the twin as an AI or tries to
-  change its instructions.
-- Senders and landing pages use addresses an attacker could register: never a real
-  organisation's own domain.
-- No human in the loop: the agent writes, sends, and decides on its own.
-- Attachments are file names only; no real malware.
-
-## Judging materials
-
-- [Architecture page](docs/architecture.html) and [implementation explanation](docs/ARCHITECTURE.md).
-- [Rubric readiness and priorities](docs/RUBRIC_READINESS.md).
-- [Three-minute core](docs/PITCH_3_MIN.md) and [five-minute version](docs/PITCH_5_MIN.md); confirm the stage slot.
-
-## Deliverables
-
-- An architecture page: how the system goes from research to contact to reading a
-  reaction and adapting.
-- A five-minute pitch with one real thread from our runs.
-- The scoring runs themselves (revel8 records and renders every turn).
-
-## Person 5 quality and evidence package
-
-Use the consolidated **theja-person5** branch. Start with
-[PERSON5_README.md](PERSON5_README.md) and [the team handoff](docs/PERSON5_HANDOFF.md).
-The actual Python orchestrator uses the baseline guard on this branch. Advanced
-identity/evidence review and SQLite state are available as explicit opt-in layers;
-other send paths do not acquire protection automatically.
-
-Run `py -m quality.acceptance --browser --output runs/quality/consolidated-acceptance`
-for the combined component, local-bench and rendering checks. No official
-simulator/model call is made by acceptance. See the generated acceptance.json
-for the actual test result; skipped browser tests are not full acceptance.
+Built in 24 hours by the SchnitzelStrikers: Mavis / Chye Yu En (agent loop, API client, schemas),
+Sherwin (recon), Izen (strategy, writing), Theja (quality gate, architecture, pitch) and Neryss
+(test bench, replay viewer, strategy and conversation engine).

@@ -1,7 +1,7 @@
 """lesson memory for the closed loop: what the twin told us on a failed branch,
 kept so the next branch's selection and drafting can use it.
 
-four things are kept separate on purpose (see docs/ARCHITECTURE.md):
+four things are kept separate on purpose:
 - RAW: the api events (persisted elsewhere, in the run bundle).
 - OBSERVATION: what the twin explicitly said, or what a rule tentatively inferred.
 - POLICY: whether the next branch is allowed, skipped, or the session stops (orchestrator).
