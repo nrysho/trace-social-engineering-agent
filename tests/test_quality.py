@@ -30,7 +30,7 @@ class QualityTests(unittest.TestCase):
 
     def test_main_mock_contract_loads_without_schema_edits(self):
         shared = message_from_dict(json.loads((ROOT / 'mock/message.json').read_text()))
-        ctx = dict(self.context, approved_sender_domains=['eventcrew-muc.de'],
+        ctx = dict(self.context, authorized_targets=['jana'], approved_sender_domains=['eventcrew-muc.de'],
                    approved_link_hosts=['speakers-portal.eventcrew-muc.de'])
         self.assertTrue(checked_message(shared, ctx)['report']['passed'])
 
