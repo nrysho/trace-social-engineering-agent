@@ -1117,8 +1117,8 @@ class Orchestrator:
         """asset://… of the real logo when the sender is a known brand, uploaded once per api
         and reused; "" for an invented organisation or if the upload fails (then a text wordmark)."""
         brand = writer.brand_of(organization)
-        if not brand:
-            return ""
+        if not brand or not (writer.LOGO_DIR / writer.BRAND_STYLE[brand][0]).exists():
+            return ""                   # no logo files in this repo: the page uses the text wordmark
         from .revel8 import BASE
         key = f"{BASE}|{writer.BRAND_STYLE[brand][0]}"
         try:

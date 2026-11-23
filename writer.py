@@ -862,8 +862,9 @@ _FIELD_LABELS_DE = {
 }
 
 
-# Real brands we impersonate (VENDOR_LOOKALIKES): their logo file in assets/logos/, brand colour,
-# and whether the logo is an icon only (then the name is written next to it).
+# Real brands we impersonate (VENDOR_LOOKALIKES): an optional logo file in assets/logos/ (not shipped
+# with this repo; without it the page shows a text wordmark), brand colour, and whether the logo is an
+# icon only (then the name is written next to it).
 BRAND_STYLE = {
     "Google Workspace": ("google-workspace.png", "#1a73e8", False), "Microsoft 365": ("microsoft.png", "#0067b8", True),
     "Okta": ("okta.png", "#191919", False), "Dropbox": ("dropbox.png", "#0061fe", False),
