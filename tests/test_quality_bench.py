@@ -7,7 +7,7 @@ from pathlib import Path
 import sys,tempfile,threading,unittest
 from unittest.mock import patch
 import requests
-import schemas
+from core import schemas
 from backend import orchestrator as runner
 from backend import revel8
 from test_quality_gate import context,message

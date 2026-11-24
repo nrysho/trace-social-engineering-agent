@@ -27,9 +27,9 @@ from pathlib import Path
 
 import requests
 
-import schemas
-import strategy
-import writer
+from core import schemas
+from core import strategy
+from core import writer
 from . import config
 from .budget import TouchBudget
 from .outcomes import (classify_incident, steps as event_steps, _ACT_DONE, _NOT_AN_ACT, _DONE_VERB, _is_done_act, SECRET_MARKER, CREDENTIAL_FIELDS,

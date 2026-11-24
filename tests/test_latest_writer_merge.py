@@ -10,7 +10,7 @@ from test_quality_gate import context
 class LatestWriterMergeTests(unittest.TestCase):
     def test_brand_sender_instructions_do_not_require_an_invented_person(self):
         import json
-        import writer
+        from core import writer
         cfg=writer.ModelConfig(api_key='synthetic',fallback_model='synthetic-fallback')
         def complete(config,model,messages):
             payload=json.loads(messages[-1]['content'])

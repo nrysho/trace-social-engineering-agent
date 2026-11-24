@@ -9,7 +9,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from backend import llm
-from schemas import Fact, FACT_CATEGORIES
+from core.schemas import Fact, FACT_CATEGORIES
 
 CHUNK = 6             # results per llm call, to bound the prompt
 CONTENT_CHARS = 1500  # how much page text per result we show the model

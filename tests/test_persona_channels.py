@@ -2,8 +2,8 @@
 import unittest
 from unittest.mock import Mock, patch
 
-import strategy
-import writer
+from core import strategy
+from core import writer
 from backend import orchestrator as runner
 from quality.checks import check_artifact
 
@@ -110,7 +110,7 @@ class CallFollowUpTests(unittest.TestCase):
         self.assertEqual(after_build["intent"], "make_ask")
 
     def test_recon_drops_bare_names_and_conflicting_mail_providers(self):
-        from schemas import Fact
+        from core.schemas import Fact
         from backend.recon.profiler import _clean
         facts = [Fact("company", "revel8", "https://a"), Fact("role", "Co-founder and CEO of revel8", "https://c", verified=True),
                  Fact("vendors_and_tools", "revel8.ai uses Google Workspace for email", "https://dns", verified=True),

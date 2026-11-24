@@ -6,7 +6,7 @@ from .integration import plain
 
 
 def review_profile(profile):
-    from schemas import FACT_CATEGORIES
+    from core.schemas import FACT_CATEGORIES
     data = plain(profile)
     report = QualityReport()
     if not isinstance(data.get('name'), str) or not data['name'].strip():

@@ -6,7 +6,7 @@
 from urllib.parse import urlsplit
 
 from backend.recon import recency
-from schemas import FACT_CATEGORIES
+from core.schemas import FACT_CATEGORIES
 
 CHANNEL_HINTS = ("linkedin", "twitter", "x.com", "@")  # a contactable handle showed up
 

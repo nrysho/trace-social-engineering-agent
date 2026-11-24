@@ -18,7 +18,7 @@ from backend import llm
 from backend.recon import search, fetch
 from backend.recon.extract import _chunks, _slice, CHUNK, CONTENT_CHARS, MIN_CONF, _LLM_GATE
 from backend.recon.search.result import SearchResult
-from schemas import Fact
+from core.schemas import Fact
 
 POOL_CAP = 15  # bound the pages fed to the llm per aspect, so a run stays fast
 JSON_MODE = {"type": "json_object"}

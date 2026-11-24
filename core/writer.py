@@ -1088,7 +1088,7 @@ def suggest_sender_domains(
     ]
 
 
-from strategy import first_colleague as _first_colleague  # noqa: E402  (shared with the strategist)
+from core.strategy import first_colleague as _first_colleague  # noqa: E402  (shared with the strategist)
 
 
 # Natural subject and opening per pretext for compose(), the no-model fallback. Never the internal

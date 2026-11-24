@@ -13,7 +13,7 @@ from collections import Counter
 import requests
 
 from backend.recon import match
-from schemas import Fact
+from core.schemas import Fact
 
 API = "https://api.github.com"
 TIMEOUT = 20

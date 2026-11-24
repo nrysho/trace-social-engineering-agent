@@ -2,10 +2,10 @@
 import unittest
 from unittest.mock import Mock, patch
 
-import strategy
+from core import strategy
 from backend import orchestrator as runner
 from backend.recon import verify
-import schemas
+from core import schemas
 
 
 def agent_for(target="tom", **kw):
@@ -32,7 +32,7 @@ class ColleagueNameTests(unittest.TestCase):
         self.assertEqual(strategy.first_colleague(profile), "")
 
     def test_writer_uses_the_same_rule(self):
-        import writer
+        from core import writer
         self.assertIs(writer._first_colleague, strategy.first_colleague)
 
 
@@ -248,7 +248,7 @@ class RefusalReadingTests(unittest.TestCase):
 
 class SenderIdentityTests(unittest.TestCase):
     def test_a_taken_domain_never_gets_a_hyphen_inside_a_word(self):
-        import writer
+        from core import writer
         taken = {"insightflow.de", "insightflow.co", "insightflow.io", "insightflow.net", "insightflow.eu",
                  "insightflow.org", "insightflow.com"}
         with patch.object(writer, "domain_taken", side_effect=lambda d: d in taken):
@@ -257,18 +257,19 @@ class SenderIdentityTests(unittest.TestCase):
         self.assertNotIn("ins-ight", out)
 
     def test_nordic_letters_survive_in_the_address(self):
-        import writer
+        from core import writer
         self.assertEqual(writer._local_part("Elin Søderberg"), "elin.soderberg")
 
     def test_each_sender_has_its_own_fixed_number(self):
-        import writer
+        from core import writer
         a, b = writer.sender_phone("lena@k8s-reliability.de"), writer.sender_phone("katrin@cn-talent.de")
         self.assertEqual(a, writer.sender_phone("LENA@k8s-reliability.de"))
         self.assertNotEqual(a, b)
         self.assertRegex(a, r"^\+49 30 23125 \d{3}$")
 
     def test_the_writer_is_given_that_number(self):
-        import json, writer
+        import json
+        from core import writer
         seen = {}
         def fake(config, model, messages):
             seen["payload"] = json.loads(messages[1]["content"])
@@ -298,25 +299,25 @@ class DeliverAfterCallTests(unittest.TestCase):
         self.assertEqual(steps[0]["attachment"], "Proposal_and_Options.pdf")
 
     def test_the_writer_knows_the_deliver_move(self):
-        import writer
+        from core import writer
         self.assertIn("deliver", writer.MOVE_GUIDANCE)
         self.assertIn("No internal question".lower(), writer.MOVE_GUIDANCE["deliver"].lower().replace("ask no internal question", "no internal question"))
 
 
 class StoryConsistencyTests(unittest.TestCase):
     def test_a_vendor_writes_about_its_own_brand_only(self):
-        import writer
+        from core import writer
         self.assertEqual(writer.brand_clash("HubSpot Renewals Team", "Microsoft 365 Renewal for revel8"), "Microsoft 365")
         self.assertEqual(writer.brand_clash("HubSpot Renewals Team", "Your HubSpot renewal"), "")
         self.assertEqual(writer.brand_clash("Nordic Finance Forum", "We use Slack and Microsoft 365"), "")   # not a vendor
 
     def test_the_quality_gate_rejects_a_brand_clash(self):
-        import writer
+        from core import writer
         with self.assertRaises(ValueError):
             writer.quality_gate({"subject": "Microsoft 365 Renewal", "body": "Hallo Robert, ..."}, sender_org="HubSpot Renewals Team")
 
     def test_a_known_founder_is_never_an_assistant(self):
-        import writer
+        from core import writer
         facts = [{"value": "Julius Muth is a co-founder of revel8 alongside Tom Müller and Robert Seilbeck."}]
         self.assertTrue(writer._demotes("Tom Müller", "Executive Assistant", facts))
         self.assertFalse(writer._demotes("Tom Müller", "Co-Founder & Co-CEO", facts))
@@ -371,7 +372,7 @@ class JudgedDisclosureTests(unittest.TestCase):
 
 class ConcreteIncidentTests(unittest.TestCase):
     def test_the_proposal_page_asks_the_internal_details_as_fields(self):
-        import writer
+        from core import writer
         from backend import outcomes
         landing = writer.compose({"name": "Anna Berg", "domain": "nordhafen.de"}, dict(pretext="solution_offer", channel="email"))["landing_page"]
         self.assertTrue(set(landing["fields"]) & outcomes.DISCLOSURE_FIELDS)   # a submitted field is an API event

@@ -141,7 +141,7 @@ class GuardedClient:
         if prepared:
             shared = as_shared_message(prepared)
         else:
-            from schemas import message_from_dict
+            from core.schemas import message_from_dict
             shared = message_from_dict(snapshot)
         result = self.client.send_message(shared, sent_at=sent_at, qa=deepcopy(report))
         if not isinstance(result.get('message_id'), str) or not result['message_id'] or not isinstance(result.get('events'), list):

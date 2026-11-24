@@ -1,5 +1,5 @@
 import unittest
-import strategy
+from core import strategy
 from backend.outcomes import classify_incident
 from viewer.serve import metrics
 

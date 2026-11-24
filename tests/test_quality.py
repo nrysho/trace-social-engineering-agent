@@ -5,7 +5,7 @@ import unittest
 import io
 from contextlib import redirect_stdout
 from dataclasses import asdict
-from schemas import message_from_dict, treenode_from_dict
+from core.schemas import message_from_dict, treenode_from_dict
 from quality.checks import check_artifact
 from quality.integration import checked_message, checked_turn, generate_checked, prepare_page, QualityBlocked
 from quality.results import summarize_run, decision_records

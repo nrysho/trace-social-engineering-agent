@@ -8,7 +8,7 @@ import re
 
 from backend import llm
 from backend.recon import recency
-from schemas import Hook
+from core.schemas import Hook
 
 SYSTEM = (
     "You are planning an authorised social-engineering awareness test. Given facts about a "

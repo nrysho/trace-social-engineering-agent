@@ -9,7 +9,7 @@ from .checks import QualityReport
 
 def validate(request):
     # Policy is loaded from the repository, never accepted from a browser draft.
-    playbook = json.loads((Path(__file__).resolve().parents[1] / 'senders.json').read_text(encoding='utf-8'))
+    playbook = json.loads((Path(__file__).resolve().parents[1] / 'core' / 'senders.json').read_text(encoding='utf-8'))
     senders, links = set(), set()
     for item in playbook['pretexts'].values():
         domain = item['domain'].replace('{brand}', 'revel8').replace('{tld}', 'ai')

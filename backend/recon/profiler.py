@@ -13,7 +13,7 @@ from backend import config
 from backend.recon import (queries, search, fetch, dns, tech, domains, linkedin, github, match,
                            extract, verify, hooks, exposure, render, recency, bench_osint, geo, channel)
 from backend.recon import company as company_osint  # aliased: `company` is a param name in build()
-from schemas import Profile
+from core.schemas import Profile
 
 OUT = Path(__file__).resolve().parents[2] / "runs" / "profiles"
 MAX_RESULTS = 24  # cap work so a run stays under the five-minute budget

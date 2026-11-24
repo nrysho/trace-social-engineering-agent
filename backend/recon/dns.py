@@ -6,7 +6,7 @@
 """
 import requests
 
-from schemas import Fact
+from core.schemas import Fact
 
 DOH = "https://dns.google/resolve"
 TIMEOUT = 15

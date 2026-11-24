@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 import requests
 from backend.revel8 import Revel8Client
-from schemas import message_from_dict
+from core.schemas import message_from_dict
 from quality.guarded_client import GuardedClient
 from quality.integration import QualityBlocked
 from quality.results import summarize_run
