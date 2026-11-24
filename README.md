@@ -72,11 +72,13 @@ red flag employees can learn to spot.
 Python 3.11+.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                       # creates .venv and installs deps (add --extra quality for the screenshot tools)
 cp .env.example .env          # add the keys you have; see below
-python -m pytest -q           # offline tests, no API calls
+uv run python -m pytest -q    # offline tests, no API calls
 ```
+
+Run the commands below with `uv run` (e.g. `uv run python -m backend.orchestrator julius`), or
+activate the venv once with `source .venv/bin/activate` and drop the prefix.
 
 The agent needs `REVEL8_API_KEY` (from revel8, for their simulation API) and `RADEON_API_KEY` (the
 model endpoint); recon also uses `OPENAI_API_KEY`, `TAVILY_API_KEY`, `SERPER_API_KEY` and

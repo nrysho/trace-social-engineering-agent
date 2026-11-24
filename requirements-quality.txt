@@ -1,2 +1,0 @@
-# Optional offline screenshot tool; requires installed Chrome or Edge.
-playwright>=1.50,<2

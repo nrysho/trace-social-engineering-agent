@@ -1,11 +1,13 @@
 # Running the agent
 
 How to run recon and the agent against practice twins, the eval targets, or the local bench.
-Run every command from the repository root, with the project's Python environment active.
+Run every command from the repository root. The `python` commands below assume the venv is active
+(`source .venv/bin/activate`); otherwise prefix each one with `uv run`.
 
 ## 0. Setup (once)
 
 ```bash
+uv sync                   # creates .venv and installs deps
 cp .env.example .env      # then fill in REVEL8_API_KEY and RADEON_API_KEY (see README)
 ```
 

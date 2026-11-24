@@ -1,5 +1,0 @@
-# runtime: the agent, recon, bench and viewer only need requests (everything else is the standard library)
-requests>=2.31
-# tests
-pytest>=8
-# optional: mail/page screenshots for the quality tools need playwright, see requirements-quality.txt

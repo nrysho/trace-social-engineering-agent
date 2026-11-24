@@ -1,0 +1,20 @@
+[project]
+name = "trace-social-engineering-agent"
+version = "0.1.0"
+description = "Recon and social-engineering agent with a local practice bench"
+requires-python = ">=3.11"
+dependencies = [
+    # runtime: the agent, recon, bench and viewer only need requests (everything else is stdlib)
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+# offline mail/page screenshots for the quality tools; needs installed Chrome or Edge
+quality = ["playwright>=1.50,<2"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+# flat-layout app imported by module name (backend, core, quality, ...), not a built/installed package
+package = false
