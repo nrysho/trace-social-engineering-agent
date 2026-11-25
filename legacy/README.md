@@ -6,6 +6,8 @@ collect this folder (see `conftest.py` at the repo root). Imports inside these f
 original locations (`backend.run`, `quality.craft`, ...), so they will not run from here without moving
 them back.
 
+The table below summarizes each component's purpose and its replacement, where applicable.
+
 | File | Author | What it did | What replaced it |
 |---|---|---|---|
 | `backend/run.py` | Chye Yu En | The first end-to-end loop: research → contact → read the reaction → decide, with placeholder agents | `backend/orchestrator.py`, the full tree search |
